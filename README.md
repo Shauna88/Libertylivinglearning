@@ -14,7 +14,7 @@ prototype data modules.
 
 ## What's implemented
 
-This build delivers the core of the handoff brief (its phases 1–2, plus reference libraries):
+**Foundations & training (handoff phases 1–2):**
 
 - **Authentication** — email + password (Auth.js / NextAuth), JWT sessions, role in the session.
 - **Role-based access** — Coordinator/Admin/On-Call learn; Manager & Client Service Manager also see oversight dashboards.
@@ -25,13 +25,21 @@ This build delivers the core of the handoff brief (its phases 1–2, plus refere
   - Each submission writes an auditable `completions` row (with attempt number).
 - **Certificates** — printable certificate of completion (print / save-as-PDF) once a course is passed.
 - **Manager Monitor** — live completion data by course and by staff member, read from the real `completions`/`enrollments` tables (oversight roles only).
-- **SOP Library** — all 70 Standard Operating Procedures, searchable, each with numbered steps (action / responsible role / timeframe).
 
-### Deferred (phase 2+, matching the handoff)
+**Reference & operational modules:**
 
-These are read-only / sample in the prototype too and are flagged **"soon"** in the nav:
-full Policy Library text, Forms & Templates, KPIs & Performance, and the live
-Complaints / Incidents / Safeguarding intake registers.
+- **SOP Library** — all 70 Standard Operating Procedures, searchable and category-filtered, each with numbered steps (action / responsible role / timeframe).
+- **Front-line Guide** — the 13 field situations, viewable from three role lenses (HCA / Care Coordinator / Client Service Manager) — spot it / do it / tell someone / record.
+- **Policy Library** — 42 controlled documents, searchable, 6 category filters, status (current / review-due / overdue), and a document control-record reader.
+- **Forms & Templates** — 22 controlled forms grouped by care-journey stage, with search and filter.
+- **KPIs & Performance** — HSE Authorisation Scheme quality indicators (service delivery / clinical safety / experience / workforce), RAG bars with target-vs-current-vs-previous; documents-within-review computed live from the register.
+- **Governance** — leadership team, assurance reporting cycle (EMT / CGC / Board / Annual), and key contacts & escalation.
+- **Risk & Safety registers** — live, DB-backed **Complaints (QA-03)**, **Incidents (QA-13)** and **Safeguarding (HS-23)** intake with server-validated forms, auto-generated references, RAG severities, and real open-item badge counts in the nav.
+
+### Deferred (phase 2+)
+
+Workforce & Training HR view (per-HCA competency matrix), the Audits & QIP register, and
+GDPR hardening (retention, audit log, data-subject access) remain follow-ups.
 
 ---
 

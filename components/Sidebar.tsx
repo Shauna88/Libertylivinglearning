@@ -32,6 +32,7 @@ export default function Sidebar({
       label: "Learning",
       items: [
         { label: "Staff Training Hub", icon: "school", href: "/training" },
+        { label: "Front-line Guide", icon: "health_and_safety", href: "/frontline" },
         { label: "SOP Library", icon: "menu_book", href: "/sops" },
       ],
     },
