@@ -61,7 +61,10 @@ export default function Sidebar({
   if (isOversight) {
     groups.splice(2, 0, {
       label: "Oversight",
-      items: [{ label: "Monitor", icon: "insights", href: "/monitor" }],
+      items: [
+        { label: "Monitor", icon: "insights", href: "/monitor" },
+        { label: "Workforce & Training", icon: "groups", href: "/workforce" },
+      ],
     });
   }
 

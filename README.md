@@ -35,11 +35,12 @@ prototype data modules.
 - **KPIs & Performance** — HSE Authorisation Scheme quality indicators (service delivery / clinical safety / experience / workforce), RAG bars with target-vs-current-vs-previous; documents-within-review computed live from the register.
 - **Governance** — leadership team, assurance reporting cycle (EMT / CGC / Board / Annual), and key contacts & escalation.
 - **Risk & Safety registers** — live, DB-backed **Complaints (QA-03)**, **Incidents (QA-13)** and **Safeguarding (HS-23)** intake with server-validated forms, auto-generated references, RAG severities, and real open-item badge counts in the nav.
+- **Workforce & Training** (oversight roles) — HR/manager view: training-compliance KPIs, readiness mix, onboarding gateways (HSE Specs 17.x), the mandatory-training catalogue, qualification pathways, and a per-HCA register with a drill-down competency matrix (vetting, gateways, training statuses).
 
 ### Deferred (phase 2+)
 
-Workforce & Training HR view (per-HCA competency matrix), the Audits & QIP register, and
-GDPR hardening (retention, audit log, data-subject access) remain follow-ups.
+The Audits & QIP register and GDPR hardening (retention, audit log, data-subject
+access) remain follow-ups.
 
 ---
 
