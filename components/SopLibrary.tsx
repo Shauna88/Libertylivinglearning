@@ -3,29 +3,28 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-type SopLite = { id: string; title: string; purpose: string };
+type SopLite = { id: string; title: string; purpose: string; cat: string };
+type Cat = { key: string; label: string; icon: string };
 
-export default function SopLibrary({ sops }: { sops: SopLite[] }) {
+export default function SopLibrary({ sops, cats }: { sops: SopLite[]; cats: Cat[] }) {
   const [q, setQ] = useState("");
+  const [cat, setCat] = useState("ALL");
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return sops;
-    return sops.filter(
-      (s) =>
-        s.id.toLowerCase().includes(term) ||
-        s.title.toLowerCase().includes(term) ||
-        s.purpose.toLowerCase().includes(term)
-    );
-  }, [q, sops]);
+    return sops.filter((s) => {
+      if (cat !== "ALL" && s.cat !== cat) return false;
+      if (!term) return true;
+      return (s.id + " " + s.title + " " + s.purpose).toLowerCase().includes(term);
+    });
+  }, [q, cat, sops]);
+
+  const count = (k: string) => (k === "ALL" ? sops.length : sops.filter((s) => s.cat === k).length);
 
   return (
     <>
-      <div className="flex" style={{ marginBottom: 16, position: "relative" }}>
-        <span
-          className="ms"
-          style={{ position: "absolute", left: 12, color: "var(--text-2)", fontSize: 20, pointerEvents: "none" }}
-        >
+      <div className="flex" style={{ marginBottom: 14, position: "relative" }}>
+        <span className="ms" style={{ position: "absolute", left: 12, color: "var(--text-2)", fontSize: 20, pointerEvents: "none" }}>
           search
         </span>
         <input
@@ -35,6 +34,16 @@ export default function SopLibrary({ sops }: { sops: SopLite[] }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+      </div>
+      <div className="flex wrap" style={{ gap: 8, marginBottom: 12 }}>
+        <button className={`chip${cat === "ALL" ? " active" : ""}`} onClick={() => setCat("ALL")}>
+          All · {count("ALL")}
+        </button>
+        {cats.map((c) => (
+          <button key={c.key} className={`chip${cat === c.key ? " active" : ""}`} onClick={() => setCat(c.key)}>
+            {c.label} · {count(c.key)}
+          </button>
+        ))}
       </div>
       <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
         {filtered.length} of {sops.length} procedures
@@ -52,6 +61,7 @@ export default function SopLibrary({ sops }: { sops: SopLite[] }) {
           </Link>
         ))}
       </div>
+      {filtered.length === 0 && <p className="muted">No procedures match your search.</p>}
     </>
   );
 }

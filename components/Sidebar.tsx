@@ -32,9 +32,9 @@ export default function Sidebar({
     {
       label: "Compliance",
       items: [
-        { label: "Policy Library", icon: "gavel", soon: true },
-        { label: "Forms & Templates", icon: "description", soon: true },
-        { label: "KPIs & Performance", icon: "monitoring", soon: true },
+        { label: "Policy Library", icon: "menu_book", href: "/policies" },
+        { label: "Forms & Templates", icon: "description", href: "/forms" },
+        { label: "KPIs & Performance", icon: "monitoring", href: "/kpis" },
       ],
     },
     {
@@ -44,6 +44,10 @@ export default function Sidebar({
         { label: "Incidents", icon: "crisis_alert", badge: "2", soon: true },
         { label: "Safeguarding", icon: "verified_user", badge: "2", soon: true },
       ],
+    },
+    {
+      label: "Governance",
+      items: [{ label: "Governance", icon: "account_balance", href: "/governance" }],
     },
   ];
 
