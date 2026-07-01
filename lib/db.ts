@@ -20,7 +20,7 @@ import {
   type Course,
 } from "./content";
 
-const SEED_VERSION = "4";
+const SEED_VERSION = "5";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 
 export type Role =
@@ -132,6 +132,22 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_completions_user ON completions(user_id);
     CREATE INDEX IF NOT EXISTS idx_completions_course ON completions(course_id);
+
+    CREATE TABLE IF NOT EXISTS register_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      ref TEXT NOT NULL UNIQUE,
+      category TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      location TEXT,
+      summary TEXT NOT NULL,
+      detail TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      reporter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      reporter_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_register_kind ON register_entries(kind);
   `);
 }
 
@@ -233,6 +249,22 @@ function seed(db: Database.Database) {
         }
       }
     }
+
+    // ---- sample register entries (Complaints / Incidents / Safeguarding) ----
+    db.prepare("DELETE FROM register_entries").run();
+    const insEntry = db.prepare(
+      `INSERT INTO register_entries (kind,ref,category,severity,location,summary,detail,status,reporter_name,created_at)
+       VALUES (@kind,@ref,@category,@severity,@location,@summary,@detail,@status,@reporter_name,datetime('now',@age))`
+    );
+    const samples = [
+      { kind: "incident", ref: "INC-2026-001", category: "Fall", severity: "Category 2 — Moderate", location: "Service User home — Tullamore", summary: "Unwitnessed fall, no apparent injury", detail: "SU found seated on floor on arrival; assisted up with safe handling; no visible injury; GP informed; falls risk assessment to be reviewed.", status: "open", reporter_name: "Mary James", age: "-2 days" },
+      { kind: "incident", ref: "INC-2026-002", category: "Medication error / near miss", severity: "Category 3 — Minor / Negligible", location: "Service User home — Portlaoise", summary: "Missed evening dose identified at next visit", detail: "Tablet left in blister pack for previous evening; SU well; GP notified; medication log updated; prompt schedule reviewed.", status: "closed", reporter_name: "Sinead Kelly", age: "-9 days" },
+      { kind: "complaint", ref: "COM-2026-014", category: "Phone — family / representative", severity: "Level 2 — moderate", location: null, summary: "Family unhappy about repeated late calls", detail: "Daughter reports morning calls arriving over 45 minutes late three times this week. Acknowledged same day; routed to CSM; roster reviewed.", status: "open", reporter_name: "Mary James", age: "-1 days" },
+      { kind: "complaint", ref: "COM-2026-013", category: "Verbal — Service User", severity: "Level 1 — low", location: null, summary: "Preference for consistent carer", detail: "SU would prefer to see the same carers each week. Logged and passed to Operations for continuity planning.", status: "closed", reporter_name: "Ana Lyons", age: "-12 days" },
+      { kind: "safeguarding", ref: "SAF-2026-004", category: "Financial abuse", severity: "Medium", location: null, summary: "Unexplained withdrawals reported by SU", detail: "SU stated 'money keeps going missing from the tin'. Recorded verbatim; not investigated; routed to DSO same day; CSM informed.", status: "open", reporter_name: "Tom Brennan", age: "-3 days" },
+      { kind: "safeguarding", ref: "SAF-2026-003", category: "Neglect / acts of omission", severity: "Low", location: null, summary: "Home conditions deteriorating", detail: "Food spoiling in fridge, SU appears to be skipping meals. Recorded; DSO and CSM informed; care plan review requested.", status: "closed", reporter_name: "Sinead Kelly", age: "-15 days" },
+    ];
+    for (const s of samples) insEntry.run(s);
 
     db.prepare(
       "INSERT INTO meta (key,value) VALUES ('seed_version',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
@@ -374,4 +406,87 @@ export function overallCompliance(): { assigned: number; completed: number } {
        FROM enrollments`
     )
     .get() as { assigned: number; completed: number };
+}
+
+// ---------------- Risk & Safety registers ----------------
+
+export type RegisterEntry = {
+  id: number;
+  kind: string;
+  ref: string;
+  category: string;
+  severity: string;
+  location: string | null;
+  summary: string;
+  detail: string;
+  status: string;
+  reporter_id: number | null;
+  reporter_name: string;
+  created_at: string;
+};
+
+export function listRegister(kind: string): RegisterEntry[] {
+  return getDb()
+    .prepare("SELECT * FROM register_entries WHERE kind = ? ORDER BY created_at DESC, id DESC")
+    .all(kind) as RegisterEntry[];
+}
+
+export function getRegisterEntry(kind: string, id: number): RegisterEntry | undefined {
+  return getDb()
+    .prepare("SELECT * FROM register_entries WHERE kind = ? AND id = ?")
+    .get(kind, id) as RegisterEntry | undefined;
+}
+
+/** Open-item count per register kind, for the sidebar badges. */
+export function registerOpenCounts(): Record<string, number> {
+  const rows = getDb()
+    .prepare("SELECT kind, COUNT(*) AS n FROM register_entries WHERE status='open' GROUP BY kind")
+    .all() as { kind: string; n: number }[];
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.kind] = r.n;
+  return out;
+}
+
+/** Next reference for a kind, e.g. INC-2026-003. Year is passed in (no Date in some contexts). */
+function nextRef(kind: string, prefix: string, year: number): string {
+  const row = getDb()
+    .prepare("SELECT COUNT(*) AS n FROM register_entries WHERE kind = ?")
+    .get(kind) as { n: number };
+  return `${prefix}-${year}-${String(row.n + 1).padStart(3, "0")}`;
+}
+
+export function createRegisterEntry(input: {
+  kind: string;
+  prefix: string;
+  year: number;
+  category: string;
+  severity: string;
+  location: string | null;
+  summary: string;
+  detail: string;
+  reporterId: number;
+  reporterName: string;
+}): RegisterEntry {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    const ref = nextRef(input.kind, input.prefix, input.year);
+    const info = db
+      .prepare(
+        `INSERT INTO register_entries (kind,ref,category,severity,location,summary,detail,status,reporter_id,reporter_name)
+         VALUES (?,?,?,?,?,?,?,'open',?,?)`
+      )
+      .run(
+        input.kind,
+        ref,
+        input.category,
+        input.severity,
+        input.location,
+        input.summary,
+        input.detail,
+        input.reporterId,
+        input.reporterName
+      );
+    return db.prepare("SELECT * FROM register_entries WHERE id = ?").get(info.lastInsertRowid) as RegisterEntry;
+  });
+  return tx();
 }

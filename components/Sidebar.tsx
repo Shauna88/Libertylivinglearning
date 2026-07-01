@@ -12,13 +12,19 @@ export default function Sidebar({
   role,
   region,
   isOversight,
+  openCounts = {},
 }: {
   name: string;
   role: string;
   region: string;
   isOversight: boolean;
+  openCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
+  const badge = (kind: string) => {
+    const n = openCounts[kind];
+    return n ? String(n) : undefined;
+  };
 
   const groups: Group[] = [
     { label: "Overview", items: [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }] },
@@ -40,9 +46,9 @@ export default function Sidebar({
     {
       label: "Risk & Safety",
       items: [
-        { label: "Complaints", icon: "sms", badge: "3", soon: true },
-        { label: "Incidents", icon: "crisis_alert", badge: "2", soon: true },
-        { label: "Safeguarding", icon: "verified_user", badge: "2", soon: true },
+        { label: "Complaints", icon: "forum", href: "/complaints", badge: badge("complaint") },
+        { label: "Incidents", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
+        { label: "Safeguarding", icon: "shield", href: "/safeguarding", badge: badge("safeguarding") },
       ],
     },
     {
