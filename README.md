@@ -1,2 +1,149 @@
-# Libertylivinglearning
-LMS
+# Liberty Living HomeCare — Quality Management System & Staff Training Hub
+
+A web application that turns Liberty Living's QMS/Training Hub design prototype into a
+real, working app with **individual staff logins**, **server-side tracked training
+completions** (auditable for HSE / HIQA inspection), and **role-based access**.
+
+Built from the design handoff (`Quality_management_system_build.zip`). The training
+content — **22 courses, 70 SOPs, 4 role pathways** — is migrated verbatim from the
+prototype data modules.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+---
+
+## What's implemented
+
+This build delivers the core of the handoff brief (its phases 1–2, plus reference libraries):
+
+- **Authentication** — email + password (Auth.js / NextAuth), JWT sessions, role in the session.
+- **Role-based access** — Coordinator/Admin/On-Call learn; Manager & Client Service Manager also see oversight dashboards.
+- **Staff dashboard** — the signed-in user's assigned pathway, compliance %, and outstanding courses.
+- **Staff Training Hub** — full catalogue of 22 courses grouped by category.
+- **Course player** — lesson pages → the linked **SOP procedure** steps → a **knowledge check**.
+  - The quiz is **scored on the server** (pass mark **70%**); the client never sees the answer key and never decides pass/fail.
+  - Each submission writes an auditable `completions` row (with attempt number).
+- **Certificates** — printable certificate of completion (print / save-as-PDF) once a course is passed.
+- **Manager Monitor** — live completion data by course and by staff member, read from the real `completions`/`enrollments` tables (oversight roles only).
+- **SOP Library** — all 70 Standard Operating Procedures, searchable, each with numbered steps (action / responsible role / timeframe).
+
+### Deferred (phase 2+, matching the handoff)
+
+These are read-only / sample in the prototype too and are flagged **"soon"** in the nav:
+full Policy Library text, Forms & Templates, KPIs & Performance, and the live
+Complaints / Incidents / Safeguarding intake registers.
+
+---
+
+## Tech stack
+
+| Concern    | Choice | Notes |
+|------------|--------|-------|
+| Framework  | **Next.js 16** (App Router, TypeScript) | The prototype is React-shaped, so it ports cleanly. |
+| Auth       | **Auth.js / NextAuth v5** (Credentials) | Email + password, JWT session, role-based. |
+| Database   | **SQLite** via `better-sqlite3` (dev) | Isolated behind `lib/db.ts` — see *Production* below. |
+| Passwords  | **bcryptjs** | Hashed at rest. |
+| Fonts      | **Self-hosted** Hanken Grotesk, IBM Plex Mono, Material Symbols | No third-party Google Fonts request (works offline; avoids leaking user IPs — a GDPR plus). |
+
+The database engine is deliberately touched only through the small typed helpers in
+`lib/db.ts`, so swapping SQLite for Postgres in production is a contained change.
+
+---
+
+## Running locally
+
+```bash
+# 1. Install
+npm install
+
+# 2. Environment — copy the example and set a secret
+cp .env.example .env.local
+#   then edit AUTH_SECRET (e.g.  openssl rand -base64 32)
+
+# 3. Dev server
+npm run dev
+#   open http://localhost:3000
+```
+
+The SQLite database is **created and seeded automatically** on first run
+(`data/qms.db`, git-ignored). To wipe and reseed: `npm run db:reset`.
+
+### Demo accounts
+
+All demo accounts use the password **`liberty`** (click any account on the login screen to autofill):
+
+| Email | Role | Sees |
+|-------|------|------|
+| `manager@libertyhomecare.ie` | Manager | Monitor (oversight) |
+| `csm@libertyhomecare.ie` | Client Service Manager | Learner pathway + Monitor |
+| `coordinator@libertyhomecare.ie` | Care Coordinator | Learner pathway |
+| `admin@libertyhomecare.ie` | Office Administrator | Learner pathway |
+| `oncall@libertyhomecare.ie` | On-Call Manager | Learner pathway |
+
+> Demo users, their enrollments and seeded completion history exist so the app is
+> immediately explorable. Replace them with real accounts before going live.
+
+---
+
+## Project structure
+
+```
+app/
+  layout.tsx                 root layout (self-hosted fonts)
+  page.tsx                   redirect -> /dashboard or /login
+  login/                     credentials login (client)
+  api/
+    auth/[...nextauth]/      NextAuth route handler (Node runtime)
+    complete/                POST: server-scores a quiz -> writes completion
+  (app)/                     authenticated area (sidebar shell)
+    dashboard/               staff landing: pathway + compliance
+    training/                course catalogue
+    training/[courseId]/     course player (server) -> CoursePlayer (client)
+    certificate/[courseId]/  printable certificate
+    monitor/                 manager compliance dashboards (oversight only)
+    sops/ , sops/[sopId]/    SOP library + detail
+components/                  Sidebar, CoursePlayer, blocks, SopLibrary, PrintButton
+lib/
+  content.ts                 typed access to migrated content + client-safe projections
+  db.ts                      better-sqlite3 schema, seed, and all query helpers
+  scoring.ts                 authoritative server-side quiz scoring
+  auth.config.ts / auth.ts   NextAuth config (edge-safe base + Node credentials)
+data/qms-content.json        migrated content: 22 courses, 70 SOPs, 4 pathways
+documents/                   original QMS source documents (.docx / .xlsx)
+public/fonts/                self-hosted web fonts
+```
+
+### Data model
+
+`users`, `courses`, `sops`, `pathways`, `enrollments`, and — the reason the build exists —
+`completions` (`user_id, course_id, completed_at, score, passed, attempt_no`).
+Courses link to SOPs via the `SOP-nnn` codes in each course's policy reference.
+
+---
+
+## Production / GDPR
+
+This app holds **staff personal data and training records**, so it has GDPR obligations
+(EU data residency, access control, retention, audit trail, right-of-access). Involve the
+DPO (`dpo@libertyhomecare.ie`) early.
+
+To take it to production:
+
+1. **Database -> EU Postgres.** Point `DATABASE_URL` at an EU-region Postgres (Supabase/Neon/RDS)
+   and re-implement the `lib/db.ts` helpers against it (the schema in `initSchema()` is
+   standard SQL; the query helpers are the only surface to port). Everything else is unchanged.
+2. **Hosting in the EU** (Vercel/Netlify EU region or a managed EU container host).
+3. **Real accounts** — remove the demo seed; wire onboarding to create `users` + pathway `enrollments`.
+4. **Harden** — retention policy, audit log, access reviews, data-subject access, backups; sign off with the DPO.
+
+Fonts are already self-hosted, so there is **no third-party font request** leaking user IPs.
+
+---
+
+## Content provenance
+
+All course text, SOP steps, and quiz questions/rationale are migrated verbatim from the
+Liberty Living design handoff, which was itself grounded in Liberty's approved policies
+(GOV/CARE/HS/QA/IM series) and Irish statutory frameworks (HSE Incident Management
+Framework, Patient Safety Act 2023, Children First Act 2015, Assisted Decision-Making
+(Capacity) Act 2015). The original documents are retained under `documents/`.
