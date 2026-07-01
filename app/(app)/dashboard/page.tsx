@@ -5,10 +5,10 @@ import { getCourse, CAT_TONE } from "@/lib/content";
 
 export default async function DashboardPage() {
   const session = await auth();
-  const user = getUserByEmail(session!.user.email!);
+  const user = await getUserByEmail(session!.user.email!);
   if (!user) return null;
 
-  const enrollments = enrollmentsForUser(user.id);
+  const enrollments = await enrollmentsForUser(user.id);
   const total = enrollments.length;
   const done = enrollments.filter((e) => e.status === "completed").length;
   const pct = total ? Math.round((done / total) * 100) : 0;

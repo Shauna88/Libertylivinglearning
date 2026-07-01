@@ -9,7 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { name, role, region } = session.user;
   const isOversight = OVERSIGHT_ROLES.includes(role as Role);
-  const openCounts = registerOpenCounts();
+  const openCounts = await registerOpenCounts();
 
   return (
     <div className="shell">

@@ -5,10 +5,10 @@ import { COURSES, CAT_TONE, type Course } from "@/lib/content";
 
 export default async function TrainingHubPage() {
   const session = await auth();
-  const user = getUserByEmail(session!.user.email!);
+  const user = await getUserByEmail(session!.user.email!);
   if (!user) return null;
 
-  const enrollments = enrollmentsForUser(user.id);
+  const enrollments = await enrollmentsForUser(user.id);
   const statusById = new Map(enrollments.map((e) => [e.course_id, e]));
 
   // group all courses by category

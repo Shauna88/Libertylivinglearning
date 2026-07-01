@@ -12,11 +12,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize(credentials) {
+      async authorize(credentials) {
         const email = String(credentials?.email ?? "").toLowerCase().trim();
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
-        const user = getUserByEmail(email);
+        const user = await getUserByEmail(email);
         if (!user) return null;
         if (!bcrypt.compareSync(password, user.password_hash)) return null;
         return {

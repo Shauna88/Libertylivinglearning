@@ -15,10 +15,10 @@ export default async function CertificatePage({
   if (!course) notFound();
 
   const session = await auth();
-  const user = getUserByEmail(session!.user.email!);
+  const user = await getUserByEmail(session!.user.email!);
   if (!user) notFound();
 
-  const passed = completionsForUser(user.id)
+  const passed = (await completionsForUser(user.id))
     .filter((c) => c.course_id === courseId && c.passed)
     .sort((a, b) => b.score - a.score)[0];
 
@@ -99,7 +99,7 @@ export default async function CertificatePage({
                 </div>
                 <div>
                   <div className="metric">
-                    <div className="num">{new Date(passed.completed_at + "Z").toLocaleDateString("en-IE")}</div>
+                    <div className="num">{new Date(passed.completed_at).toLocaleDateString("en-IE")}</div>
                     <div className="lbl">Date completed</div>
                   </div>
                 </div>
