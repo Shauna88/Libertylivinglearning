@@ -2,17 +2,17 @@ import { REGISTERS, severityTone, type RegisterKind } from "@/lib/registers";
 import { listRegister } from "@/lib/db";
 import NewEntryForm from "@/components/NewEntryForm";
 
-function fmtDate(s: string) {
-  return new Date(s.replace(" ", "T") + "Z").toLocaleDateString("en-IE", {
+function fmtDate(s: string | Date) {
+  return new Date(s).toLocaleDateString("en-IE", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 }
 
-export default function RegisterScreen({ kind }: { kind: RegisterKind }) {
+export default async function RegisterScreen({ kind }: { kind: RegisterKind }) {
   const cfg = REGISTERS[kind];
-  const entries = listRegister(kind);
+  const entries = await listRegister(kind);
   const open = entries.filter((e) => e.status === "open").length;
   const closed = entries.length - open;
 

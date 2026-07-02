@@ -40,7 +40,3 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local SQLite database (regenerated + seeded on first run)
-/data/*.db
-/data/*.db-shm
-/data/*.db-wal

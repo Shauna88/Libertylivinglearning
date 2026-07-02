@@ -30,11 +30,11 @@ export async function POST(req: Request) {
   if (!scored) {
     return NextResponse.json({ error: "Unknown course" }, { status: 404 });
   }
-  if (!isEnrolled(userId, courseId)) {
+  if (!(await isEnrolled(userId, courseId))) {
     return NextResponse.json({ error: "Not enrolled on this course" }, { status: 403 });
   }
 
-  const record = recordCompletion(userId, courseId, scored.score, scored.passed);
+  const record = await recordCompletion(userId, courseId, scored.score, scored.passed);
 
   return NextResponse.json({
     score: scored.score,

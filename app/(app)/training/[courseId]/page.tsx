@@ -16,11 +16,11 @@ export default async function CoursePage({
   if (!course || !clientCourse) notFound();
 
   const session = await auth();
-  const user = getUserByEmail(session!.user.email!);
+  const user = await getUserByEmail(session!.user.email!);
   if (!user) notFound();
 
-  const enrolled = isEnrolled(user.id, courseId);
-  const en = enrollmentsForUser(user.id).find((e) => e.course_id === courseId);
+  const enrolled = await isEnrolled(user.id, courseId);
+  const en = (await enrollmentsForUser(user.id)).find((e) => e.course_id === courseId);
   const tone = CAT_TONE[course.cat] ?? "grey";
 
   return (

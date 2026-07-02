@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ kind: s
     return NextResponse.json({ error: "Summary and detail are required" }, { status: 400 });
   }
 
-  const entry = createRegisterEntry({
+  const entry = await createRegisterEntry({
     kind: cfg.kind,
     prefix: cfg.refPrefix,
     year: new Date().getFullYear(),

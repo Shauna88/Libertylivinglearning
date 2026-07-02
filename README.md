@@ -50,12 +50,13 @@ access) remain follow-ups.
 |------------|--------|-------|
 | Framework  | **Next.js 16** (App Router, TypeScript) | The prototype is React-shaped, so it ports cleanly. |
 | Auth       | **Auth.js / NextAuth v5** (Credentials) | Email + password, JWT session, role-based. |
-| Database   | **SQLite** via `better-sqlite3` (dev) | Isolated behind `lib/db.ts` — see *Production* below. |
+| Database   | **Postgres** via `pg` | Schema + seed created idempotently on first use, under a Postgres advisory lock (safe for serverless cold starts). |
 | Passwords  | **bcryptjs** | Hashed at rest. |
 | Fonts      | **Self-hosted** Hanken Grotesk, IBM Plex Mono, Material Symbols | No third-party Google Fonts request (works offline; avoids leaking user IPs — a GDPR plus). |
 
-The database engine is deliberately touched only through the small typed helpers in
-`lib/db.ts`, so swapping SQLite for Postgres in production is a contained change.
+The database is touched only through the small typed async helpers in `lib/db.ts`.
+Set `DATABASE_URL` to any Postgres — a local instance in dev, an **EU-region Neon or
+Supabase** in production.
 
 ---
 
@@ -65,17 +66,27 @@ The database engine is deliberately touched only through the small typed helpers
 # 1. Install
 npm install
 
-# 2. Environment — copy the example and set a secret
+# 2. Environment
 cp .env.example .env.local
-#   then edit AUTH_SECRET (e.g.  openssl rand -base64 32)
+#   set AUTH_SECRET (openssl rand -base64 32) and DATABASE_URL
 
 # 3. Dev server
 npm run dev
 #   open http://localhost:3000
 ```
 
-The SQLite database is **created and seeded automatically** on first run
-(`data/qms.db`, git-ignored). To wipe and reseed: `npm run db:reset`.
+You need a Postgres to point `DATABASE_URL` at. Easiest options:
+
+- **A free Neon/Supabase dev database** — paste its connection string into `DATABASE_URL` (works for both local dev and production).
+- **A local Postgres via Docker:**
+  ```bash
+  docker run -d --name liberty-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=liberty -p 5432:5432 postgres:16
+  # DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/liberty
+  ```
+
+The schema is **created and seeded automatically** on first request (idempotent).
+The seed inserts the demo accounts, their enrollments/completions and sample register
+entries; bump `SEED_VERSION` in `lib/db.ts` to force a reseed.
 
 ### Demo accounts
 
@@ -114,7 +125,7 @@ app/
 components/                  Sidebar, CoursePlayer, blocks, SopLibrary, PrintButton
 lib/
   content.ts                 typed access to migrated content + client-safe projections
-  db.ts                      better-sqlite3 schema, seed, and all query helpers
+  db.ts                      Postgres (pg) schema, seed, and all query helpers
   scoring.ts                 authoritative server-side quiz scoring
   auth.config.ts / auth.ts   NextAuth config (edge-safe base + Node credentials)
 data/qms-content.json        migrated content: 22 courses, 70 SOPs, 4 pathways
@@ -130,20 +141,32 @@ Courses link to SOPs via the `SOP-nnn` codes in each course's policy reference.
 
 ---
 
+## Deploying to Vercel + EU Postgres
+
+The app is Vercel-ready (Next.js, `pg` driver, seed-on-first-use).
+
+1. **Create an EU-region Postgres.**
+   - **Neon** — new project, region *Europe (Frankfurt)*; copy the **pooled** connection string.
+   - or **Supabase** — new project in an EU region; use the **Transaction** pooler connection string (port `6543`).
+2. **Import the repo into Vercel** (New Project → pick this GitHub repo). It auto-detects as Next.js.
+3. **Set environment variables** in Vercel (Production + Preview):
+   - `DATABASE_URL` = the pooled Postgres string from step 1
+   - `AUTH_SECRET` = output of `openssl rand -base64 32`
+   - `AUTH_TRUST_HOST` = `true`
+4. **Deploy.** On the first request the schema is created and seeded automatically — no
+   migration step to run. You'll get a URL like `https://liberty-qms.vercel.app`.
+
+> Use the **pooled** connection string on serverless — it keeps connection counts sane.
+
 ## Production / GDPR
 
 This app holds **staff personal data and training records**, so it has GDPR obligations
 (EU data residency, access control, retention, audit trail, right-of-access). Involve the
-DPO (`dpo@libertyhomecare.ie`) early.
+DPO (`dpo@libertyhomecare.ie`) early. Before go-live:
 
-To take it to production:
-
-1. **Database -> EU Postgres.** Point `DATABASE_URL` at an EU-region Postgres (Supabase/Neon/RDS)
-   and re-implement the `lib/db.ts` helpers against it (the schema in `initSchema()` is
-   standard SQL; the query helpers are the only surface to port). Everything else is unchanged.
-2. **Hosting in the EU** (Vercel/Netlify EU region or a managed EU container host).
-3. **Real accounts** — remove the demo seed; wire onboarding to create `users` + pathway `enrollments`.
-4. **Harden** — retention policy, audit log, access reviews, data-subject access, backups; sign off with the DPO.
+1. **Real accounts** — remove the demo seed; wire onboarding to create `users` + pathway `enrollments`.
+2. **Harden** — retention policy, audit log, access reviews, data-subject access, backups; sign off with the DPO.
+3. Keep hosting and the database in an **EU region** (the steps above put both in the EU).
 
 Fonts are already self-hosted, so there is **no third-party font request** leaking user IPs.
 

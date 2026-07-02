@@ -17,16 +17,16 @@ export default async function MonitorPage() {
   const session = await auth();
   if (!OVERSIGHT_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
-  const overall = overallCompliance();
+  const overall = await overallCompliance();
   const overallPct = overall.assigned ? Math.round((overall.completed / overall.assigned) * 100) : 0;
-  const courses = courseCompliance()
+  const courses = (await courseCompliance())
     .map((c) => ({
       ...c,
       title: getCourse(c.course_id)?.title ?? c.course_id,
       pct: c.enrolled ? Math.round((c.completed / c.enrolled) * 100) : 0,
     }))
     .sort((a, b) => a.pct - b.pct);
-  const staff = staffCompliance().map((s) => ({
+  const staff = (await staffCompliance()).map((s) => ({
     ...s,
     pct: s.assigned ? Math.round((s.completed / s.assigned) * 100) : 0,
   }));
