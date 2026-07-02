@@ -50,12 +50,23 @@ export type CompletionRow = {
 // ---- singleton pool (survives Next.js hot-reload and warm serverless) ----
 const g = globalThis as unknown as { __llhPool?: Pool; __llhReady?: Promise<void> };
 
+/** Prefer a pooled connection string; accept the common provider var names. */
+function resolveConnectionString(): string | undefined {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL || // Vercel Postgres / Neon integration (pooled)
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.DATABASE_URL_UNPOOLED ||
+    process.env.POSTGRES_URL_NON_POOLING
+  );
+}
+
 function getPool(): Pool {
   if (!g.__llhPool) {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = resolveConnectionString();
     if (!connectionString) {
       throw new Error(
-        "DATABASE_URL is not set. Point it at a Postgres connection string (see README / .env.example)."
+        "No Postgres connection string found. Set DATABASE_URL (or POSTGRES_URL) — see README / .env.example."
       );
     }
     const isLocal = /localhost|127\.0\.0\.1|::1/.test(connectionString);
@@ -289,6 +300,22 @@ async function seed(client: PoolClient) {
     "INSERT INTO meta (key,value) VALUES ('seed_version',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
     [SEED_VERSION]
   );
+}
+
+// ---------------- health ----------------
+
+/** Confirms the DB connection and that content seeded. Safe to expose (no secrets). */
+export async function healthCheck(): Promise<{
+  ok: boolean;
+  courses: number;
+  users: number;
+  seeded: boolean;
+}> {
+  const rows = await q<{ courses: number; users: number }>(
+    "SELECT (SELECT COUNT(*)::int FROM courses) AS courses, (SELECT COUNT(*)::int FROM users) AS users"
+  );
+  const r = rows[0];
+  return { ok: true, courses: r.courses, users: r.users, seeded: r.courses > 0 };
 }
 
 // ---------------- query helpers ----------------
