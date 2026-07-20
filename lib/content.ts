@@ -124,6 +124,9 @@ export function toClientCourse(id: string): ClientCourse | null {
 
 /** Category → semantic tone key used by the UI. */
 export const CAT_TONE: Record<string, string> = {
+  "Care delivery": "green",
+  Rights: "teal",
+  "Health & safety": "red",
   Operations: "blue",
   Communication: "teal",
   Quality: "amber",

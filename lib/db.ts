@@ -13,11 +13,12 @@ import { Pool, type PoolClient } from "pg";
 import bcrypt from "bcryptjs";
 import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./content";
 
-const SEED_VERSION = "5";
+const SEED_VERSION = "6";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
 export type Role =
+  | "Healthcare Assistant"
   | "Care Coordinator"
   | "Office Administrator"
   | "On-Call Manager"
@@ -195,8 +196,17 @@ async function createSchema(client: PoolClient) {
 }
 
 async function seed(client: PoolClient) {
-  // ---- content: courses ----
+  // Tear down in FK-safe order (children before parents) so reseeds don't
+  // violate foreign keys.
+  await client.query("DELETE FROM register_entries");
+  await client.query("DELETE FROM completions");
+  await client.query("DELETE FROM enrollments");
+  await client.query("DELETE FROM users");
   await client.query("DELETE FROM courses");
+  await client.query("DELETE FROM sops");
+  await client.query("DELETE FROM pathways");
+
+  // ---- content: courses ----
   for (const [id, c] of Object.entries(COURSES) as [string, Course][]) {
     await client.query(
       `INSERT INTO courses (id,title,cat,policy,duration,format,summary,objectives_json,lessons_json,quiz_json)
@@ -217,7 +227,6 @@ async function seed(client: PoolClient) {
   }
 
   // ---- content: sops ----
-  await client.query("DELETE FROM sops");
   for (const s of Object.values(SOPS)) {
     await client.query("INSERT INTO sops (id,title,purpose,steps_json) VALUES ($1,$2,$3,$4)", [
       s.id,
@@ -228,7 +237,6 @@ async function seed(client: PoolClient) {
   }
 
   // ---- content: pathways ----
-  await client.query("DELETE FROM pathways");
   for (const p of PATHWAYS) {
     await client.query(
       "INSERT INTO pathways (role,icon,people,focus,modules_json) VALUES ($1,$2,$3,$4,$5)",
@@ -237,12 +245,9 @@ async function seed(client: PoolClient) {
   }
 
   // ---- demo users (dev only; replace with real accounts in production) ----
-  await client.query("DELETE FROM register_entries");
-  await client.query("DELETE FROM completions");
-  await client.query("DELETE FROM enrollments");
-  await client.query("DELETE FROM users");
   const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
   const demo: Array<{ name: string; email: string; role: Role; region: string }> = [
+    { name: "Grace Nolan", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Tullamore" },
     { name: "Mary James", email: "coordinator@libertyhomecare.ie", role: "Care Coordinator", region: "Offaly" },
     { name: "Sinead Kelly", email: "admin@libertyhomecare.ie", role: "Office Administrator", region: "Laois" },
     { name: "Tom Brennan", email: "oncall@libertyhomecare.ie", role: "On-Call Manager", region: "Kildare" },
