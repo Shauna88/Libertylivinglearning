@@ -8,6 +8,7 @@ const DEMO_ACCOUNTS = [
   { email: "manager@libertyhomecare.ie", role: "Manager (oversight)" },
   { email: "csm@libertyhomecare.ie", role: "Client Service Manager" },
   { email: "coordinator@libertyhomecare.ie", role: "Care Coordinator" },
+  { email: "hca@libertyhomecare.ie", role: "Healthcare Assistant" },
   { email: "admin@libertyhomecare.ie", role: "Office Administrator" },
   { email: "oncall@libertyhomecare.ie", role: "On-Call Manager" },
 ];
