@@ -11,6 +11,15 @@ the schema **creates and seeds itself on first request** (no migration step).
 
 See the README for the full module list and the "Deploying to Vercel + EU Postgres" section.
 
+## Bigger picture — the operations platform
+The client's latest handoff (build 3) expands the scope from a QMS/Training hub into a full
+**five-domain operations platform** (CRM, QMS, Improvement & Training, Finance, HR/Recruitment,
+9 roles). The authoritative spec + prototype are committed under [`design/`](./design/), and
+the engineering design that maps that spec onto this codebase — with the target data model,
+the 9-role access model, module specs, and a **phased build roadmap** — is in
+[`PLATFORM.md`](./PLATFORM.md). The Training + QMS domains are built; CRM/Finance/Recruitment/
+Improvement-routing/full-RBAC are the roadmap. Treat it as phased delivery, not one build.
+
 ## The three services
 1. **GitHub** — the repository (`Shauna88/Libertylivinglearning`). Production deploys from `main`.
 2. **Vercel** — hosting. Auto-deploys on push to `main`. Custom domain: **libertylivinglearning.com**.
