@@ -12,12 +12,14 @@ export default function Sidebar({
   role,
   region,
   isOversight,
+  isCrm = false,
   openCounts = {},
 }: {
   name: string;
   role: string;
   region: string;
   isOversight: boolean;
+  isCrm?: boolean;
   openCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
@@ -58,12 +60,20 @@ export default function Sidebar({
     },
   ];
 
+  if (isCrm) {
+    groups.splice(1, 0, {
+      label: "Client Management · CRM",
+      items: [{ label: "Client register", icon: "contacts", href: "/clients" }],
+    });
+  }
+
   if (isOversight) {
-    groups.splice(2, 0, {
+    groups.splice(isCrm ? 3 : 2, 0, {
       label: "Oversight",
       items: [
         { label: "Monitor", icon: "insights", href: "/monitor" },
         { label: "Workforce & Training", icon: "groups", href: "/workforce" },
+        { label: "PII access log", icon: "policy", href: "/access-log" },
       ],
     });
   }
