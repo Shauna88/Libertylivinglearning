@@ -13,8 +13,9 @@ import { Pool, type PoolClient } from "pg";
 import bcrypt from "bcryptjs";
 import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./content";
 import { CLIENTS, type Client } from "./crm";
+import { defaultDept } from "./improvement";
 
-const SEED_VERSION = "8";
+const SEED_VERSION = "9";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -31,6 +32,9 @@ export const OVERSIGHT_ROLES: Role[] = ["Manager", "Client Service Manager"];
 
 /** Roles allowed into the client CRM (service-user records). */
 export const CRM_ROLES: Role[] = ["Care Coordinator", "Client Service Manager", "Manager"];
+
+/** Roles allowed into the Improvement & Training hub (issue review + routing). */
+export const IMPROVEMENT_ROLES: Role[] = ["Manager", "Client Service Manager"];
 
 export type UserRow = {
   id: number;
@@ -231,6 +235,38 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_call_log_created ON call_log(created_at);
+
+    CREATE TABLE IF NOT EXISTS issue_routing (
+      kind TEXT NOT NULL,
+      entry_id INTEGER NOT NULL REFERENCES register_entries(id) ON DELETE CASCADE,
+      dept TEXT NOT NULL,
+      routed_by TEXT NOT NULL,
+      routed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (kind, entry_id)
+    );
+    CREATE TABLE IF NOT EXISTS issue_signoffs (
+      id SERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,
+      entry_id INTEGER NOT NULL REFERENCES register_entries(id) ON DELETE CASCADE,
+      outcome TEXT NOT NULL,
+      note TEXT NOT NULL,
+      actions_json TEXT NOT NULL DEFAULT '[]',
+      signed_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_signoffs_entry ON issue_signoffs(kind, entry_id);
+    CREATE TABLE IF NOT EXISTS assignments (
+      id SERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,
+      ref_id TEXT NOT NULL,
+      ref_title TEXT NOT NULL,
+      audience TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      due TEXT,
+      assigned_by TEXT NOT NULL,
+      withdrawn BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
 }
 
@@ -239,6 +275,9 @@ async function seed(client: PoolClient) {
   // violate foreign keys.
   await client.query("DELETE FROM call_log");
   await client.query("DELETE FROM pii_access_log");
+  await client.query("DELETE FROM assignments");
+  await client.query("DELETE FROM issue_signoffs");
+  await client.query("DELETE FROM issue_routing");
   await client.query("DELETE FROM register_entries");
   await client.query("DELETE FROM completions");
   await client.query("DELETE FROM enrollments");
@@ -690,4 +729,166 @@ export async function createCallEvent(input: {
     [input.clientId, input.su, input.area, input.visitTime, input.kind, input.detail, input.loggedBy]
   );
   return rows[0];
+}
+
+// ---------------- Improvement hub: sign-offs, routing, assignments ----------------
+
+export type HubIssue = {
+  kind: string;
+  entry_id: number;
+  ref: string;
+  category: string;
+  severity: string;
+  summary: string;
+  detail: string;
+  status: string;
+  reporter_name: string;
+  created_at: string;
+  dept: string; // effective owning department (routed or default)
+  routed: boolean;
+  signoff_count: number;
+  last_outcome: string | null;
+};
+
+/** All register issues with their effective owning department + sign-off state. */
+export async function listHubIssues(): Promise<HubIssue[]> {
+  const entries = await q<RegisterEntry>("SELECT * FROM register_entries ORDER BY created_at DESC");
+  const routes = await q<{ kind: string; entry_id: number; dept: string }>(
+    "SELECT kind, entry_id, dept FROM issue_routing"
+  );
+  const signoffs = await q<{ kind: string; entry_id: number; n: number; last_outcome: string }>(
+    `SELECT kind, entry_id, COUNT(*)::int AS n,
+            (ARRAY_AGG(outcome ORDER BY created_at DESC))[1] AS last_outcome
+     FROM issue_signoffs GROUP BY kind, entry_id`
+  );
+  const routeMap = new Map(routes.map((r) => [`${r.kind}:${r.entry_id}`, r.dept]));
+  const soMap = new Map(signoffs.map((s) => [`${s.kind}:${s.entry_id}`, s]));
+
+  return entries.map((e) => {
+    const key = `${e.kind}:${e.id}`;
+    const routedDept = routeMap.get(key);
+    const so = soMap.get(key);
+    return {
+      kind: e.kind,
+      entry_id: e.id,
+      ref: e.ref,
+      category: e.category,
+      severity: e.severity,
+      summary: e.summary,
+      detail: e.detail,
+      status: e.status,
+      reporter_name: e.reporter_name,
+      created_at: e.created_at,
+      dept: routedDept ?? defaultDept(e.kind),
+      routed: !!routedDept,
+      signoff_count: so?.n ?? 0,
+      last_outcome: so?.last_outcome ?? null,
+    };
+  });
+}
+
+export type SignoffRow = {
+  id: number;
+  kind: string;
+  entry_id: number;
+  outcome: string;
+  note: string;
+  actions_json: string;
+  signed_by: string;
+  created_at: string;
+};
+
+export async function listSignoffs(kind: string, entryId: number): Promise<SignoffRow[]> {
+  return q<SignoffRow>(
+    "SELECT * FROM issue_signoffs WHERE kind=$1 AND entry_id=$2 ORDER BY created_at DESC",
+    [kind, entryId]
+  );
+}
+
+export type PushInput = {
+  kind: "course" | "sop";
+  refId: string;
+  refTitle: string;
+  audience: string;
+  note: string;
+  due: string | null;
+};
+
+/**
+ * Record an issue review: writes the sign-off, optionally re-routes the issue
+ * to another department, fires any training/SOP pushes, and closes the issue.
+ * All in one transaction.
+ */
+export async function recordSignoff(input: {
+  kind: string;
+  entryId: number;
+  outcome: string;
+  note: string;
+  actions: string[];
+  routeDept: string | null;
+  pushes: PushInput[];
+  close: boolean;
+  signedBy: string;
+}): Promise<void> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "INSERT INTO issue_signoffs (kind,entry_id,outcome,note,actions_json,signed_by) VALUES ($1,$2,$3,$4,$5,$6)",
+      [input.kind, input.entryId, input.outcome, input.note, JSON.stringify(input.actions), input.signedBy]
+    );
+    if (input.routeDept) {
+      await client.query(
+        `INSERT INTO issue_routing (kind,entry_id,dept,routed_by) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (kind,entry_id) DO UPDATE SET dept=excluded.dept, routed_by=excluded.routed_by, routed_at=now()`,
+        [input.kind, input.entryId, input.routeDept, input.signedBy]
+      );
+    }
+    for (const p of input.pushes) {
+      await client.query(
+        "INSERT INTO assignments (kind,ref_id,ref_title,audience,note,due,assigned_by) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+        [p.kind, p.refId, p.refTitle, p.audience, p.note, p.due, input.signedBy]
+      );
+    }
+    if (input.close) {
+      await client.query("UPDATE register_entries SET status='closed' WHERE id=$1", [input.entryId]);
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export type AssignmentRow = {
+  id: number;
+  kind: string;
+  ref_id: string;
+  ref_title: string;
+  audience: string;
+  note: string;
+  due: string | null;
+  assigned_by: string;
+  withdrawn: boolean;
+  created_at: string;
+};
+
+export async function listAssignments(): Promise<AssignmentRow[]> {
+  return q<AssignmentRow>("SELECT * FROM assignments ORDER BY created_at DESC");
+}
+
+export async function createAssignment(input: PushInput & { assignedBy: string }): Promise<AssignmentRow> {
+  const rows = await q<AssignmentRow>(
+    `INSERT INTO assignments (kind,ref_id,ref_title,audience,note,due,assigned_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [input.kind, input.refId, input.refTitle, input.audience, input.note, input.due, input.assignedBy]
+  );
+  return rows[0];
+}
+
+export async function withdrawAssignment(id: number): Promise<void> {
+  await q("UPDATE assignments SET withdrawn=true WHERE id=$1", [id]);
 }

@@ -76,6 +76,7 @@ export default function Sidebar({
     groups.splice(isCrm ? 3 : 2, 0, {
       label: "Oversight",
       items: [
+        { label: "Improvement & Training", icon: "model_training", href: "/improvement" },
         { label: "Monitor", icon: "insights", href: "/monitor" },
         { label: "Workforce & Training", icon: "groups", href: "/workforce" },
         { label: "PII access log", icon: "policy", href: "/access-log" },
