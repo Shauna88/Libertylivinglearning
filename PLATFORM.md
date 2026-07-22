@@ -26,6 +26,8 @@ sequences the remaining work.
 | Risk registers — Complaints/Incidents/Safeguarding (intake + list) | ✅ built (basic) |
 | Workforce & Training (HR view, HCA competency matrix) | ✅ built |
 | **CRM core** — client register (status chips, search, masked names), client profile (identity, care package, care plan by domain, schedule, documents), **PII reveal-gate + `pii_access_log`** | ✅ built |
+| **CRM scheduling** — live visit monitor (time-classified), carer roster, call log | ✅ built |
+| **Improvement hub** — issue review + **sign-off**, **department routing**, corrective training/SOP pushes, assignment log | ✅ built |
 
 The current role set is a subset (`Healthcare Assistant`, `Care Coordinator`,
 `Office Administrator`, `On-Call Manager`, `Client Service Manager`, `Manager`). The
@@ -128,8 +130,8 @@ Ordered for incremental, shippable delivery. Each phase = its own PR, verified a
 1. **9-role foundation** — extend `Role`, add `ROLE_NAV` allowlist, role-aware sidebar + server gates, seed the 9 demo users. *(Partly done: `CRM_ROLES`/`OVERSIGHT_ROLES` gate the CRM and oversight views; full 9-role model still to add.)*
 2. **CRM core** — ✅ **built.** `clients` + `pii_access_log` tables; Client register (`/clients` — status chips, search, PII-masked names); Client profile (`/clients/[id]` — identity, care package, care plan by domain, schedule, documents); **PII reveal-gate** (`/api/pii/reveal`) + **access log** (`/access-log`, oversight-only). Seeded from the prototype `buildClients()` (`data/qms-clients.json`).
 3. **CRM scheduling** — ✅ **built (read + call log).** Live visit monitor (`/live-monitor` — today's visits derived from schedules, statuses classified live against the clock, cover board of uncovered visits), carer roster (`/roster`), and a DB-backed **call log** (`/call-log` + `/api/call-log`) for missed/late/no-show events. *Still to add: editable cover overrides + CSM approval, and bulk import.*
-4. **Registers + Improvement hubs** — add owning department + schema-driven drawer; `staff_submissions` intake; `issue_signoffs`; **department routing** (`issue_routing`) → dept inbox; training/SOP pushes (`assignments`).
-5. **Finance** — rate schemes, invoicing from delivered visits, HCA pay & hours.
+4. **Registers + Improvement hubs** — ✅ **built.** `/improvement` (oversight): issues-to-action with department filter, **Review & sign off** (`issue_signoffs`) with outcome/note, **department routing** (`issue_routing`) that moves the issue into a department's inbox, corrective training/SOP pushes (`assignments`), and an assignment log with withdraw. *Still to add: schema-driven record drawer with NIMS fields, and the HR-scoped hub instance (needs the HR role).*
+5. **Finance** *(next)* — rate schemes, invoicing from delivered visits, HCA pay & hours.
 6. **Recruitment + client portal** — pipeline + onboarding checklist; read-only family portal.
 7. **GDPR hardening** — retention, audit log, access reviews, data-subject access, backups, 2FA for managers, health-data safeguards. Sign off with DPO (`dpo@libertyhomecare.ie`).
 
