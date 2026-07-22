@@ -30,10 +30,11 @@ sequences the remaining work.
 | **Improvement hub** — issue review + **sign-off**, **department routing**, corrective training/SOP pushes, assignment log | ✅ built |
 | **Finance** — rate schemes, client invoicing (from delivered visits × scheme rates, with drill-down), HCA pay & hours, margin | ✅ built |
 | **Recruitment** — hiring KPIs, pipeline funnel, candidate tracker (by initials), vetting & checks (Garda/NVB, references, RTW), onboarding-training gateways, onboarding checklist template | ✅ built |
+| **Client / family portal** — read-only `/portal` (own weekly schedule, care team, care summary), standalone shell, `client`-role login linked to a client record | ✅ built |
 
 The current role set is a subset (`Healthcare Assistant`, `Care Coordinator`,
-`Office Administrator`, `On-Call Manager`, `Client Service Manager`, `Manager`). The
-platform target is **9 roles** — see §3.
+`Office Administrator`, `On-Call Manager`, `Client Service Manager`, `Manager`, and the
+read-only `Client / Family` portal role). The platform target is **9 roles** — see §3.
 
 ---
 
@@ -134,7 +135,7 @@ Ordered for incremental, shippable delivery. Each phase = its own PR, verified a
 3. **CRM scheduling** — ✅ **built (read + call log).** Live visit monitor (`/live-monitor` — today's visits derived from schedules, statuses classified live against the clock, cover board of uncovered visits), carer roster (`/roster`), and a DB-backed **call log** (`/call-log` + `/api/call-log`) for missed/late/no-show events. *Still to add: editable cover overrides + CSM approval, and bulk import.*
 4. **Registers + Improvement hubs** — ✅ **built.** `/improvement` (oversight): issues-to-action with department filter, **Review & sign off** (`issue_signoffs`) with outcome/note, **department routing** (`issue_routing`) that moves the issue into a department's inbox, corrective training/SOP pushes (`assignments`), and an assignment log with withdraw. *Still to add: schema-driven record drawer with NIMS fields, and the HR-scoped hub instance (needs the HR role).*
 5. **Finance** — ✅ **built.** `/finance` (overview: billed / payroll / margin + per-scheme breakdown), `/finance/rate-schemes` (6 CHO/funder schemes), `/finance/invoicing` (+ per-client drill-down with weekly lines), `/finance/pay` (HCA pay & hours with weekend/BH premiums). Computed live from client schedules × rate cards (`lib/finance.ts`), `FINANCE_ROLES`-gated.
-6. **Recruitment + client portal** — Recruitment ✅ **built.** `/recruitment` (`RECRUIT_ROLES`-gated): hiring KPIs, pipeline funnel, candidate tracker (initials only), vetting & checks (Garda/NVB, references ×2, right-to-work), onboarding-training gateways before first shift, and the onboarding checklist template (HR-05 · SOP-055–058 · HR-14) with gate badges (`lib/recruitment.ts`, `data/qms-recruitment.json`). *Still to add: read-only family/client portal (own weekly schedule + assigned carers).*
+6. **Recruitment + client portal** — ✅ **built.** *Recruitment:* `/recruitment` (`RECRUIT_ROLES`-gated): hiring KPIs, pipeline funnel, candidate tracker (initials only), vetting & checks (Garda/NVB, references ×2, right-to-work), onboarding-training gateways before first shift, and the onboarding checklist template (HR-05 · SOP-055–058 · HR-14) with gate badges (`lib/recruitment.ts`, `data/qms-recruitment.json`). *Client/family portal:* `/portal` — a standalone read-only shell (not the staff sidebar) for the new **`Client / Family`** role. A portal login is linked to one client record (`users.client_id`); the page shows only that client's own weekly schedule, care team and care summary. Staff logins are bounced to `/dashboard`; portal logins are bounced out of the staff shell to `/portal`.
 7. **GDPR hardening** — retention, audit log, access reviews, data-subject access, backups, 2FA for managers, health-data safeguards. Sign off with DPO (`dpo@libertyhomecare.ie`).
 
 ---

@@ -25,6 +25,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           region: user.region,
+          clientId: user.client_id ?? null,
         };
       },
     }),

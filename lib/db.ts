@@ -15,7 +15,7 @@ import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./conten
 import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 
-const SEED_VERSION = "9";
+const SEED_VERSION = "10";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -25,7 +25,11 @@ export type Role =
   | "Office Administrator"
   | "On-Call Manager"
   | "Client Service Manager"
-  | "Manager";
+  | "Manager"
+  | "Client / Family";
+
+/** The read-only client/family portal role. Sees only their own linked client. */
+export const PORTAL_ROLE: Role = "Client / Family";
 
 /** Roles allowed to view the manager Monitor / oversight dashboards. */
 export const OVERSIGHT_ROLES: Role[] = ["Manager", "Client Service Manager"];
@@ -49,6 +53,8 @@ export type UserRow = {
   password_hash: string;
   role: Role;
   region: string;
+  /** For the Client / Family portal role: the client record this login may view. */
+  client_id: string | null;
   created_at: string;
 };
 
@@ -144,8 +150,10 @@ async function createSchema(client: PoolClient) {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
       region TEXT NOT NULL DEFAULT '',
+      client_id TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS client_id TEXT;
     CREATE TABLE IF NOT EXISTS courses (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -333,19 +341,21 @@ async function seed(client: PoolClient) {
 
   // ---- demo users (dev only; replace with real accounts in production) ----
   const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
-  const demo: Array<{ name: string; email: string; role: Role; region: string }> = [
+  const demo: Array<{ name: string; email: string; role: Role; region: string; clientId?: string }> = [
     { name: "Grace Nolan", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Tullamore" },
     { name: "Mary James", email: "coordinator@libertyhomecare.ie", role: "Care Coordinator", region: "Offaly" },
     { name: "Sinead Kelly", email: "admin@libertyhomecare.ie", role: "Office Administrator", region: "Laois" },
     { name: "Tom Brennan", email: "oncall@libertyhomecare.ie", role: "On-Call Manager", region: "Kildare" },
     { name: "Ana Lyons", email: "csm@libertyhomecare.ie", role: "Client Service Manager", region: "Offaly" },
     { name: "Laura Souza", email: "manager@libertyhomecare.ie", role: "Manager", region: "All regions" },
+    // Read-only client/family portal login, linked to the client record it may view.
+    { name: "Deirdre Conroy (family)", email: "family@libertyhomecare.ie", role: "Client / Family", region: "Dublin North", clientId: "CL-001" },
   ];
 
   for (const u of demo) {
     const ins = await client.query(
-      "INSERT INTO users (name,email,password_hash,role,region) VALUES ($1,$2,$3,$4,$5) RETURNING id",
-      [u.name, u.email, hash, u.role, u.region]
+      "INSERT INTO users (name,email,password_hash,role,region,client_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+      [u.name, u.email, hash, u.role, u.region, u.clientId ?? null]
     );
     const uid = ins.rows[0].id as number;
     const pathway = getPathwayByRole(u.role);

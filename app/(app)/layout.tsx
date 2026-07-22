@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import Sidebar from "@/components/Sidebar";
-import { OVERSIGHT_ROLES, CRM_ROLES, FINANCE_ROLES, RECRUIT_ROLES, registerOpenCounts, type Role } from "@/lib/db";
+import { OVERSIGHT_ROLES, CRM_ROLES, FINANCE_ROLES, RECRUIT_ROLES, PORTAL_ROLE, registerOpenCounts, type Role } from "@/lib/db";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  // Client/family logins never see the staff shell — send them to their portal.
+  if (session.user.role === PORTAL_ROLE) redirect("/portal");
 
   const { name, role, region } = session.user;
   const isOversight = OVERSIGHT_ROLES.includes(role as Role);

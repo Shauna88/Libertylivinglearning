@@ -25,6 +25,7 @@ export const authConfig = {
         token.id = (user as { id: string }).id;
         token.role = (user as { role: string }).role;
         token.region = (user as { region: string }).region;
+        token.clientId = (user as { clientId?: string | null }).clientId ?? null;
       }
       return token;
     },
@@ -33,6 +34,7 @@ export const authConfig = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.region = token.region as string;
+        session.user.clientId = (token.clientId as string | null) ?? null;
       }
       return session;
     },
