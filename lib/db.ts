@@ -39,6 +39,9 @@ export const IMPROVEMENT_ROLES: Role[] = ["Manager", "Client Service Manager"];
 /** Roles allowed into Finance (invoicing, rate schemes, payroll). */
 export const FINANCE_ROLES: Role[] = ["Manager", "Client Service Manager"];
 
+/** Roles allowed into Recruitment (HR pipeline & onboarding). */
+export const RECRUIT_ROLES: Role[] = ["Manager", "Client Service Manager"];
+
 export type UserRow = {
   id: number;
   name: string;

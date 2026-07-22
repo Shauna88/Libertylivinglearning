@@ -14,6 +14,7 @@ export default function Sidebar({
   isOversight,
   isCrm = false,
   isFinance = false,
+  isRecruit = false,
   openCounts = {},
 }: {
   name: string;
@@ -22,6 +23,7 @@ export default function Sidebar({
   isOversight: boolean;
   isCrm?: boolean;
   isFinance?: boolean;
+  isRecruit?: boolean;
   openCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
@@ -61,6 +63,13 @@ export default function Sidebar({
       items: [{ label: "Governance", icon: "account_balance", href: "/governance" }],
     },
   ];
+
+  if (isRecruit) {
+    groups.push({
+      label: "Workforce",
+      items: [{ label: "Recruitment", icon: "person_search", href: "/recruitment" }],
+    });
+  }
 
   if (isFinance) {
     groups.push({
