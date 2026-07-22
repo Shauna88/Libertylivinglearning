@@ -14,7 +14,7 @@ import bcrypt from "bcryptjs";
 import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./content";
 import { CLIENTS, type Client } from "./crm";
 
-const SEED_VERSION = "7";
+const SEED_VERSION = "8";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -218,12 +218,26 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_pii_client ON pii_access_log(client_id);
+
+    CREATE TABLE IF NOT EXISTS call_log (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT,
+      su TEXT,
+      area TEXT,
+      visit_time TEXT,
+      kind TEXT NOT NULL,
+      detail TEXT NOT NULL,
+      logged_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_call_log_created ON call_log(created_at);
   `);
 }
 
 async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
+  await client.query("DELETE FROM call_log");
   await client.query("DELETE FROM pii_access_log");
   await client.query("DELETE FROM register_entries");
   await client.query("DELETE FROM completions");
@@ -334,6 +348,19 @@ async function seed(client: PoolClient) {
     await client.query(
       "INSERT INTO clients (id,su,name,area,status,coordinator,data_json) VALUES ($1,$2,$3,$4,$5,$6,$7)",
       [c.id, c.su, c.name, c.area, c.status, c.csm ?? "", JSON.stringify(c)]
+    );
+  }
+
+  // ---- CRM: sample call-monitor events ----
+  const callSamples = [
+    { client_id: "CL-004", su: "SU-4021", area: "Offaly", visit_time: "08:00", kind: "late", detail: "Carer running ~25 min late (traffic on N52); client and family notified.", logged_by: "Mary James", age: 0 },
+    { client_id: "CL-006", su: "SU-4233", area: "Laois", visit_time: "13:00", kind: "missed", detail: "Lunch call could not be covered — carer called in sick; reallocation in progress.", logged_by: "Mary James", age: 0 },
+  ];
+  for (const s of callSamples) {
+    await client.query(
+      `INSERT INTO call_log (client_id,su,area,visit_time,kind,detail,logged_by,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7, now() - make_interval(hours => $8))`,
+      [s.client_id, s.su, s.area, s.visit_time, s.kind, s.detail, s.logged_by, s.age]
     );
   }
 
@@ -628,4 +655,39 @@ export async function listPiiLog(limit = 100): Promise<PiiLogRow[]> {
   return q<PiiLogRow>("SELECT * FROM pii_access_log ORDER BY created_at DESC, id DESC LIMIT $1", [
     limit,
   ]);
+}
+
+// ---------------- CRM: call log (missed / late / no-show) ----------------
+
+export type CallLogRow = {
+  id: number;
+  client_id: string | null;
+  su: string | null;
+  area: string | null;
+  visit_time: string | null;
+  kind: string;
+  detail: string;
+  logged_by: string;
+  created_at: string;
+};
+
+export async function listCallLog(limit = 100): Promise<CallLogRow[]> {
+  return q<CallLogRow>("SELECT * FROM call_log ORDER BY created_at DESC, id DESC LIMIT $1", [limit]);
+}
+
+export async function createCallEvent(input: {
+  clientId: string | null;
+  su: string | null;
+  area: string | null;
+  visitTime: string | null;
+  kind: string;
+  detail: string;
+  loggedBy: string;
+}): Promise<CallLogRow> {
+  const rows = await q<CallLogRow>(
+    `INSERT INTO call_log (client_id,su,area,visit_time,kind,detail,logged_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [input.clientId, input.su, input.area, input.visitTime, input.kind, input.detail, input.loggedBy]
+  );
+  return rows[0];
 }
