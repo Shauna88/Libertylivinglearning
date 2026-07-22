@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
-type Item = { label: string; icon: string; href?: string; badge?: string; soon?: boolean };
+type Item = { label: string; icon: string; href?: string; badge?: string; soon?: boolean; exact?: boolean };
 type Group = { label: string; items: Item[] };
 
 export default function Sidebar({
@@ -13,6 +13,7 @@ export default function Sidebar({
   region,
   isOversight,
   isCrm = false,
+  isFinance = false,
   openCounts = {},
 }: {
   name: string;
@@ -20,6 +21,7 @@ export default function Sidebar({
   region: string;
   isOversight: boolean;
   isCrm?: boolean;
+  isFinance?: boolean;
   openCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
@@ -59,6 +61,18 @@ export default function Sidebar({
       items: [{ label: "Governance", icon: "account_balance", href: "/governance" }],
     },
   ];
+
+  if (isFinance) {
+    groups.push({
+      label: "Finance",
+      items: [
+        { label: "Finance overview", icon: "account_balance_wallet", href: "/finance", exact: true },
+        { label: "Client invoicing", icon: "receipt_long", href: "/finance/invoicing" },
+        { label: "Rate schemes", icon: "payments", href: "/finance/rate-schemes" },
+        { label: "HCA pay & hours", icon: "wallet", href: "/finance/pay" },
+      ],
+    });
+  }
 
   if (isCrm) {
     groups.splice(1, 0, {
@@ -107,7 +121,8 @@ export default function Sidebar({
         <div className="nav-group" key={g.label}>
           <div className="nav-label">{g.label}</div>
           {g.items.map((it) => {
-            const active = it.href && pathname.startsWith(it.href);
+            const active =
+              it.href && (it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/"));
             const inner = (
               <>
                 <span className="ms">{it.icon}</span>

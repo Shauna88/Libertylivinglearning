@@ -36,6 +36,9 @@ export const CRM_ROLES: Role[] = ["Care Coordinator", "Client Service Manager", 
 /** Roles allowed into the Improvement & Training hub (issue review + routing). */
 export const IMPROVEMENT_ROLES: Role[] = ["Manager", "Client Service Manager"];
 
+/** Roles allowed into Finance (invoicing, rate schemes, payroll). */
+export const FINANCE_ROLES: Role[] = ["Manager", "Client Service Manager"];
+
 export type UserRow = {
   id: number;
   name: string;
