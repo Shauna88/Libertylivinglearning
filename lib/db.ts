@@ -281,12 +281,24 @@ async function createSchema(client: PoolClient) {
       withdrawn BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id SERIAL PRIMARY KEY,
+      actor_id INTEGER,
+      actor_name TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT,
+      detail TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
   `);
 }
 
 async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
+  await client.query("DELETE FROM audit_log");
   await client.query("DELETE FROM call_log");
   await client.query("DELETE FROM pii_access_log");
   await client.query("DELETE FROM assignments");
@@ -651,7 +663,15 @@ export async function createRegisterEntry(input: {
       ]
     );
     await client.query("COMMIT");
-    return ins.rows[0] as RegisterEntry;
+    const entry = ins.rows[0] as RegisterEntry;
+    await logAudit({
+      actorId: input.reporterId,
+      actorName: input.reporterName,
+      action: `${input.kind}.create`,
+      target: entry.ref,
+      detail: entry.summary,
+    });
+    return entry;
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -704,6 +724,13 @@ export async function logPiiReveal(input: {
     "INSERT INTO pii_access_log (user_id,user_name,client_id,scope,reason) VALUES ($1,$2,$3,$4,$5)",
     [input.userId, input.userName, input.clientId, input.scope, input.reason]
   );
+  await logAudit({
+    actorId: input.userId,
+    actorName: input.userName,
+    action: `pii.reveal.${input.scope}`,
+    target: input.clientId,
+    detail: input.reason,
+  });
 }
 
 export async function listPiiLog(limit = 100): Promise<PiiLogRow[]> {
@@ -744,6 +771,12 @@ export async function createCallEvent(input: {
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
     [input.clientId, input.su, input.area, input.visitTime, input.kind, input.detail, input.loggedBy]
   );
+  await logAudit({
+    actorName: input.loggedBy,
+    action: `call.${input.kind}`,
+    target: input.clientId,
+    detail: input.detail,
+  });
   return rows[0];
 }
 
@@ -871,6 +904,12 @@ export async function recordSignoff(input: {
       await client.query("UPDATE register_entries SET status='closed' WHERE id=$1", [input.entryId]);
     }
     await client.query("COMMIT");
+    await logAudit({
+      actorName: input.signedBy,
+      action: `${input.kind}.signoff`,
+      target: `${input.kind}#${input.entryId}`,
+      detail: `${input.outcome}${input.routeDept ? ` · routed to ${input.routeDept}` : ""}${input.close ? " · closed" : ""}`,
+    });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -902,9 +941,110 @@ export async function createAssignment(input: PushInput & { assignedBy: string }
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
     [input.kind, input.refId, input.refTitle, input.audience, input.note, input.due, input.assignedBy]
   );
+  await logAudit({
+    actorName: input.assignedBy,
+    action: `assign.${input.kind}`,
+    target: input.refId,
+    detail: `${input.refTitle} → ${input.audience}`,
+  });
   return rows[0];
 }
 
 export async function withdrawAssignment(id: number): Promise<void> {
   await q("UPDATE assignments SET withdrawn=true WHERE id=$1", [id]);
+  await logAudit({ actorName: "system", action: "assign.withdraw", target: `assignment#${id}` });
+}
+
+// ---------------- audit log (general accountability trail) ----------------
+
+export type AuditRow = {
+  id: number;
+  actor_id: number | null;
+  actor_name: string;
+  action: string;
+  target: string | null;
+  detail: string;
+  created_at: string;
+};
+
+/**
+ * Append a general audit event. Best-effort accountability trail (GDPR Art. 5(2))
+ * — never let an audit-write failure break the underlying action.
+ */
+export async function logAudit(input: {
+  actorId?: number | null;
+  actorName: string;
+  action: string;
+  target?: string | null;
+  detail?: string;
+}): Promise<void> {
+  try {
+    await q(
+      "INSERT INTO audit_log (actor_id,actor_name,action,target,detail) VALUES ($1,$2,$3,$4,$5)",
+      [input.actorId ?? null, input.actorName, input.action, input.target ?? null, input.detail ?? ""]
+    );
+  } catch {
+    // swallow — auditing must not break the primary operation
+  }
+}
+
+export async function listAuditLog(limit = 200): Promise<AuditRow[]> {
+  return q<AuditRow>("SELECT * FROM audit_log ORDER BY created_at DESC, id DESC LIMIT $1", [limit]);
+}
+
+// ---------------- access register + data-subject access (DSAR) ----------------
+
+export type AccessUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  region: string;
+  client_id: string | null;
+};
+
+/** All logins with role/region + any linked client — the access register. */
+export async function listAccessUsers(): Promise<AccessUser[]> {
+  return q<AccessUser>(
+    "SELECT id, name, email, role, region, client_id FROM users ORDER BY role, name"
+  );
+}
+
+export type DsarBundle = {
+  generatedAt: string;
+  client: Client;
+  callEvents: CallLogRow[];
+  accessHistory: PiiLogRow[];
+};
+
+/**
+ * Assemble everything held about one client for a data-subject access request
+ * (GDPR Art. 15 / 20): the full record plus related call events and the log of
+ * who accessed their identifiable data.
+ */
+export async function buildClientDsar(clientId: string): Promise<DsarBundle | undefined> {
+  const client = await getClient(clientId);
+  if (!client) return undefined;
+  const callEvents = await q<CallLogRow>(
+    "SELECT * FROM call_log WHERE client_id = $1 ORDER BY created_at DESC",
+    [clientId]
+  );
+  const accessHistory = await q<PiiLogRow>(
+    "SELECT * FROM pii_access_log WHERE client_id = $1 ORDER BY created_at DESC",
+    [clientId]
+  );
+  return {
+    generatedAt: new Date().toISOString(),
+    client,
+    callEvents,
+    accessHistory,
+  };
+}
+
+/** Count of DSAR exports recorded in the audit log. */
+export async function dsarExportCount(): Promise<number> {
+  const rows = await q<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM audit_log WHERE action = 'dsar.export'"
+  );
+  return rows[0]?.n ?? 0;
 }

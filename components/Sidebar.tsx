@@ -103,6 +103,7 @@ export default function Sidebar({
         { label: "Monitor", icon: "insights", href: "/monitor" },
         { label: "Workforce & Training", icon: "groups", href: "/workforce" },
         { label: "PII access log", icon: "policy", href: "/access-log" },
+        { label: "Data protection", icon: "encrypted", href: "/data-protection" },
       ],
     });
   }
