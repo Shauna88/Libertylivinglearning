@@ -127,7 +127,7 @@ Ordered for incremental, shippable delivery. Each phase = its own PR, verified a
 
 1. **9-role foundation** — extend `Role`, add `ROLE_NAV` allowlist, role-aware sidebar + server gates, seed the 9 demo users. *(Partly done: `CRM_ROLES`/`OVERSIGHT_ROLES` gate the CRM and oversight views; full 9-role model still to add.)*
 2. **CRM core** — ✅ **built.** `clients` + `pii_access_log` tables; Client register (`/clients` — status chips, search, PII-masked names); Client profile (`/clients/[id]` — identity, care package, care plan by domain, schedule, documents); **PII reveal-gate** (`/api/pii/reveal`) + **access log** (`/access-log`, oversight-only). Seeded from the prototype `buildClients()` (`data/qms-clients.json`).
-3. **CRM scheduling** *(next)* — visits/schedule, cover board, live monitor, cover overrides + CSM approval, call log, bulk import.
+3. **CRM scheduling** — ✅ **built (read + call log).** Live visit monitor (`/live-monitor` — today's visits derived from schedules, statuses classified live against the clock, cover board of uncovered visits), carer roster (`/roster`), and a DB-backed **call log** (`/call-log` + `/api/call-log`) for missed/late/no-show events. *Still to add: editable cover overrides + CSM approval, and bulk import.*
 4. **Registers + Improvement hubs** — add owning department + schema-driven drawer; `staff_submissions` intake; `issue_signoffs`; **department routing** (`issue_routing`) → dept inbox; training/SOP pushes (`assignments`).
 5. **Finance** — rate schemes, invoicing from delivered visits, HCA pay & hours.
 6. **Recruitment + client portal** — pipeline + onboarding checklist; read-only family portal.

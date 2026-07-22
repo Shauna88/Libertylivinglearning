@@ -63,7 +63,12 @@ export default function Sidebar({
   if (isCrm) {
     groups.splice(1, 0, {
       label: "Client Management · CRM",
-      items: [{ label: "Client register", icon: "contacts", href: "/clients" }],
+      items: [
+        { label: "Live monitor", icon: "sensors", href: "/live-monitor" },
+        { label: "Client register", icon: "contacts", href: "/clients" },
+        { label: "Carer roster", icon: "event_note", href: "/roster" },
+        { label: "Call log", icon: "phone_missed", href: "/call-log" },
+      ],
     });
   }
 
