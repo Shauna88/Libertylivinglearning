@@ -25,6 +25,7 @@ sequences the remaining work.
 | Policy Library (42), Forms (22), KPIs, Governance | ✅ built |
 | Risk registers — Complaints/Incidents/Safeguarding (intake + list) | ✅ built (basic) |
 | Workforce & Training (HR view, HCA competency matrix) | ✅ built |
+| **CRM core** — client register (status chips, search, masked names), client profile (identity, care package, care plan by domain, schedule, documents), **PII reveal-gate + `pii_access_log`** | ✅ built |
 
 The current role set is a subset (`Healthcare Assistant`, `Care Coordinator`,
 `Office Administrator`, `On-Call Manager`, `Client Service Manager`, `Manager`). The
@@ -124,9 +125,9 @@ Sidebar shell (264px dark-green `#16352A`) + sticky header; nav groups filtered 
 
 Ordered for incremental, shippable delivery. Each phase = its own PR, verified against Postgres.
 
-1. **9-role foundation** — extend `Role`, add `ROLE_NAV` allowlist, role-aware sidebar + server gates, seed the 9 demo users. *(Unblocks everything.)*
-2. **CRM core** *(flagship next)* — `clients` + `pii_access_log` tables; Client register (status chips, search, PII-masked names); Client profile (overview / care notes / care plan tasks / documents); **PII reveal-gate + access log**. Seed clients from `design/` prototype `buildClients()`.
-3. **CRM scheduling** — visits/schedule, cover board, live monitor, cover overrides + CSM approval, call log, bulk import.
+1. **9-role foundation** — extend `Role`, add `ROLE_NAV` allowlist, role-aware sidebar + server gates, seed the 9 demo users. *(Partly done: `CRM_ROLES`/`OVERSIGHT_ROLES` gate the CRM and oversight views; full 9-role model still to add.)*
+2. **CRM core** — ✅ **built.** `clients` + `pii_access_log` tables; Client register (`/clients` — status chips, search, PII-masked names); Client profile (`/clients/[id]` — identity, care package, care plan by domain, schedule, documents); **PII reveal-gate** (`/api/pii/reveal`) + **access log** (`/access-log`, oversight-only). Seeded from the prototype `buildClients()` (`data/qms-clients.json`).
+3. **CRM scheduling** *(next)* — visits/schedule, cover board, live monitor, cover overrides + CSM approval, call log, bulk import.
 4. **Registers + Improvement hubs** — add owning department + schema-driven drawer; `staff_submissions` intake; `issue_signoffs`; **department routing** (`issue_routing`) → dept inbox; training/SOP pushes (`assignments`).
 5. **Finance** — rate schemes, invoicing from delivered visits, HCA pay & hours.
 6. **Recruitment + client portal** — pipeline + onboarding checklist; read-only family portal.

@@ -12,8 +12,9 @@
 import { Pool, type PoolClient } from "pg";
 import bcrypt from "bcryptjs";
 import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./content";
+import { CLIENTS, type Client } from "./crm";
 
-const SEED_VERSION = "6";
+const SEED_VERSION = "7";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -27,6 +28,9 @@ export type Role =
 
 /** Roles allowed to view the manager Monitor / oversight dashboards. */
 export const OVERSIGHT_ROLES: Role[] = ["Manager", "Client Service Manager"];
+
+/** Roles allowed into the client CRM (service-user records). */
+export const CRM_ROLES: Role[] = ["Care Coordinator", "Client Service Manager", "Manager"];
 
 export type UserRow = {
   id: number;
@@ -192,12 +196,35 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_register_kind ON register_entries(kind);
+
+    CREATE TABLE IF NOT EXISTS clients (
+      id TEXT PRIMARY KEY,
+      su TEXT NOT NULL,
+      name TEXT NOT NULL,
+      area TEXT NOT NULL,
+      status TEXT NOT NULL,
+      coordinator TEXT NOT NULL DEFAULT '',
+      data_json TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
+
+    CREATE TABLE IF NOT EXISTS pii_access_log (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      user_name TEXT NOT NULL,
+      client_id TEXT,
+      scope TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_pii_client ON pii_access_log(client_id);
   `);
 }
 
 async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
+  await client.query("DELETE FROM pii_access_log");
   await client.query("DELETE FROM register_entries");
   await client.query("DELETE FROM completions");
   await client.query("DELETE FROM enrollments");
@@ -205,6 +232,7 @@ async function seed(client: PoolClient) {
   await client.query("DELETE FROM courses");
   await client.query("DELETE FROM sops");
   await client.query("DELETE FROM pathways");
+  await client.query("DELETE FROM clients");
 
   // ---- content: courses ----
   for (const [id, c] of Object.entries(COURSES) as [string, Course][]) {
@@ -298,6 +326,14 @@ async function seed(client: PoolClient) {
       `INSERT INTO register_entries (kind,ref,category,severity,location,summary,detail,status,reporter_name,created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now() - make_interval(days => $10))`,
       [s.kind, s.ref, s.category, s.severity, s.location, s.summary, s.detail, s.status, s.reporter, s.age]
+    );
+  }
+
+  // ---- CRM: client (service-user) records ----
+  for (const c of CLIENTS) {
+    await client.query(
+      "INSERT INTO clients (id,su,name,area,status,coordinator,data_json) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [c.id, c.su, c.name, c.area, c.status, c.csm ?? "", JSON.stringify(c)]
     );
   }
 
@@ -540,4 +576,56 @@ export async function createRegisterEntry(input: {
   } finally {
     client.release();
   }
+}
+
+// ---------------- CRM: clients + PII access log ----------------
+
+export type ClientRow = {
+  id: string;
+  su: string;
+  name: string;
+  area: string;
+  status: string;
+  coordinator: string;
+  data_json: string;
+};
+
+export async function listClients(): Promise<Client[]> {
+  const rows = await q<ClientRow>("SELECT * FROM clients ORDER BY id");
+  return rows.map((r) => JSON.parse(r.data_json) as Client);
+}
+
+export async function getClient(id: string): Promise<Client | undefined> {
+  const rows = await q<ClientRow>("SELECT * FROM clients WHERE id = $1", [id]);
+  return rows[0] ? (JSON.parse(rows[0].data_json) as Client) : undefined;
+}
+
+export type PiiLogRow = {
+  id: number;
+  user_id: number | null;
+  user_name: string;
+  client_id: string | null;
+  scope: string;
+  reason: string;
+  created_at: string;
+};
+
+/** Record a PII reveal (who, which client/scope, why) — the GDPR access log. */
+export async function logPiiReveal(input: {
+  userId: number;
+  userName: string;
+  clientId: string | null;
+  scope: "register" | "client";
+  reason: string;
+}): Promise<void> {
+  await q(
+    "INSERT INTO pii_access_log (user_id,user_name,client_id,scope,reason) VALUES ($1,$2,$3,$4,$5)",
+    [input.userId, input.userName, input.clientId, input.scope, input.reason]
+  );
+}
+
+export async function listPiiLog(limit = 100): Promise<PiiLogRow[]> {
+  return q<PiiLogRow>("SELECT * FROM pii_access_log ORDER BY created_at DESC, id DESC LIMIT $1", [
+    limit,
+  ]);
 }
