@@ -350,6 +350,9 @@ button {
 .cols-3 {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
+.cols-4 {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
 .metric {
   display: flex;
   flex-direction: column;

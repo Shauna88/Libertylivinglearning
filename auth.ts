@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
-import { getUserByEmail } from "./lib/db";
+import { getUserByEmail, logAudit } from "./lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -19,6 +19,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await getUserByEmail(email);
         if (!user) return null;
         if (!bcrypt.compareSync(password, user.password_hash)) return null;
+        await logAudit({ actorId: user.id, actorName: user.name, action: "auth.login", detail: user.role });
         return {
           id: String(user.id),
           name: user.name,
