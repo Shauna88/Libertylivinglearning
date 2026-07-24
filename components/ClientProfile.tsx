@@ -48,6 +48,7 @@ export default function ClientProfile({
 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [schedOpen, setSchedOpen] = useState(false);
   const [taskDraft, setTaskDraft] = useState<Record<string, string>>({});
   const [noteCat, setNoteCat] = useState(CARE_NOTE_CATEGORIES[0].key);
   const [noteText, setNoteText] = useState("");
@@ -427,9 +428,20 @@ export default function ClientProfile({
         </div>
       )}
 
-      {/* schedule of service — the permanent weekly plan */}
-      <div className="section-title">Schedule of service {editable && <span className="muted" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· the permanent weekly plan</span>}</div>
-      {editable ? (
+      {/* schedule of service — the permanent weekly plan (collapsible) */}
+      {(() => {
+        const weekCalls = client.schedule.reduce((n, d) => n + d.visits.length, 0);
+        return (
+          <button className="section-toggle" onClick={() => setSchedOpen((s) => !s)} aria-expanded={schedOpen}>
+            <span className="ms" style={{ fontSize: 18 }}>{schedOpen ? "expand_more" : "chevron_right"}</span>
+            <span>Schedule of service</span>
+            <span className="muted" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>
+              · {weekCalls} call{weekCalls === 1 ? "" : "s"} a week{editable ? " · the permanent weekly plan" : ""}
+            </span>
+          </button>
+        );
+      })()}
+      {!schedOpen ? null : editable ? (
         <ScheduleEditor clientId={client.id} schedule={client.schedule} carers={carers} />
       ) : client.schedule.length === 0 ? (
         <div className="card muted" style={{ fontSize: 13 }}>No schedule set yet.</div>
