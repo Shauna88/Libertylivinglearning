@@ -333,6 +333,7 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (client_id, day, time)
     );
+    ALTER TABLE cover_assignments ADD COLUMN IF NOT EXISTS reason TEXT;
 
     CREATE TABLE IF NOT EXISTS care_notes (
       id SERIAL PRIMARY KEY,
@@ -1260,6 +1261,7 @@ export type CoverRow = {
   day: string;
   time: string;
   carer: string;
+  reason: string | null;
   assigned_by: string;
   created_at: string;
 };
@@ -1272,26 +1274,37 @@ export async function coverMap(): Promise<Record<string, string>> {
   return m;
 }
 
-/** Allocate / reassign / unallocate a visit. Pass carer "Unassigned" to unallocate. */
+/** Reasons recorded when a visit was unassigned: `clientId|day|time → reason`. */
+export async function coverReasons(): Promise<Record<string, string>> {
+  const rows = await q<CoverRow>("SELECT * FROM cover_assignments WHERE reason IS NOT NULL AND reason <> ''");
+  const m: Record<string, string> = {};
+  for (const r of rows) m[`${r.client_id}|${r.day}|${r.time}`] = r.reason as string;
+  return m;
+}
+
+/** Allocate / reassign / unallocate a visit. Pass carer "Unassigned" (with a
+ * reason) to unallocate; assigning a real carer clears any unassign reason. */
 export async function setCover(input: {
   clientId: string;
   day: string;
   time: string;
   carer: string;
+  reason?: string | null;
   by: string;
 }): Promise<void> {
+  const reason = input.reason ?? null;
   await q(
-    `INSERT INTO cover_assignments (client_id,day,time,carer,assigned_by)
-     VALUES ($1,$2,$3,$4,$5)
+    `INSERT INTO cover_assignments (client_id,day,time,carer,reason,assigned_by)
+     VALUES ($1,$2,$3,$4,$5,$6)
      ON CONFLICT (client_id,day,time)
-     DO UPDATE SET carer=excluded.carer, assigned_by=excluded.assigned_by, created_at=now()`,
-    [input.clientId, input.day, input.time, input.carer, input.by]
+     DO UPDATE SET carer=excluded.carer, reason=excluded.reason, assigned_by=excluded.assigned_by, created_at=now()`,
+    [input.clientId, input.day, input.time, input.carer, reason, input.by]
   );
   await logAudit({
     actorName: input.by,
     action: "cover.set",
     target: `${input.clientId}|${input.day}|${input.time}`,
-    detail: input.carer,
+    detail: reason ? `${input.carer} — ${reason}` : input.carer,
   });
 }
 

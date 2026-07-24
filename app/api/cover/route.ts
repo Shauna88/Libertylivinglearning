@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authorised" }, { status: 403 });
   }
 
-  let body: { action?: string; clientId?: string; day?: string; time?: string; carer?: string };
+  let body: { action?: string; clientId?: string; day?: string; time?: string; carer?: string; reason?: string };
   try {
     body = await req.json();
   } catch {
@@ -34,6 +34,15 @@ export async function POST(req: Request) {
 
   const carer = String(body.carer ?? "").trim();
   if (!carer) return NextResponse.json({ error: "A carer is required" }, { status: 400 });
-  await setCover({ clientId, day, time, carer, by });
+  // Unassigning requires a reason; assigning a real carer clears any reason.
+  if (/^unassigned$/i.test(carer)) {
+    const reason = String(body.reason ?? "").trim();
+    if (reason.length < 3) {
+      return NextResponse.json({ error: "Please give a reason for unassigning this call" }, { status: 400 });
+    }
+    await setCover({ clientId, day, time, carer, reason, by });
+    return NextResponse.json({ ok: true, carer, reason });
+  }
+  await setCover({ clientId, day, time, carer, reason: null, by });
   return NextResponse.json({ ok: true, carer });
 }

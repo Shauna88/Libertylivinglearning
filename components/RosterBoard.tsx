@@ -19,9 +19,20 @@ export type RosterVisit = {
   baseCarer: string;
   overridden: boolean;
   unassigned: boolean;
+  unassignReason: string | null;
   statusLabel: string;
   tone: string;
 };
+
+const UNASSIGN_REASONS = [
+  "Carer called in sick",
+  "Carer no-show",
+  "Client / family cancelled",
+  "Client in hospital",
+  "Reallocating cover",
+  "Staffing change",
+  "Other",
+];
 
 export type PendingReq = {
   id: number;
@@ -68,6 +79,9 @@ export default function RosterBoard({
   const [note, setNote] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [unassignFor, setUnassignFor] = useState<string | null>(null);
+  const [unReason, setUnReason] = useState(UNASSIGN_REASONS[0]);
+  const [unNote, setUnNote] = useState("");
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -93,11 +107,26 @@ export default function RosterBoard({
       setBusy(null);
       setPermFor(null);
       setNote("");
+      setUnassignFor(null);
+      setUnNote("");
     }
   }
 
-  const reassign = (v: RosterVisit, carer: string) =>
+  // Assigning a real carer posts directly; choosing "Unassigned" opens the
+  // reason capture instead (you must say why a call is being pulled).
+  const reassign = (v: RosterVisit, carer: string) => {
+    if (carer === UNASSIGNED) {
+      setUnassignFor(v.key);
+      setUnReason(UNASSIGN_REASONS[0]);
+      setUnNote("");
+      return;
+    }
     act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer });
+  };
+  const confirmUnassign = (v: RosterVisit) => {
+    const reason = unReason === "Other" ? unNote.trim() : unNote.trim() ? `${unReason} — ${unNote.trim()}` : unReason;
+    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer: UNASSIGNED, reason });
+  };
   const revert = (v: RosterVisit) =>
     act(v.key, "/api/cover", { action: "clear", clientId: v.clientId, day: v.day, time: v.time });
   const requestPerm = (v: RosterVisit) =>
@@ -181,6 +210,7 @@ export default function RosterBoard({
   };
 
   const selVisit = visits.find((v) => v.key === selected) ?? null;
+  const unVisit = visits.find((v) => v.key === unassignFor) ?? null;
 
   const summary = [
     { icon: "event", label: "Calls today", value: visits.length, tone: "blue" },
@@ -196,7 +226,7 @@ export default function RosterBoard({
         onClick={() => setSelected((s) => (s === v.key ? null : v.key))}
         className={`tl-block tl-${v.unassigned ? "red" : v.tone}${selected === v.key ? " tl-sel" : ""}`}
         style={{ left: `${pct(v.startMin)}%`, width: `${Math.max(3, (v.durMin / span) * 100)}%` }}
-        title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su} — click to move`}
+        title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su}${v.unassignReason ? ` — unassigned: ${v.unassignReason}` : ""} — click to move`}
       >
         <div className="tl-time">{v.time}</div>
         <div className="tl-sub">{showCarer ? v.carer : v.su}</div>
@@ -216,6 +246,11 @@ export default function RosterBoard({
         <div className="gap-what">
           <strong>{v.type}</strong>
           <span className="muted" style={{ fontSize: 12 }}>{v.su} · {v.area}</span>
+          {v.unassignReason && (
+            <span style={{ fontSize: 11.5, color: "var(--red-fg)", marginTop: 1 }}>
+              <span className="ms" style={{ fontSize: 13, verticalAlign: "middle" }}>info</span> {v.unassignReason}
+            </span>
+          )}
         </div>
         <div className="gap-assign">
           {suggestions.length > 0 && (
@@ -288,6 +323,38 @@ export default function RosterBoard({
         ))}
       </div>
 
+      {/* unassign — capture the reason */}
+      {unVisit && (
+        <div className="card" style={{ borderLeft: "4px solid var(--amber-fg)", marginBottom: 6 }}>
+          <div className="flex" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <span className="ms" style={{ color: "var(--amber-fg)" }}>person_remove</span>
+            <strong style={{ fontSize: 14.5 }}>Unassign this call</strong>
+            <span className="code">{unVisit.time}</span>
+            <span className="muted" style={{ fontSize: 12.5 }}>{unVisit.type} · {unVisit.su} — from <strong>{unVisit.carer}</strong></span>
+          </div>
+          <div className="flex" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select className="rv-select" value={unReason} onChange={(e) => setUnReason(e.target.value)}>
+              {UNASSIGN_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <input
+              className="input"
+              style={{ flex: 1, minWidth: 200, fontSize: 12.5, padding: "7px 10px" }}
+              placeholder={unReason === "Other" ? "Describe the reason…" : "Add a note (optional)…"}
+              value={unNote}
+              onChange={(e) => setUnNote(e.target.value)}
+            />
+            <button
+              className="mini primary"
+              disabled={busy === unVisit.key || (unReason === "Other" && unNote.trim().length < 3)}
+              onClick={() => confirmUnassign(unVisit)}
+            >
+              Unassign call
+            </button>
+            <button className="mini" onClick={() => setUnassignFor(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* selected call — move it */}
       {selVisit && (
         <div className="card move-bar">
@@ -302,10 +369,20 @@ export default function RosterBoard({
                 {selVisit.type} · {selVisit.su} · {selVisit.area} —{" "}
                 {selVisit.unassigned ? <span style={{ color: "var(--red-fg)", fontWeight: 700 }}>unassigned</span> : <>currently <strong>{selVisit.carer}</strong></>}
               </div>
+              {selVisit.unassigned && selVisit.unassignReason && (
+                <div style={{ fontSize: 12, marginTop: 4, color: "var(--red-fg)" }}>
+                  <span className="ms" style={{ fontSize: 14, verticalAlign: "middle" }}>info</span> Reason: {selVisit.unassignReason}
+                </div>
+              )}
             </div>
             <button className="mini" onClick={() => setSelected(null)}>Close</button>
           </div>
           <div className="move-actions">
+            {!selVisit.unassigned && (
+              <button className="mini" disabled={busy === selVisit.key} onClick={() => { setUnassignFor(selVisit.key); setUnReason(UNASSIGN_REASONS[0]); setUnNote(""); }}>
+                <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>person_remove</span>Unassign…
+              </button>
+            )}
             {suggestFor(selVisit).length > 0 && (
               <div className="gap-suggest" style={{ justifyContent: "flex-start" }}>
                 <span className="muted" style={{ fontSize: 11 }}>Free now:</span>

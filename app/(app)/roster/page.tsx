@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, listPermReqs, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, type Role } from "@/lib/db";
 import {
   deriveTodayVisits,
   carerPool,
@@ -28,9 +28,10 @@ export default async function RosterPage({
   const day = WEEK.includes(sp.day ?? "") ? (sp.day as string) : today;
   const isToday = day === today;
 
-  const [clients, cover, pending] = await Promise.all([
+  const [clients, cover, reasons, pending] = await Promise.all([
     listClients(),
     coverMap(),
+    coverReasons(),
     listPermReqs("pending"),
   ]);
 
@@ -53,6 +54,7 @@ export default async function RosterPage({
     baseCarer: v.baseCarer,
     overridden: v.overridden,
     unassigned: isUnassignedCarer(v.carer),
+    unassignReason: reasons[`${v.clientId}|${v.day}|${v.time}`] ?? null,
     statusLabel: isToday ? v.statusLabel : "Scheduled",
     tone: isToday ? v.tone : "grey",
   }));
