@@ -1,0 +1,83 @@
+{
+  "skills": [
+    { "key": "personal-care", "label": "Personal care" },
+    { "key": "medication", "label": "Medication support" },
+    { "key": "manual-handling", "label": "Manual handling / transfers" },
+    { "key": "dementia", "label": "Dementia care" },
+    { "key": "diabetes", "label": "Diabetes management" },
+    { "key": "parkinsons", "label": "Parkinson's care" },
+    { "key": "stroke", "label": "Stroke rehab support" },
+    { "key": "respiratory", "label": "Respiratory / oxygen" },
+    { "key": "cardiac", "label": "Cardiac / heart failure" },
+    { "key": "palliative", "label": "Palliative / end-of-life" },
+    { "key": "mental-health", "label": "Mental health & wellbeing" }
+  ],
+  "areas": [
+    { "key": "Dublin North", "adjacent": ["Dublin West"] },
+    { "key": "Dublin West", "adjacent": ["Dublin North"] },
+    { "key": "Laois", "adjacent": ["Offaly"] },
+    { "key": "Offaly", "adjacent": ["Laois"] }
+  ],
+  "carers": [
+    {
+      "id": "HCA-201", "name": "Denise Fenlon", "homeArea": "Dublin North", "covers": ["Dublin North", "Dublin West"],
+      "skills": ["personal-care", "medication", "manual-handling", "dementia", "diabetes"],
+      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 29,
+      "status": "active", "note": "Dementia lead for the North team."
+    },
+    {
+      "id": "HCA-202", "name": "Tanisha Okafor", "homeArea": "Dublin North", "covers": ["Dublin North", "Dublin West"],
+      "skills": ["personal-care", "medication", "manual-handling", "stroke", "cardiac"],
+      "pathway": "New entrant — relevant experience", "transport": "Own car", "capacityHours": 37, "committedHours": 24,
+      "status": "active", "note": "Post-stroke rehab support experience."
+    },
+    {
+      "id": "HCA-203", "name": "Martina Hylland", "homeArea": "Dublin North", "covers": ["Dublin North"],
+      "skills": ["personal-care", "medication", "mental-health"],
+      "pathway": "Qualified existing staff", "transport": "Public transport", "capacityHours": 25, "committedHours": 18,
+      "status": "active", "note": "Part-time; North only (no car)."
+    },
+    {
+      "id": "HCA-204", "name": "Grace Adeyemi", "homeArea": "Dublin West", "covers": ["Dublin West", "Dublin North"],
+      "skills": ["personal-care", "medication", "manual-handling", "respiratory", "palliative"],
+      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 20,
+      "status": "active", "note": "Respiratory / oxygen and palliative trained."
+    },
+    {
+      "id": "HCA-205", "name": "Aoife Brennan", "homeArea": "Dublin West", "covers": ["Dublin West", "Dublin North"],
+      "skills": ["personal-care", "medication", "dementia", "diabetes", "cardiac"],
+      "pathway": "New entrant — relevant experience", "transport": "Own car", "capacityHours": 37, "committedHours": 12,
+      "status": "active", "note": "Newer to the West team — good availability."
+    },
+    {
+      "id": "HCA-206", "name": "Bridget Kelly", "homeArea": "Offaly", "covers": ["Offaly", "Laois"],
+      "skills": ["personal-care", "medication", "manual-handling", "diabetes", "parkinsons"],
+      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 31,
+      "status": "active", "note": "Parkinson's care experience."
+    },
+    {
+      "id": "HCA-207", "name": "Marian Dunne", "homeArea": "Offaly", "covers": ["Offaly", "Laois"],
+      "skills": ["personal-care", "medication", "manual-handling", "cardiac", "respiratory"],
+      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 30, "committedHours": 22,
+      "status": "active", "note": "Cardiac and COPD support."
+    },
+    {
+      "id": "HCA-208", "name": "Seán Molloy", "homeArea": "Laois", "covers": ["Laois", "Offaly"],
+      "skills": ["personal-care", "medication", "manual-handling", "stroke", "mental-health"],
+      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 27,
+      "status": "active", "note": "Male carer — some clients request this."
+    },
+    {
+      "id": "HCA-209", "name": "Katie Phelan", "homeArea": "Laois", "covers": ["Laois", "Offaly"],
+      "skills": ["personal-care", "medication", "dementia", "palliative"],
+      "pathway": "New entrant — relevant experience", "transport": "Own car", "capacityHours": 37, "committedHours": 15,
+      "status": "active", "note": "Dementia and palliative trained."
+    },
+    {
+      "id": "HCA-210", "name": "Orla Ryan", "homeArea": "Laois", "covers": ["Laois", "Offaly"],
+      "skills": ["personal-care", "medication", "diabetes", "cardiac", "mental-health"],
+      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 25, "committedHours": 9,
+      "status": "active", "note": "Part-time; strong availability midlands."
+    }
+  ]
+}

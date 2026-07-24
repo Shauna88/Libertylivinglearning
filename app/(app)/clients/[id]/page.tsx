@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, coverMap, coverReasons, type Role } from "@/lib/db";
 import { carerPool } from "@/lib/schedule";
+import { CARER_DIRECTORY, suggestCarers } from "@/lib/carers";
 import {
   maskName,
   maskAddr,
@@ -31,6 +32,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     coverReasons(),
   ]);
   const carers = carerPool(allClients);
+  // Rank the carer directory for this client's area + conditions (best fit first).
+  const suggestions = suggestCarers(CARER_DIRECTORY, { area: client.area, conditions: client.conditions }, { limit: 5 });
   const isApprover = OVERSIGHT_ROLES.includes(session!.user.role as Role);
   const pending = pendingAll
     .filter((p) => p.client_id === id)
@@ -77,7 +80,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} editable />
       </div>
     </>
   );

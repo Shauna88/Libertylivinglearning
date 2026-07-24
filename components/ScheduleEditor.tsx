@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ScheduleDay } from "@/lib/crm";
+import type { CarerMatch } from "@/lib/carers";
 
 const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DURATIONS = ["15m", "30m", "45m", "60m", "90m"];
@@ -41,10 +42,12 @@ export default function ScheduleEditor({
   clientId,
   schedule,
   carers,
+  suggestions = [],
 }: {
   clientId: string;
   schedule: ScheduleDay[];
   carers: string[];
+  suggestions?: CarerMatch[];
 }) {
   const router = useRouter();
   const [days, setDays] = useState<EditDay[]>(() => toEdit(schedule));
@@ -54,6 +57,9 @@ export default function ScheduleEditor({
   const [saved, setSaved] = useState(false);
 
   const carerOptions = [UN, ...carers.filter((c) => !/unassigned/i.test(c))];
+  const suggested = suggestions.filter((m) => m.areaFit !== "outside");
+  const suggestedNames = suggested.map((m) => m.carer.name);
+  const otherCarers = carers.filter((c) => !/unassigned/i.test(c) && !suggestedNames.includes(c));
 
   function mutate(fn: (d: EditDay[]) => EditDay[]) {
     setDays((prev) => fn(structuredClone(prev)));
@@ -145,7 +151,15 @@ export default function ScheduleEditor({
                       </select>
                       <input className="input sched-in" list="visit-types" value={v.type} placeholder="Type" onChange={(e) => setV(di, vi, "type", e.target.value)} />
                       <select className="input sched-in" value={v.carer} onChange={(e) => setV(di, vi, "carer", e.target.value)}>
-                        {carerOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                        <option value={UN}>{UN}</option>
+                        {suggested.length > 0 && (
+                          <optgroup label="Suggested for this client">
+                            {suggested.map((m) => <option key={m.carer.id} value={m.carer.name}>{m.carer.name} — {m.score}%</option>)}
+                          </optgroup>
+                        )}
+                        <optgroup label="All carers">
+                          {otherCarers.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </optgroup>
                         {v.carer && !carerOptions.includes(v.carer) && <option value={v.carer}>{v.carer}</option>}
                       </select>
                       <button className="task-x" title="Remove call" onClick={() => delV(di, vi)}>
