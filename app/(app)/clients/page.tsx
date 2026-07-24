@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CRM_ROLES, listClients, type Role } from "@/lib/db";
@@ -45,6 +46,16 @@ export default async function ClientsPage() {
         </p>
       </header>
       <div className="body fade">
+        <div className="flex" style={{ gap: 10, marginBottom: 14 }}>
+          <Link href="/clients/new" className="btn btn-primary">
+            <span className="ms" style={{ fontSize: 18 }}>person_add</span>
+            New referral
+          </Link>
+          <Link href="/clients/import" className="btn">
+            <span className="ms" style={{ fontSize: 18 }}>upload_file</span>
+            Bulk import
+          </Link>
+        </div>
         <ClientRegister rows={rows} statuses={statuses} />
       </div>
     </>
