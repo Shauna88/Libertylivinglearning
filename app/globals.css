@@ -1163,3 +1163,10 @@ button {
 .sched-copy{font-size:10.5px;color:var(--text-2);background:transparent;border:none;padding:2px;
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .sched-copy:hover{color:var(--accent)}
+
+/* ---------- availability: unassigned call you can drop the carer into ---------- */
+.avail-open{position:absolute;top:2px;bottom:2px;background:var(--amber-bg);border:1px solid var(--amber-fg);
+  border-radius:5px;color:var(--amber-fg);font-size:10px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:0 2px;z-index:2}
+.avail-open:hover{background:var(--amber-fg);color:#fff}
+.avail-key.open{background:var(--amber-bg);border:1px dashed var(--amber-fg)}
