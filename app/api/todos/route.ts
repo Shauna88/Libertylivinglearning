@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { addTodo, setTodoDone, deleteTodo } from "@/lib/db";
 import { MESSAGE_DEPTS, messagingDept } from "@/lib/roles";
+import { validRefHref } from "@/lib/refs";
 
 export const runtime = "nodejs";
 
@@ -27,11 +28,20 @@ export async function POST(req: Request) {
     if (body.toDept && (MESSAGE_DEPTS as readonly string[]).includes(String(body.toDept)) && String(body.toDept) !== "All staff") {
       toDept = String(body.toDept);
     }
+    // Optional "relates to" a client or carer for context.
+    let refHref: string | null = null;
+    let refLabel: string | null = null;
+    if (body.refHref && validRefHref(String(body.refHref))) {
+      refHref = String(body.refHref);
+      refLabel = String(body.refLabel ?? "").trim().slice(0, 80) || null;
+    }
     const entry = await addTodo({
       userId,
       text: text.slice(0, 240),
       toDept,
       fromName: toDept ? session.user.name ?? "Staff" : null,
+      refHref,
+      refLabel,
     });
     return NextResponse.json({ ok: true, entry });
   }

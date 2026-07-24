@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createMessage } from "@/lib/db";
 import { MESSAGE_DEPTS, messagingDept } from "@/lib/roles";
+import { validRefHref } from "@/lib/refs";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,13 @@ export async function POST(req: Request) {
   if (subject.length < 2) return NextResponse.json({ error: "A subject is required" }, { status: 400 });
   if (kind === "meeting" && !meetingAt) return NextResponse.json({ error: "Suggest a date/time for the meeting" }, { status: 400 });
 
+  let refHref: string | null = null;
+  let refLabel: string | null = null;
+  if (body.refHref && validRefHref(String(body.refHref))) {
+    refHref = String(body.refHref);
+    refLabel = String(body.refLabel ?? "").trim().slice(0, 80) || null;
+  }
+
   const role = session.user.role ?? "";
   const entry = await createMessage({
     fromId: Number(session.user.id),
@@ -41,6 +49,8 @@ export async function POST(req: Request) {
     kind,
     meetingAt,
     parentId,
+    refHref,
+    refLabel,
   });
   return NextResponse.json({ ok: true, entry });
 }

@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
-import { listInbox, listSent } from "@/lib/db";
+import { listInbox, listSent, listClients, listCarers } from "@/lib/db";
 import { MESSAGE_DEPTS, messagingDept } from "@/lib/roles";
+import { buildRefGroups } from "@/lib/refs";
 import Messages from "@/components/Messages";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ export default async function MessagesPage() {
   const userId = Number(session!.user.id);
   const myDept = messagingDept(role);
 
-  const [inbox, sent] = await Promise.all([listInbox(myDept), listSent(userId)]);
+  const [inbox, sent, clients, carers] = await Promise.all([listInbox(myDept), listSent(userId), listClients(), listCarers()]);
+  const refGroups = buildRefGroups(clients, carers);
 
   return (
     <div className="msg-screen">
@@ -20,7 +22,7 @@ export default async function MessagesPage() {
         <p>Send a message or request a meeting with another department. You receive anything addressed to <strong>{myDept}</strong> or all staff.</p>
       </header>
       <div className="msg-body fade">
-        <Messages inbox={inbox} sent={sent} myDept={myDept} depts={MESSAGE_DEPTS} />
+        <Messages inbox={inbox} sent={sent} myDept={myDept} depts={MESSAGE_DEPTS} refGroups={refGroups} />
       </div>
     </div>
   );
