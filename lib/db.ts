@@ -1522,6 +1522,55 @@ export async function deleteClientDoc(id: number, by: string): Promise<void> {
   await logAudit({ actorName: by, action: "clientdoc.delete", target: `doc#${id}` });
 }
 
+/**
+ * Replace a client's weekly Schedule of Service (the permanent recurring plan)
+ * in clients.data_json, and recompute the care team from the carers named on it.
+ */
+export async function saveClientSchedule(input: {
+  clientId: string;
+  schedule: Client["schedule"];
+  by: string;
+}): Promise<boolean> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const rows = (
+      await client.query("SELECT data_json FROM clients WHERE id=$1 FOR UPDATE", [input.clientId])
+    ).rows as { data_json: string }[];
+    if (!rows[0]) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const c = JSON.parse(rows[0].data_json) as Client;
+    c.schedule = input.schedule;
+    // Refresh the care team from carers named on the schedule.
+    const team = new Set<string>();
+    for (const d of input.schedule) {
+      for (const v of d.visits) {
+        for (const one of String(v.carer ?? "").split("+").map((s) => s.trim())) {
+          if (one && !/unassigned|to be allocated|^tbc$/i.test(one)) team.add(one);
+        }
+      }
+    }
+    c.carers = [...team];
+    await client.query("UPDATE clients SET data_json=$1 WHERE id=$2", [JSON.stringify(c), input.clientId]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+  await logAudit({
+    actorName: input.by,
+    action: "careplan.schedule.save",
+    target: input.clientId,
+    detail: `${input.schedule.reduce((n, d) => n + d.visits.length, 0)} weekly calls`,
+  });
+  return true;
+}
+
 /** Add or remove a care-plan task line under a domain (edits clients.data_json). */
 export async function editCarePlanTask(input: {
   clientId: string;

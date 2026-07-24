@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, getClient, listCareNotes, listClientDocs, type Role } from "@/lib/db";
+import { CRM_ROLES, getClient, listCareNotes, listClientDocs, listClients, type Role } from "@/lib/db";
+import { carerPool } from "@/lib/schedule";
 import {
   maskName,
   maskAddr,
@@ -21,7 +22,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [notes, docs] = await Promise.all([listCareNotes(id), listClientDocs(id)]);
+  const [notes, docs, allClients] = await Promise.all([listCareNotes(id), listClientDocs(id), listClients()]);
+  const carers = carerPool(allClients);
 
   // Mask every identifiable field before it reaches the browser; the PII gate
   // reveals the real values through /api/pii/reveal (which logs the access).
@@ -58,7 +60,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} editable />
       </div>
     </>
   );

@@ -1101,3 +1101,9 @@ button {
 .avail-target{cursor:pointer;border-color:var(--accent)}
 .avail-target:hover{box-shadow:0 3px 12px rgba(20,50,35,.14);border-color:var(--accent-dark)}
 .avail-clash{opacity:.5}
+
+/* ---------- schedule of service editor ---------- */
+.sched-visit{border-left:3px solid var(--accent);padding:8px 0 8px 10px}
+.sched-grid{display:grid;grid-template-columns:96px 78px 1fr 1fr 26px;gap:6px;align-items:center}
+.sched-in{font-size:12px;padding:6px 8px}
+@media (max-width:560px){.sched-grid{grid-template-columns:1fr 1fr;grid-auto-rows:auto}}
