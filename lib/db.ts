@@ -15,7 +15,7 @@ import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./conten
 import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 
-const SEED_VERSION = "11";
+const SEED_VERSION = "12";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -249,6 +249,11 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_call_log_created ON call_log(created_at);
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS cause TEXT;
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS carer TEXT;
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS event_date TEXT;
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS date_to TEXT;
+    ALTER TABLE call_log ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT false;
 
     CREATE TABLE IF NOT EXISTS issue_routing (
       kind TEXT NOT NULL,
@@ -445,16 +450,37 @@ async function seed(client: PoolClient) {
     );
   }
 
-  // ---- CRM: sample call-monitor events ----
-  const callSamples = [
-    { client_id: "CL-004", su: "SU-4021", area: "Offaly", visit_time: "08:00", kind: "late", detail: "Carer running ~25 min late (traffic on N52); client and family notified.", logged_by: "Mary James", age: 0 },
-    { client_id: "CL-006", su: "SU-4233", area: "Laois", visit_time: "13:00", kind: "missed", detail: "Lunch call could not be covered — carer called in sick; reallocation in progress.", logged_by: "Mary James", age: 0 },
+  // ---- CRM: sample call-monitor events (full event model) ----
+  const clientCtx: Record<string, { su: string; area: string }> = {};
+  for (const c of CLIENTS) clientCtx[c.id] = { su: c.su, area: c.area };
+  const callSamples: Array<{
+    client_id: string;
+    visit_time?: string;
+    kind: string;
+    cause?: string;
+    carer?: string;
+    event_date?: string;
+    date_to?: string;
+    resolved?: boolean;
+    detail: string;
+    logged_by: string;
+    hrs: number;
+  }> = [
+    { client_id: "CL-001", visit_time: "08:00", kind: "missed", cause: "carer_noshow", carer: "Denise Fenlon", detail: "Carer did not arrive — no notice given. Call re-covered 08:40 by on-call HCA; client and family informed. Referred to HR for follow-up (HR-08).", logged_by: "Mary James", hrs: 3, resolved: false },
+    { client_id: "CL-005", visit_time: "08:00", kind: "missed", cause: "carer_sick", carer: "Marian Dunne", detail: "Carer phoned in sick at 06:50 — call re-covered by on-call HCA. Return-to-work record needed under HR-08.", logged_by: "Mary James", hrs: 6, resolved: false },
+    { client_id: "CL-007", visit_time: "12:30", kind: "missed", cause: "carer_late", carer: "Katie Phelan", detail: "Carer 35 min late — traffic, no prior call to office. Punctuality to be raised at supervision.", logged_by: "Ana Lyons", hrs: 20, resolved: false },
+    { client_id: "CL-004", visit_time: "14:00", kind: "cancel_client", detail: "Family cancelled same morning — <24h notice. Short-notice cancellation policy applies.", logged_by: "Mary James", hrs: 26, resolved: true },
+    { client_id: "CL-006", visit_time: "09:30", kind: "cancel_office", detail: "Office stood the call down — carer redeployed to urgent cover elsewhere.", logged_by: "Ana Lyons", hrs: 30, resolved: true },
+    { client_id: "CL-001", visit_time: "19:00", kind: "extra", detail: "Additional evening welfare check requested by family after a fall — billable add-on.", logged_by: "Mary James", hrs: 40, resolved: true },
+    { client_id: "CL-002", kind: "hosp_admit", event_date: "2026-07-20", detail: "Admitted to Beaumont via GP — chest infection. Calls paused pending discharge planning.", logged_by: "Tom Brennan", hrs: 96, resolved: false },
+    { client_id: "CL-007", kind: "respite", event_date: "2026-07-23", date_to: "2026-08-06", detail: "Two-week respite — calls paused for the stay, roster resumes automatically.", logged_by: "Ana Lyons", hrs: 24, resolved: false },
   ];
   for (const s of callSamples) {
+    const ctx = clientCtx[s.client_id] ?? { su: "", area: "" };
     await client.query(
-      `INSERT INTO call_log (client_id,su,area,visit_time,kind,detail,logged_by,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7, now() - make_interval(hours => $8))`,
-      [s.client_id, s.su, s.area, s.visit_time, s.kind, s.detail, s.logged_by, s.age]
+      `INSERT INTO call_log (client_id,su,area,visit_time,kind,cause,carer,event_date,date_to,resolved,detail,logged_by,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now() - make_interval(hours => $13))`,
+      [s.client_id, ctx.su, ctx.area, s.visit_time ?? null, s.kind, s.cause ?? null, s.carer ?? null, s.event_date ?? null, s.date_to ?? null, s.resolved ?? false, s.detail, s.logged_by, s.hrs]
     );
   }
 
@@ -795,6 +821,11 @@ export type CallLogRow = {
   area: string | null;
   visit_time: string | null;
   kind: string;
+  cause: string | null;
+  carer: string | null;
+  event_date: string | null;
+  date_to: string | null;
+  resolved: boolean;
   detail: string;
   logged_by: string;
   created_at: string;
@@ -810,13 +841,29 @@ export async function createCallEvent(input: {
   area: string | null;
   visitTime: string | null;
   kind: string;
+  cause?: string | null;
+  carer?: string | null;
+  eventDate?: string | null;
+  dateTo?: string | null;
   detail: string;
   loggedBy: string;
 }): Promise<CallLogRow> {
   const rows = await q<CallLogRow>(
-    `INSERT INTO call_log (client_id,su,area,visit_time,kind,detail,logged_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [input.clientId, input.su, input.area, input.visitTime, input.kind, input.detail, input.loggedBy]
+    `INSERT INTO call_log (client_id,su,area,visit_time,kind,cause,carer,event_date,date_to,detail,logged_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+    [
+      input.clientId,
+      input.su,
+      input.area,
+      input.visitTime,
+      input.kind,
+      input.cause ?? null,
+      input.carer ?? null,
+      input.eventDate ?? null,
+      input.dateTo ?? null,
+      input.detail,
+      input.loggedBy,
+    ]
   );
   await logAudit({
     actorName: input.loggedBy,
@@ -825,6 +872,16 @@ export async function createCallEvent(input: {
     detail: input.detail,
   });
   return rows[0];
+}
+
+export async function setCallResolved(id: number, resolved: boolean, by: string): Promise<void> {
+  await q("UPDATE call_log SET resolved=$1 WHERE id=$2", [resolved, id]);
+  await logAudit({ actorName: by, action: resolved ? "call.resolve" : "call.reopen", target: `call#${id}` });
+}
+
+export async function deleteCallEvent(id: number, by: string): Promise<void> {
+  await q("DELETE FROM call_log WHERE id=$1", [id]);
+  await logAudit({ actorName: by, action: "call.delete", target: `call#${id}` });
 }
 
 // ---------------- Improvement hub: sign-offs, routing, assignments ----------------
