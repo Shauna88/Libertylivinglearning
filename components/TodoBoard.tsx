@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { RefGroup } from "@/lib/refs";
 
 export type SystemTodo = { icon: string; tone: string; text: string; href: string };
 export type PersonalTodo = {
@@ -13,6 +14,8 @@ export type PersonalTodo = {
   toDept?: string | null;
   fromName?: string | null;
   mine?: boolean;
+  refLabel?: string | null;
+  refHref?: string | null;
 };
 
 export default function TodoBoard({
@@ -23,6 +26,7 @@ export default function TodoBoard({
   presets = [],
   depts = [],
   myDept = "",
+  refGroups = [],
 }: {
   title: string;
   emptyText: string;
@@ -31,11 +35,16 @@ export default function TodoBoard({
   presets?: string[];
   depts?: string[];
   myDept?: string;
+  refGroups?: RefGroup[];
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [share, setShare] = useState(""); // "" = just me, else a department
+  const [refHref, setRefHref] = useState(""); // "relates to" a client / carer
   const [busy, setBusy] = useState(false);
+
+  const refLabels = new Map<string, string>();
+  refGroups.forEach((g) => g.options.forEach((o) => refLabels.set(o.href, o.label)));
 
   const pending = todos.filter((t) => !t.done);
   const done = todos.filter((t) => t.done);
@@ -56,14 +65,20 @@ export default function TodoBoard({
     if (t.length < 2) return;
     setText("");
     const toDept = share || null;
-    setShare("");
-    await post({ action: "add", text: t, toDept });
+    const rHref = refHref || null;
+    const rLabel = refHref ? refLabels.get(refHref) ?? null : null;
+    setShare(""); setRefHref("");
+    await post({ action: "add", text: t, toDept, refHref: rHref, refLabel: rLabel });
   }
 
   function tag(t: PersonalTodo) {
     if (!t.toDept) return null;
     if (t.mine) return <span className="pill tone-blue" style={{ fontSize: 10 }}><span className="ms" style={{ fontSize: 12 }}>arrow_forward</span>{t.toDept}</span>;
     return <span className="pill tone-amber" style={{ fontSize: 10 }}><span className="ms" style={{ fontSize: 12 }}>groups</span>{t.fromName ? `from ${t.fromName}` : "shared"}</span>;
+  }
+  function refChip(t: PersonalTodo) {
+    if (!t.refLabel || !t.refHref) return null;
+    return <Link href={t.refHref} className="pill tone-teal" style={{ fontSize: 10 }} title={`Open ${t.refLabel}`}><span className="ms" style={{ fontSize: 12 }}>link</span>{t.refLabel}</Link>;
   }
 
   return (
@@ -90,6 +105,7 @@ export default function TodoBoard({
             <span className="ms" style={{ fontSize: 18 }}>radio_button_unchecked</span>
           </button>
           {t.href ? <Link href={t.href} style={{ fontSize: 13, flex: 1 }}>{t.text}</Link> : <span style={{ fontSize: 13, flex: 1 }}>{t.text}</span>}
+          {refChip(t)}
           {tag(t)}
           <button className="todo-del" disabled={busy} title="Delete" onClick={() => post({ action: "delete", id: t.id })}>
             <span className="ms" style={{ fontSize: 15 }}>close</span>
@@ -103,6 +119,7 @@ export default function TodoBoard({
             <span className="ms" style={{ fontSize: 18 }}>check_circle</span>
           </button>
           <span style={{ fontSize: 13, flex: 1, textDecoration: "line-through", color: "var(--text-2)" }}>{t.text}</span>
+          {refChip(t)}
           {tag(t)}
           <button className="todo-del" disabled={busy} title="Delete" onClick={() => post({ action: "delete", id: t.id })}>
             <span className="ms" style={{ fontSize: 15 }}>close</span>
@@ -124,6 +141,16 @@ export default function TodoBoard({
           <select className="input todo-select" value="" onChange={(e) => { if (e.target.value) setText(e.target.value); }} title="Common tasks">
             <option value="">Common tasks…</option>
             {presets.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+        {refGroups.length > 0 && (
+          <select className="input todo-select" value={refHref} onChange={(e) => setRefHref(e.target.value)} title="Relates to a client or carer">
+            <option value="">Relates to…</option>
+            {refGroups.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((o) => <option key={o.href} value={o.href}>{o.label}</option>)}
+              </optgroup>
+            ))}
           </select>
         )}
         {depts.length > 0 && (

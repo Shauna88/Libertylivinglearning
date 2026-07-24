@@ -19,7 +19,7 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "20";
+const SEED_VERSION = "21";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -433,6 +433,8 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_messages_to ON messages(to_dept);
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS ref_label TEXT;
+    ALTER TABLE messages ADD COLUMN IF NOT EXISTS ref_href TEXT;
 
     CREATE TABLE IF NOT EXISTS user_todos (
       id SERIAL PRIMARY KEY,
@@ -447,6 +449,9 @@ async function createSchema(client: PoolClient) {
     -- to_dept set = a collaboration to-do shared with another department
     ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS to_dept TEXT;
     ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS from_name TEXT;
+    -- optional "relates to" context: a client or a carer/HCA
+    ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS ref_label TEXT;
+    ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS ref_href TEXT;
     CREATE INDEX IF NOT EXISTS idx_user_todos_dept ON user_todos(to_dept);
   `);
 }
@@ -1644,6 +1649,8 @@ export type MessageRow = {
   kind: string;
   meeting_at: string | null;
   parent_id: number | null;
+  ref_label: string | null;
+  ref_href: string | null;
   created_at: string;
 };
 
@@ -1678,11 +1685,13 @@ export async function createMessage(input: {
   kind: string;
   meetingAt: string | null;
   parentId: number | null;
+  refLabel?: string | null;
+  refHref?: string | null;
 }): Promise<MessageRow> {
   const rows = await q<MessageRow>(
-    `INSERT INTO messages (from_id,from_name,from_role,from_dept,to_dept,subject,body,kind,meeting_at,parent_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-    [input.fromId, input.fromName, input.fromRole, input.fromDept, input.toDept, input.subject, input.body, input.kind, input.meetingAt, input.parentId]
+    `INSERT INTO messages (from_id,from_name,from_role,from_dept,to_dept,subject,body,kind,meeting_at,parent_id,ref_label,ref_href)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+    [input.fromId, input.fromName, input.fromRole, input.fromDept, input.toDept, input.subject, input.body, input.kind, input.meetingAt, input.parentId, input.refLabel ?? null, input.refHref ?? null]
   );
   await logAudit({ actorName: input.fromName, action: `message.${input.kind}`, target: input.toDept, detail: input.subject });
   return rows[0];
@@ -1698,6 +1707,8 @@ export type TodoRow = {
   done: boolean;
   to_dept: string | null;
   from_name: string | null;
+  ref_label: string | null;
+  ref_href: string | null;
   created_at: string;
   done_at: string | null;
 };
@@ -1724,10 +1735,12 @@ export async function addTodo(input: {
   href?: string | null;
   toDept?: string | null;
   fromName?: string | null;
+  refLabel?: string | null;
+  refHref?: string | null;
 }): Promise<TodoRow> {
   const rows = await q<TodoRow>(
-    "INSERT INTO user_todos (user_id,text,href,to_dept,from_name) VALUES ($1,$2,$3,$4,$5) RETURNING *",
-    [input.userId, input.text, input.href ?? null, input.toDept ?? null, input.fromName ?? null]
+    "INSERT INTO user_todos (user_id,text,href,to_dept,from_name,ref_label,ref_href) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
+    [input.userId, input.text, input.href ?? null, input.toDept ?? null, input.fromName ?? null, input.refLabel ?? null, input.refHref ?? null]
   );
   return rows[0];
 }

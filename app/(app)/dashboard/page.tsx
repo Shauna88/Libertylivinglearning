@@ -11,6 +11,7 @@ import {
   listAssignments,
   countPendingTimeOff,
   listDashboardTodos,
+  listCarers,
   coverMap,
   OVERSIGHT_ROLES,
   WORKFORCE_ROLES,
@@ -19,6 +20,7 @@ import {
 import TodoBoard, { type PersonalTodo } from "@/components/TodoBoard";
 import { messagingDept, MESSAGE_DEPTS } from "@/lib/roles";
 import { presetsFor } from "@/lib/todopresets";
+import { buildRefGroups } from "@/lib/refs";
 import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
 import { PORTALS, portalKey, rag, ragPct, trend, type Metric } from "@/lib/portals";
@@ -128,9 +130,12 @@ export default async function DashboardPage() {
   const myDept = messagingDept(role);
   const personalTodos: PersonalTodo[] = (await listDashboardTodos(user.id, myDept)).map((t) => ({
     id: t.id, text: t.text, href: t.href, done: t.done, toDept: t.to_dept, fromName: t.from_name, mine: t.user_id === user.id,
+    refLabel: t.ref_label, refHref: t.ref_href,
   }));
   const todoPresets = presetsFor(myDept);
   const shareDepts = (MESSAGE_DEPTS as readonly string[]).filter((d) => d !== "All staff");
+  const [refClients, refCarers] = await Promise.all([listClients(), listCarers()]);
+  const todoRefGroups = buildRefGroups(refClients, refCarers);
   const firstName = user.name.split(" ")[0] || "there";
   const hour = new Date().toLocaleString("en-IE", { hour: "2-digit", hour12: false, timeZone: "Europe/Dublin" });
   const hi = `${greeting(parseInt(hour, 10) || 9)}, ${firstName}`;
@@ -249,7 +254,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* to-do prompts + personal to-dos */}
-          <TodoBoard title="To do" emptyText="All clear" systemTodos={todos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} />
+          <TodoBoard title="To do" emptyText="All clear" systemTodos={todos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} />
 
           <div className="grid cols-4">
             {tiles.map((t) => (
@@ -388,7 +393,7 @@ export default async function DashboardPage() {
           {profile.caps.includes("improvement") && (
             <>
               <div className="section-title">Daily improvement prompts{deptOf(role) && hubScopeOf(role) === "dept" ? ` · ${deptOf(role)}` : ""}</div>
-              <TodoBoard title="Drive your department's improvements" systemTodos={improveTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} emptyText="Nothing outstanding" />
+              <TodoBoard title="Drive your department's improvements" systemTodos={improveTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} emptyText="Nothing outstanding" />
             </>
           )}
           {inbox}
@@ -418,7 +423,7 @@ export default async function DashboardPage() {
             <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} This month ({fin.monthLabel}) at a glance.</p>
           </div>
           <div className="section-title">Daily prompts · Finance</div>
-          <TodoBoard title="Keep the books current" systemTodos={finTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} emptyText="Nothing outstanding" />
+          <TodoBoard title="Keep the books current" systemTodos={finTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} emptyText="Nothing outstanding" />
           <div className="grid cols-4">
             <div className="card metric"><div className="num">{money(fin.billedTotal)}</div><div className="lbl">Billed this month</div></div>
             <div className="card metric"><div className="num">{money(fin.payrollTotal)}</div><div className="lbl">Payroll</div></div>
@@ -472,7 +477,7 @@ export default async function DashboardPage() {
             <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} {isOnCall ? "Out-of-hours — here's what's live right now." : "Here's your day."}</p>
           </div>
           <div className="section-title">{isOnCall ? "On call — action now" : "Your day — action now"}</div>
-          <TodoBoard title={isOnCall ? "Live out-of-hours" : "To do today"} systemTodos={opsTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} emptyText="All calls covered" />
+          <TodoBoard title={isOnCall ? "Live out-of-hours" : "To do today"} systemTodos={opsTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} emptyText="All calls covered" />
 
           <div className="grid cols-4">
             <div className="card metric"><div className="num">{visits.length}</div><div className="lbl">Visits today ({weekday})</div></div>
@@ -546,7 +551,7 @@ export default async function DashboardPage() {
     <>
       {header}
       <div className="body fade">
-        <TodoBoard title="To do" emptyText="Nothing outstanding" systemTodos={hcaTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} />
+        <TodoBoard title="To do" emptyText="Nothing outstanding" systemTodos={hcaTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} />
         {total > 0 ? (
           <>
             <div className="grid cols-3">
