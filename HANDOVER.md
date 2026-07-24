@@ -86,13 +86,20 @@ Password for **all**: `liberty`.
 
 | Email | Role |
 |---|---|
-| `manager@libertyhomecare.ie` | Manager (full oversight) |
+| `manager@libertyhomecare.ie` | Executive / PIC (all areas) |
+| `quality@libertyhomecare.ie` | Director of Quality |
+| `hr@libertyhomecare.ie` | Director of HR |
 | `csm@libertyhomecare.ie` | Client Service Manager |
+| `finance@libertyhomecare.ie` | Director of Finance |
+| `recruit@libertyhomecare.ie` | Recruitment Manager |
 | `coordinator@libertyhomecare.ie` | Care Coordinator |
-| `hca@libertyhomecare.ie` | Healthcare Assistant |
-| `admin@libertyhomecare.ie` | Office Administrator |
 | `oncall@libertyhomecare.ie` | On-Call Manager |
+| `admin@libertyhomecare.ie` | Office Administrator |
+| `hca@libertyhomecare.ie` | Healthcare Assistant |
 | `family@libertyhomecare.ie` | Client / Family portal (read-only, linked to client `CL-001`) |
+
+Each role's access is defined in **`lib/roles.ts`** (capabilities + department); the nav,
+page gates, Improvement-hub scope and dashboard all derive from it.
 
 **These are demo logins — replace them and change the password before real staff use.** They
 are created in the `seed()` function in `lib/db.ts` (the `demo` array). All client and staff
