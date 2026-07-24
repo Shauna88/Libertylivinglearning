@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CarerRecord, CarerSkill, CarerArea } from "@/lib/carers";
 
@@ -132,7 +133,7 @@ export default function CarerAdmin({
           return (
             <div key={c.id} className="card" style={{ opacity: c.status === "active" ? 1 : 0.6 }}>
               <div className="flex between" style={{ gap: 8, alignItems: "flex-start" }}>
-                <div>
+                <Link href={`/carers/${c.id}`} style={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
                   <div className="flex" style={{ gap: 8, alignItems: "center" }}>
                     <strong style={{ fontSize: 14.5 }}>{c.name}</strong>
                     {c.status !== "active" && <span className="pill tone-grey">Inactive</span>}
@@ -140,12 +141,17 @@ export default function CarerAdmin({
                   <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
                     <span className="code">{c.id}</span> · {c.homeArea || "No area"} · {c.transport || "—"}
                   </div>
+                </Link>
+                <div className="flex" style={{ gap: 6 }}>
+                  <Link href={`/carers/${c.id}`} className="mini" title="View working week">
+                    <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>calendar_month</span>Schedule
+                  </Link>
+                  {canEdit && (
+                    <button className="mini" onClick={() => open(c)}>
+                      <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>edit</span>Edit
+                    </button>
+                  )}
                 </div>
-                {canEdit && (
-                  <button className="mini" onClick={() => open(c)}>
-                    <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>edit</span>Edit
-                  </button>
-                )}
               </div>
 
               <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>{c.pathway || "Pathway not set"}</div>
