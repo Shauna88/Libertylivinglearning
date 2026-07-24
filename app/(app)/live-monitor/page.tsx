@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, listClients, listCallLog, type Role } from "@/lib/db";
+import { CRM_ROLES, listClients, listCallLog, coverMap, type Role } from "@/lib/db";
 import { deriveTodayVisits, visitSummary, nowParts } from "@/lib/schedule";
 
 export const dynamic = "force-dynamic"; // always reflects "now"
@@ -11,9 +11,10 @@ export default async function LiveMonitorPage() {
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
   const clients = await listClients();
+  const cover = await coverMap();
   const now = new Date();
   const { weekday, nowMin } = nowParts(now);
-  const visits = deriveTodayVisits(clients, weekday, nowMin);
+  const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
   const s = visitSummary(visits);
   const callLog = await listCallLog(20);
   const todayCalls = callLog.filter((c) => new Date(c.created_at).toDateString() === now.toDateString());

@@ -15,7 +15,7 @@ import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./conten
 import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 
-const SEED_VERSION = "10";
+const SEED_VERSION = "11";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -292,12 +292,39 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+
+    CREATE TABLE IF NOT EXISTS cover_assignments (
+      client_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      time TEXT NOT NULL,
+      carer TEXT NOT NULL,
+      assigned_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (client_id, day, time)
+    );
+
+    CREATE TABLE IF NOT EXISTS permanent_change_requests (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      time TEXT NOT NULL,
+      carer TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      requested_by TEXT NOT NULL,
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      status TEXT NOT NULL DEFAULT 'pending',
+      decided_by TEXT,
+      decided_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_permreq_status ON permanent_change_requests(status);
   `);
 }
 
 async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
+  await client.query("DELETE FROM permanent_change_requests");
+  await client.query("DELETE FROM cover_assignments");
   await client.query("DELETE FROM audit_log");
   await client.query("DELETE FROM call_log");
   await client.query("DELETE FROM pii_access_log");
@@ -430,6 +457,26 @@ async function seed(client: PoolClient) {
       [s.client_id, s.su, s.area, s.visit_time, s.kind, s.detail, s.logged_by, s.age]
     );
   }
+
+  // ---- CRM: sample cover override + a pending permanent-change request ----
+  // A coordinator has covered Agnes's Saturday morning call with Denise for a few
+  // weeks and asked the CSM to make it a permanent line in the Schedule of Service.
+  await client.query(
+    "INSERT INTO cover_assignments (client_id,day,time,carer,assigned_by) VALUES ($1,$2,$3,$4,$5)",
+    ["CL-001", "Saturday", "09:30", "Denise Fenlon", "Mary James"]
+  );
+  await client.query(
+    `INSERT INTO permanent_change_requests (client_id,day,time,carer,note,requested_by,status)
+     VALUES ($1,$2,$3,$4,$5,$6,'pending')`,
+    [
+      "CL-001",
+      "Saturday",
+      "09:30",
+      "Denise Fenlon",
+      "Denise has covered this call for 3 weeks — Agnes is settled with her. Requesting it becomes a permanent line in the Schedule of Service.",
+      "Care Coordinator (Mary James)",
+    ]
+  );
 
   await client.query(
     "INSERT INTO meta (key,value) VALUES ('seed_version',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -1047,4 +1094,189 @@ export async function dsarExportCount(): Promise<number> {
     "SELECT COUNT(*)::int AS n FROM audit_log WHERE action = 'dsar.export'"
   );
   return rows[0]?.n ?? 0;
+}
+
+// ---------------- CRM: cover assignments + permanent-change requests ----------------
+
+export type CoverRow = {
+  client_id: string;
+  day: string;
+  time: string;
+  carer: string;
+  assigned_by: string;
+  created_at: string;
+};
+
+/** All cover overrides as a `clientId|day|time → carer` map for schedule derivation. */
+export async function coverMap(): Promise<Record<string, string>> {
+  const rows = await q<CoverRow>("SELECT * FROM cover_assignments");
+  const m: Record<string, string> = {};
+  for (const r of rows) m[`${r.client_id}|${r.day}|${r.time}`] = r.carer;
+  return m;
+}
+
+/** Allocate / reassign / unallocate a visit. Pass carer "Unassigned" to unallocate. */
+export async function setCover(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  carer: string;
+  by: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO cover_assignments (client_id,day,time,carer,assigned_by)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (client_id,day,time)
+     DO UPDATE SET carer=excluded.carer, assigned_by=excluded.assigned_by, created_at=now()`,
+    [input.clientId, input.day, input.time, input.carer, input.by]
+  );
+  await logAudit({
+    actorName: input.by,
+    action: "cover.set",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+    detail: input.carer,
+  });
+}
+
+/** Remove a cover override (revert to base schedule) + drop any pending request. */
+export async function clearCover(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  by: string;
+}): Promise<void> {
+  await q("DELETE FROM cover_assignments WHERE client_id=$1 AND day=$2 AND time=$3", [
+    input.clientId,
+    input.day,
+    input.time,
+  ]);
+  await q(
+    "DELETE FROM permanent_change_requests WHERE client_id=$1 AND day=$2 AND time=$3 AND status='pending'",
+    [input.clientId, input.day, input.time]
+  );
+  await logAudit({
+    actorName: input.by,
+    action: "cover.clear",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+  });
+}
+
+export type PermReqRow = {
+  id: number;
+  client_id: string;
+  day: string;
+  time: string;
+  carer: string;
+  note: string;
+  requested_by: string;
+  requested_at: string;
+  status: string;
+  decided_by: string | null;
+  decided_at: string | null;
+};
+
+export async function listPermReqs(status?: string): Promise<PermReqRow[]> {
+  if (status) {
+    return q<PermReqRow>(
+      "SELECT * FROM permanent_change_requests WHERE status=$1 ORDER BY requested_at DESC",
+      [status]
+    );
+  }
+  return q<PermReqRow>("SELECT * FROM permanent_change_requests ORDER BY requested_at DESC");
+}
+
+/** Raise (or replace the pending) permanent-change request for a visit slot. */
+export async function createPermReq(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  carer: string;
+  note: string;
+  requestedBy: string;
+}): Promise<void> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "DELETE FROM permanent_change_requests WHERE client_id=$1 AND day=$2 AND time=$3 AND status='pending'",
+      [input.clientId, input.day, input.time]
+    );
+    await client.query(
+      `INSERT INTO permanent_change_requests (client_id,day,time,carer,note,requested_by,status)
+       VALUES ($1,$2,$3,$4,$5,$6,'pending')`,
+      [input.clientId, input.day, input.time, input.carer, input.note, input.requestedBy]
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+  await logAudit({
+    actorName: input.requestedBy,
+    action: "permreq.create",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+    detail: input.carer,
+  });
+}
+
+/**
+ * CSM decision on a permanent-change request. On approval the carer is written
+ * into the client's base Schedule of Service and the temp cover override is
+ * removed (now baked in); on decline the request is just marked.
+ */
+export async function decidePermReq(id: number, approve: boolean, decidedBy: string): Promise<void> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const rows = (
+      await client.query("SELECT * FROM permanent_change_requests WHERE id=$1 FOR UPDATE", [id])
+    ).rows as PermReqRow[];
+    const req = rows[0];
+    if (!req || req.status !== "pending") {
+      await client.query("ROLLBACK");
+      return;
+    }
+    if (approve) {
+      // fold the change into the base schedule stored in clients.data_json
+      const cRows = (
+        await client.query("SELECT data_json FROM clients WHERE id=$1 FOR UPDATE", [req.client_id])
+      ).rows as { data_json: string }[];
+      if (cRows[0]) {
+        const c = JSON.parse(cRows[0].data_json) as Client;
+        for (const d of c.schedule) {
+          if (d.day !== req.day) continue;
+          for (const v of d.visits) {
+            if (v.time === req.time) v.carer = req.carer;
+          }
+        }
+        await client.query("UPDATE clients SET data_json=$1 WHERE id=$2", [
+          JSON.stringify(c),
+          req.client_id,
+        ]);
+      }
+      await client.query(
+        "DELETE FROM cover_assignments WHERE client_id=$1 AND day=$2 AND time=$3",
+        [req.client_id, req.day, req.time]
+      );
+    }
+    await client.query(
+      "UPDATE permanent_change_requests SET status=$1, decided_by=$2, decided_at=now() WHERE id=$3",
+      [approve ? "approved" : "declined", decidedBy, id]
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+  await logAudit({
+    actorName: decidedBy,
+    action: approve ? "permreq.approve" : "permreq.decline",
+    target: `req#${id}`,
+  });
 }

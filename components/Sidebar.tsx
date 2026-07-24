@@ -89,7 +89,7 @@ export default function Sidebar({
       items: [
         { label: "Live monitor", icon: "sensors", href: "/live-monitor" },
         { label: "Client register", icon: "contacts", href: "/clients" },
-        { label: "Carer roster", icon: "event_note", href: "/roster" },
+        { label: "Rostering", icon: "edit_calendar", href: "/roster" },
         { label: "Call log", icon: "phone_missed", href: "/call-log" },
       ],
     });
