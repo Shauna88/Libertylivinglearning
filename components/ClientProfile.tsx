@@ -35,6 +35,8 @@ export default function ClientProfile({
   docs = [],
   carers = [],
   pending = [],
+  cover = {},
+  reasons = {},
   isApprover = false,
   editable = false,
 }: {
@@ -43,6 +45,8 @@ export default function ClientProfile({
   docs?: ClientDoc[];
   carers?: string[];
   pending?: PendingReq[];
+  cover?: Record<string, string>;
+  reasons?: Record<string, string>;
   isApprover?: boolean;
   editable?: boolean;
 }) {
@@ -448,7 +452,7 @@ export default function ClientProfile({
       })()}
       {schedOpen && editable && (
         <>
-          <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} isApprover={isApprover} />
+          <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} />
           {isApprover && (
             <details className="card" style={{ marginTop: 12 }}>
               <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Edit plan structure — add / remove calls, times &amp; tasks</summary>
