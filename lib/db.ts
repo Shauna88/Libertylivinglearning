@@ -1722,6 +1722,12 @@ export async function setScheduleCarer(input: {
     }
     c.carers = [...team];
     await client.query("UPDATE clients SET data_json=$1 WHERE id=$2", [JSON.stringify(c), input.clientId]);
+    // A permanent base change supersedes any temporary cover for that slot.
+    await client.query("DELETE FROM cover_assignments WHERE client_id=$1 AND day=$2 AND time=$3", [
+      input.clientId,
+      input.day,
+      input.time,
+    ]);
     await client.query("COMMIT");
   } catch (e) {
     await client.query("ROLLBACK");

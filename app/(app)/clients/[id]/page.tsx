@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, coverMap, coverReasons, type Role } from "@/lib/db";
 import { carerPool } from "@/lib/schedule";
 import {
   maskName,
@@ -22,17 +22,25 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [notes, docs, allClients, pendingAll] = await Promise.all([
+  const [notes, docs, allClients, pendingAll, cover, reasons] = await Promise.all([
     listCareNotes(id),
     listClientDocs(id),
     listClients(),
     listPermReqs("pending"),
+    coverMap(),
+    coverReasons(),
   ]);
   const carers = carerPool(allClients);
   const isApprover = OVERSIGHT_ROLES.includes(session!.user.role as Role);
   const pending = pendingAll
     .filter((p) => p.client_id === id)
     .map((p) => ({ id: p.id, day: p.day, time: p.time, carer: p.carer, note: p.note, requestedBy: p.requested_by }));
+  // This client's cover overrides + unassign reasons, keyed day|time.
+  const prefix = `${id}|`;
+  const clientCover: Record<string, string> = {};
+  const clientReasons: Record<string, string> = {};
+  for (const [k, v] of Object.entries(cover)) if (k.startsWith(prefix)) clientCover[k.slice(prefix.length)] = v;
+  for (const [k, v] of Object.entries(reasons)) if (k.startsWith(prefix)) clientReasons[k.slice(prefix.length)] = v;
 
   // Mask every identifiable field before it reaches the browser; the PII gate
   // reveals the real values through /api/pii/reveal (which logs the access).
@@ -69,7 +77,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} isApprover={isApprover} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} editable />
       </div>
     </>
   );
