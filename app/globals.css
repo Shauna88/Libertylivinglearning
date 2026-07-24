@@ -1088,3 +1088,16 @@ button {
 .avail{padding:14px}
 .linkish{background:none;border:none;padding:0;font:inherit;color:var(--text-2);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:11px;display:inline-flex;align-items:center;gap:4px}
 .linkish:hover{color:var(--accent-dark)}
+
+/* ---------- rostering: click-to-move interactions ---------- */
+.tl-block{cursor:pointer;text-align:left;font-family:inherit;transition:box-shadow .12s,transform .12s}
+.tl-block:hover{box-shadow:0 3px 10px rgba(20,50,35,.18);z-index:2}
+.tl-block.tl-sel{box-shadow:0 0 0 2px var(--accent),0 3px 10px rgba(20,50,35,.2);z-index:3}
+
+.move-bar{border-left:4px solid var(--accent);background:var(--accent-tint);border-color:var(--accent-tint);margin-bottom:6px}
+.move-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+
+.avail{text-align:left;font-family:inherit;width:100%;display:block;cursor:default;transition:border-color .12s,box-shadow .12s}
+.avail-target{cursor:pointer;border-color:var(--accent)}
+.avail-target:hover{box-shadow:0 3px 12px rgba(20,50,35,.14);border-color:var(--accent-dark)}
+.avail-clash{opacity:.5}
