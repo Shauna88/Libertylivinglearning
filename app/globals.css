@@ -1151,3 +1151,15 @@ button {
 .avail-key{width:14px;height:14px;border-radius:4px;display:inline-block}
 .avail-key.busy{background:var(--accent)}
 .avail-key.gap{background:rgba(28,124,63,0.10);border:1px dashed var(--green-fg,#1c7c3f)}
+
+/* ---------- schedule editor: week grid (all 7 days as columns) ---------- */
+.sched-week{display:grid;grid-template-columns:repeat(7,minmax(168px,1fr));gap:0;min-width:1180px}
+.sched-col{border-left:1px solid var(--border);display:flex;flex-direction:column}
+.sched-col:first-child{border-left:none}
+.sched-col-head{padding:9px 10px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0}
+.sched-col-body{padding:8px;display:flex;flex-direction:column;gap:8px}
+.sched-cell{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid var(--border);
+  border-radius:9px;background:var(--card)}
+.sched-copy{font-size:10.5px;color:var(--text-2);background:transparent;border:none;padding:2px;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.sched-copy:hover{color:var(--accent)}
