@@ -252,19 +252,31 @@ export function carerWeek(
   });
 }
 
-/** Weekly totals for one client: planned minutes and how many calls are unassigned. */
-export function clientWeekSummary(client: Client, coverMap: Record<string, string> = {}): { minutes: number; unassigned: number } {
-  let minutes = 0;
+/**
+ * Weekly totals for one client. `plannedMin` is the scheduled hours; `unassigned`
+ * counts calls with no carer and `unassignedMin` their hours (uncovered → not
+ * delivered). `deliveredMin` is the covered hours actually going ahead — 0 if the
+ * client's service is paused (in hospital / on hold).
+ */
+export function clientWeekSummary(
+  client: Client,
+  coverMap: Record<string, string> = {},
+  paused = false
+): { plannedMin: number; deliveredMin: number; unassigned: number; unassignedMin: number } {
+  let plannedMin = 0;
   let unassigned = 0;
+  let unassignedMin = 0;
   for (const day of client.schedule) {
     for (const v of day.visits) {
-      minutes += parseDur(v.dur);
+      const dur = parseDur(v.dur);
+      plannedMin += dur;
       const key = visitKey(client.id, day.day, v.time);
       const eff = Object.prototype.hasOwnProperty.call(coverMap, key) ? coverMap[key] : v.carer;
-      if (isUnassigned(eff)) unassigned++;
+      if (isUnassigned(eff)) { unassigned++; unassignedMin += dur; }
     }
   }
-  return { minutes, unassigned };
+  const deliveredMin = paused ? 0 : plannedMin - unassignedMin;
+  return { plannedMin, deliveredMin, unassigned, unassignedMin };
 }
 
 export type BusyMap = Map<string, Map<string, { start: number; end: number }[]>>;

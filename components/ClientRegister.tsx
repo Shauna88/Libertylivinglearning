@@ -17,7 +17,9 @@ export type RegisterRow = {
   funding: string;
   flags: string[];
   reviewTone: string;
+  plannedHours: string | null;
   deliveredHours: string | null;
+  deliveredShort: boolean;
   unassigned: number;
   newNotes: number;
 };
@@ -140,7 +142,9 @@ export default function ClientRegister({
                     </div>
                     <div className="cc-meta">
                       <span><span className="ms">schedule</span>{r.hoursWk} contracted</span>
-                      <span><span className="ms">timelapse</span>{r.deliveredHours ?? "—"} scheduled this week</span>
+                      <span title="Delivered / planned this week (uncovered calls and pauses aren't delivered)" style={r.deliveredShort ? { color: "var(--amber-fg)" } : undefined}>
+                        <span className="ms">timelapse</span>{r.deliveredHours ?? "—"} / {r.plannedHours ?? "—"} this week
+                      </span>
                       <span><span className="ms">badge</span>{r.coordinator}</span>
                     </div>
                     {(r.flags.length > 0 || r.unassigned > 0 || r.newNotes > 0) && (
@@ -191,7 +195,7 @@ export default function ClientRegister({
                   <td className="muted">{r.area}</td>
                   <td><span className={`pill tone-${r.statusTone}`}>{r.statusLabel}</span></td>
                   <td className="muted">{r.coordinator}</td>
-                  <td className="muted">{r.hoursWk}<div style={{ fontSize: 11 }}>{r.deliveredHours ?? "—"} this week</div></td>
+                  <td className="muted">{r.hoursWk}<div style={{ fontSize: 11, color: r.deliveredShort ? "var(--amber-fg)" : undefined }}>{r.deliveredHours ?? "—"} / {r.plannedHours ?? "—"} this wk</div></td>
                   <td>
                     <div className="flex wrap" style={{ gap: 5 }}>
                       {r.unassigned > 0 && <span className="pill tone-red" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>person_alert</span>{r.unassigned}</span>}
