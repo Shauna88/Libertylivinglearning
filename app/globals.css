@@ -1009,3 +1009,8 @@ button {
 .approval{display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding:9px 0;border-top:1px solid var(--border)}
 .approval:first-of-type{border-top:none}
+
+/* ---------- editable client profile ---------- */
+.task-x{background:transparent;border:none;color:var(--text-3);padding:0 2px;line-height:1;opacity:.6}
+.task-x:hover:not(:disabled){color:var(--red-fg);opacity:1}
+.task-x:disabled{opacity:.3;cursor:not-allowed}

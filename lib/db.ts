@@ -15,7 +15,7 @@ import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./conten
 import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 
-const SEED_VERSION = "12";
+const SEED_VERSION = "13";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -308,6 +308,28 @@ async function createSchema(client: PoolClient) {
       PRIMARY KEY (client_id, day, time)
     );
 
+    CREATE TABLE IF NOT EXISTS care_notes (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      tone TEXT NOT NULL DEFAULT 'grey',
+      note TEXT NOT NULL,
+      author TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_care_notes_client ON care_notes(client_id);
+
+    CREATE TABLE IF NOT EXISTS client_documents (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'on_file',
+      expiry TEXT,
+      added_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_client_docs_client ON client_documents(client_id);
+
     CREATE TABLE IF NOT EXISTS permanent_change_requests (
       id SERIAL PRIMARY KEY,
       client_id TEXT NOT NULL,
@@ -330,6 +352,8 @@ async function seed(client: PoolClient) {
   // violate foreign keys.
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
+  await client.query("DELETE FROM care_notes");
+  await client.query("DELETE FROM client_documents");
   await client.query("DELETE FROM audit_log");
   await client.query("DELETE FROM call_log");
   await client.query("DELETE FROM pii_access_log");
@@ -503,6 +527,31 @@ async function seed(client: PoolClient) {
       "Care Coordinator (Mary James)",
     ]
   );
+
+  // ---- CRM: sample care notes (diary) + documents ----
+  const noteSamples = [
+    { client_id: "CL-001", category: "Welfare", tone: "green", note: "Agnes in good form this morning, ate a full breakfast and chatted about her grandchildren.", author: "Denise Fenlon", hrs: 6 },
+    { client_id: "CL-001", category: "Medication", tone: "amber", note: "Prompted morning meds — one blister for Tuesday still popped, flagged to coordinator to check with pharmacy.", author: "Denise Fenlon", hrs: 30 },
+    { client_id: "CL-004", category: "Family contact", tone: "blue", note: "Daughter called to say she'll be away next week; asked us to keep an eye on post.", author: "Bridget Kelly", hrs: 54 },
+  ];
+  for (const n of noteSamples) {
+    await client.query(
+      `INSERT INTO care_notes (client_id,category,tone,note,author,created_at)
+       VALUES ($1,$2,$3,$4,$5, now() - make_interval(hours => $6))`,
+      [n.client_id, n.category, n.tone, n.note, n.author, n.hrs]
+    );
+  }
+  const docSamples = [
+    { client_id: "CL-001", name: "Care plan agreement (signed)", status: "on_file", expiry: null },
+    { client_id: "CL-001", name: "Manual handling risk assessment", status: "expiring", expiry: "2026-08-14" },
+    { client_id: "CL-004", name: "Consent to share information", status: "overdue", expiry: "2026-06-30" },
+  ];
+  for (const d of docSamples) {
+    await client.query(
+      "INSERT INTO client_documents (client_id,name,status,expiry,added_by) VALUES ($1,$2,$3,$4,$5)",
+      [d.client_id, d.name, d.status, d.expiry, "Mary James"]
+    );
+  }
 
   await client.query(
     "INSERT INTO meta (key,value) VALUES ('seed_version',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -1336,4 +1385,124 @@ export async function decidePermReq(id: number, approve: boolean, decidedBy: str
     action: approve ? "permreq.approve" : "permreq.decline",
     target: `req#${id}`,
   });
+}
+
+// ---------------- CRM: care notes (diary), documents & care-plan tasks ----------------
+
+export type CareNoteRow = {
+  id: number;
+  client_id: string;
+  category: string;
+  tone: string;
+  note: string;
+  author: string;
+  created_at: string;
+};
+
+export async function listCareNotes(clientId: string): Promise<CareNoteRow[]> {
+  return q<CareNoteRow>(
+    "SELECT * FROM care_notes WHERE client_id=$1 ORDER BY created_at DESC, id DESC",
+    [clientId]
+  );
+}
+
+export async function addCareNote(input: {
+  clientId: string;
+  category: string;
+  tone: string;
+  note: string;
+  author: string;
+}): Promise<CareNoteRow> {
+  const rows = await q<CareNoteRow>(
+    "INSERT INTO care_notes (client_id,category,tone,note,author) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+    [input.clientId, input.category, input.tone, input.note, input.author]
+  );
+  await logAudit({ actorName: input.author, action: "carenote.add", target: input.clientId, detail: input.category });
+  return rows[0];
+}
+
+export type ClientDocRow = {
+  id: number;
+  client_id: string;
+  name: string;
+  status: string;
+  expiry: string | null;
+  added_by: string;
+  created_at: string;
+};
+
+export async function listClientDocs(clientId: string): Promise<ClientDocRow[]> {
+  return q<ClientDocRow>(
+    "SELECT * FROM client_documents WHERE client_id=$1 ORDER BY created_at DESC, id DESC",
+    [clientId]
+  );
+}
+
+export async function addClientDoc(input: {
+  clientId: string;
+  name: string;
+  status: string;
+  expiry: string | null;
+  addedBy: string;
+}): Promise<ClientDocRow> {
+  const rows = await q<ClientDocRow>(
+    "INSERT INTO client_documents (client_id,name,status,expiry,added_by) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+    [input.clientId, input.name, input.status, input.expiry, input.addedBy]
+  );
+  await logAudit({ actorName: input.addedBy, action: "clientdoc.add", target: input.clientId, detail: input.name });
+  return rows[0];
+}
+
+export async function deleteClientDoc(id: number, by: string): Promise<void> {
+  await q("DELETE FROM client_documents WHERE id=$1", [id]);
+  await logAudit({ actorName: by, action: "clientdoc.delete", target: `doc#${id}` });
+}
+
+/** Add or remove a care-plan task line under a domain (edits clients.data_json). */
+export async function editCarePlanTask(input: {
+  clientId: string;
+  domain: string;
+  task: string;
+  remove: boolean;
+  by: string;
+}): Promise<boolean> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const rows = (
+      await client.query("SELECT data_json FROM clients WHERE id=$1 FOR UPDATE", [input.clientId])
+    ).rows as { data_json: string }[];
+    if (!rows[0]) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const c = JSON.parse(rows[0].data_json) as Client;
+    const entry = c.carePlan.find((d) => d.domain === input.domain);
+    if (!entry) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    entry.tasks = entry.tasks ?? [];
+    if (input.remove) {
+      const i = entry.tasks.indexOf(input.task);
+      if (i >= 0) entry.tasks.splice(i, 1);
+    } else {
+      entry.tasks.push(input.task);
+    }
+    await client.query("UPDATE clients SET data_json=$1 WHERE id=$2", [JSON.stringify(c), input.clientId]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+  await logAudit({
+    actorName: input.by,
+    action: input.remove ? "careplan.task.remove" : "careplan.task.add",
+    target: `${input.clientId} · ${input.domain}`,
+    detail: input.task,
+  });
+  return true;
 }
