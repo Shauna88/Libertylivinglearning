@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ScheduleDay } from "@/lib/crm";
 import type { CarerMatch } from "@/lib/carers";
+import type { FreeCarer } from "@/lib/schedule";
 
 const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const UN = "Unassigned";
@@ -24,6 +25,7 @@ export default function ScheduleWeek({
   reasons,
   isApprover,
   suggestions = [],
+  slotSuggest = {},
 }: {
   clientId: string;
   schedule: ScheduleDay[];
@@ -33,6 +35,7 @@ export default function ScheduleWeek({
   reasons: Record<string, string>;
   isApprover: boolean;
   suggestions?: CarerMatch[];
+  slotSuggest?: Record<string, FreeCarer[]>;
 }) {
   const router = useRouter();
   const [view, setView] = useState<"cards" | "table">("cards");
@@ -205,6 +208,22 @@ export default function ScheduleWeek({
                           {st.overridden && !st.unassigned && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>This week only · base {st.base}</div>}
                           {st.unassigned && st.reason && <div style={{ fontSize: 11.5, color: "var(--red-fg)", marginTop: 2 }}><span className="ms" style={{ fontSize: 13, verticalAlign: "middle" }}>info</span> {st.reason}</div>}
                           {v.tasks.length > 0 && <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>{v.tasks.join(" · ")}</div>}
+
+                          {/* free & nearby carers to fill an unassigned call */}
+                          {st.unassigned && !st.pend && (slotSuggest[st.key]?.length ?? 0) > 0 && (
+                            <div style={{ marginTop: 6 }}>
+                              <div className="muted" style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".04em", fontWeight: 700, marginBottom: 4 }}>
+                                <span className="ms" style={{ fontSize: 13, verticalAlign: "middle", marginRight: 2 }}>bolt</span>Free &amp; nearby now
+                              </div>
+                              <div className="flex wrap" style={{ gap: 5 }}>
+                                {slotSuggest[st.key].map((f) => (
+                                  <button key={f.name} className="chip" disabled={isBusy} title={`Assign ${f.name} this week`} onClick={() => reassignTemp(day, v.time, f.name)}>
+                                    <span className="ms" style={{ fontSize: 13 }}>add</span>{f.name}<span className="muted" style={{ marginLeft: 3 }}>{f.freeHours}h</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* pending permanent request */}
                           {st.pend && (

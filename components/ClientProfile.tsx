@@ -6,6 +6,7 @@ import PiiRevealButton from "@/components/PiiRevealButton";
 import ScheduleEditor from "@/components/ScheduleEditor";
 import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
 import type { CarerMatch } from "@/lib/carers";
+import type { FreeCarer } from "@/lib/schedule";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
 
 export type CareNote = { id: number; category: string; tone: string; note: string; author: string; created_at: string };
@@ -41,6 +42,7 @@ export default function ClientProfile({
   isApprover = false,
   editable = false,
   suggestions = [],
+  slotSuggest = {},
 }: {
   client: Client;
   notes?: CareNote[];
@@ -52,6 +54,7 @@ export default function ClientProfile({
   isApprover?: boolean;
   editable?: boolean;
   suggestions?: CarerMatch[];
+  slotSuggest?: Record<string, FreeCarer[]>;
 }) {
   // `client` arrives with identifiers masked. Revealing swaps in the real values.
   const [identity, setIdentity] = useState<RevealedIdentity | null>(null);
@@ -474,7 +477,7 @@ export default function ClientProfile({
                 No Schedule of Service set up yet. A CSM needs to enter this client&apos;s original weekly schedule before calls can be rostered.
               </div>
             )}
-            <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} suggestions={suggestions} />
+            <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} />
             {isApprover && (
               <details className="card" style={{ marginTop: 12 }} open={isNew}>
                 <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>

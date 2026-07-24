@@ -4,6 +4,7 @@
  * Pure functions (time passed in) so they're testable and Date-free here.
  */
 import { maskName, type Client } from "@/lib/crm";
+import type { CarerRecord } from "@/lib/carers";
 
 export type VisitStatus =
   | "upcoming"
@@ -249,6 +250,60 @@ export function carerWeek(
     const minutes = visits.reduce((n, v) => n + parseDur(v.dur), 0);
     return { day, visits, minutes };
   });
+}
+
+export type BusyMap = Map<string, Map<string, { start: number; end: number }[]>>;
+
+/** For every carer, the time intervals they are already booked, by day. */
+export function carerBusyMap(clients: Client[], coverMap: Record<string, string> = {}): BusyMap {
+  const m: BusyMap = new Map();
+  const add = (name: string, day: string, start: number, end: number) => {
+    if (!m.has(name)) m.set(name, new Map());
+    const days = m.get(name)!;
+    if (!days.has(day)) days.set(day, []);
+    days.get(day)!.push({ start, end });
+  };
+  for (const c of clients) {
+    for (const day of c.schedule) {
+      for (const v of day.visits) {
+        const key = visitKey(c.id, day.day, v.time);
+        const overridden = Object.prototype.hasOwnProperty.call(coverMap, key);
+        const effective = overridden ? coverMap[key] : v.carer;
+        const start = parseTime(v.time);
+        const end = start + parseDur(v.dur);
+        for (const one of String(effective).split("+").map((s) => s.trim())) {
+          if (one && !isUnassigned(one)) add(one, day.day, start, end);
+        }
+      }
+    }
+  }
+  return m;
+}
+
+export type FreeCarer = { name: string; freeHours: number };
+
+/**
+ * Carers who cover `area` and have no booked call overlapping a slot — the
+ * free-and-nearby options for filling an unassigned call. Ranked by spare hours.
+ */
+export function freeNearbyCarers(
+  carers: CarerRecord[],
+  busy: BusyMap,
+  slot: { area: string; day: string; time: string; dur: string; exclude?: string }
+): FreeCarer[] {
+  const start = parseTime(slot.time);
+  const end = start + parseDur(slot.dur);
+  const out: FreeCarer[] = [];
+  for (const c of carers) {
+    if (c.status !== "active") continue;
+    if (c.name === slot.exclude) continue;
+    if (!(c.covers.includes(slot.area) || c.homeArea === slot.area)) continue;
+    const ivs = busy.get(c.name)?.get(slot.day) ?? [];
+    const clash = ivs.some((iv) => start < iv.end && end > iv.start);
+    if (clash) continue;
+    out.push({ name: c.name, freeHours: Math.max(0, c.capacityHours - c.committedHours) });
+  }
+  return out.sort((a, b) => b.freeHours - a.freeHours);
 }
 
 /** The pool of carers a coordinator can allocate from (named carers + relief). */
