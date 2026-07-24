@@ -19,7 +19,7 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "16";
+const SEED_VERSION = "17";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -400,6 +400,39 @@ async function createSchema(client: PoolClient) {
       note TEXT NOT NULL DEFAULT '',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS time_off_requests (
+      id SERIAL PRIMARY KEY,
+      requester_id INTEGER,
+      requester_name TEXT NOT NULL,
+      requester_role TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL,
+      date_from TEXT NOT NULL,
+      date_to TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      decided_by TEXT,
+      decided_note TEXT,
+      decided_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_timeoff_status ON time_off_requests(status);
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      from_id INTEGER,
+      from_name TEXT NOT NULL,
+      from_role TEXT NOT NULL DEFAULT '',
+      from_dept TEXT NOT NULL DEFAULT '',
+      to_dept TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL DEFAULT 'message',
+      meeting_at TEXT,
+      parent_id INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_to ON messages(to_dept);
   `);
 }
 
@@ -408,6 +441,8 @@ async function seed(client: PoolClient) {
   // violate foreign keys.
   await client.query("DELETE FROM qip_actions");
   await client.query("DELETE FROM carers");
+  await client.query("DELETE FROM time_off_requests");
+  await client.query("DELETE FROM messages");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
   await client.query("DELETE FROM care_notes");
@@ -639,6 +674,36 @@ async function seed(client: PoolClient) {
       `INSERT INTO carers (id,name,home_area,covers_json,skills_json,pathway,transport,capacity_hours,committed_hours,status,note)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [c.id, c.name, c.homeArea, JSON.stringify(c.covers), JSON.stringify(c.skills), c.pathway, c.transport, c.capacityHours, c.committedHours, c.status, c.note]
+    );
+  }
+
+  // ---- time-off requests (demo) ----
+  const timeoffSeed: [string, string, string, string, string, string, string][] = [
+    // name, role, kind, from, to, note, status
+    ["Denise Fenlon", "Healthcare Assistant", "Annual leave", "12 Aug 2026", "16 Aug 2026", "Family wedding — booking early.", "pending"],
+    ["Grace Nolan", "Healthcare Assistant", "Unpaid leave", "3 Sep 2026", "3 Sep 2026", "Hospital appointment.", "pending"],
+    ["Katie Phelan", "Healthcare Assistant", "Annual leave", "1 Jul 2026", "5 Jul 2026", "", "approved"],
+  ];
+  for (const [name, r, kind, from, to, note, status] of timeoffSeed) {
+    await client.query(
+      `INSERT INTO time_off_requests (requester_name,requester_role,kind,date_from,date_to,note,status,decided_by,decided_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [name, r, kind, from, to, note, status, status === "approved" ? "Laura Souza" : null, status === "approved" ? new Date().toISOString() : null]
+    );
+  }
+
+  // ---- messages (demo) ----
+  const msgSeed: [string, string, string, string, string, string, string][] = [
+    // from_name, from_role, from_dept, to_dept, subject, body, kind
+    ["Mary James", "Client Service Manager", "Client Services", "HR", "Cover for annual leave — August", "We have three carers requesting leave the same week in August. Can HR help plan cover?", "message"],
+    ["Laura Souza", "Director of HR", "HR", "Care & Operations", "Supervision sessions due", "Two carers are due supervision this month. Can we schedule these around the roster?", "meeting"],
+    ["Claire Leavy", "Director of Quality", "Quality", "All staff", "Reminder: NCCA annual refresh", "Please complete your annual NCCA refresher before month end. Thank you.", "message"],
+  ];
+  for (const [fn, fr, fd, td, subj, bd, k] of msgSeed) {
+    await client.query(
+      `INSERT INTO messages (from_name,from_role,from_dept,to_dept,subject,body,kind,meeting_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [fn, fr, fd, td, subj, bd, k, k === "meeting" ? "18 Jul 2026, 14:00" : null]
     );
   }
 
@@ -1484,6 +1549,122 @@ export async function upsertCarer(input: {
   );
   await logAudit({ actorName: input.by, action: input.id ? "carer.update" : "carer.create", target: id, detail: input.name });
   return id;
+}
+
+// ---------------- HR: holiday / time-off requests ----------------
+
+export type TimeOffRow = {
+  id: number;
+  requester_id: number | null;
+  requester_name: string;
+  requester_role: string;
+  kind: string;
+  date_from: string;
+  date_to: string;
+  note: string;
+  status: string;
+  decided_by: string | null;
+  decided_note: string | null;
+  decided_at: string | null;
+  created_at: string;
+};
+
+export async function listTimeOff(opts: { requesterId?: number; status?: string } = {}): Promise<TimeOffRow[]> {
+  const where: string[] = [];
+  const vals: unknown[] = [];
+  if (opts.requesterId !== undefined) { vals.push(opts.requesterId); where.push(`requester_id=$${vals.length}`); }
+  if (opts.status) { vals.push(opts.status); where.push(`status=$${vals.length}`); }
+  const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  return q<TimeOffRow>(`SELECT * FROM time_off_requests ${clause} ORDER BY created_at DESC`, vals);
+}
+
+export async function countPendingTimeOff(): Promise<number> {
+  const rows = await q<{ n: number }>("SELECT COUNT(*)::int AS n FROM time_off_requests WHERE status='pending'");
+  return rows[0]?.n ?? 0;
+}
+
+export async function createTimeOff(input: {
+  requesterId: number | null;
+  requesterName: string;
+  requesterRole: string;
+  kind: string;
+  dateFrom: string;
+  dateTo: string;
+  note: string;
+}): Promise<TimeOffRow> {
+  const rows = await q<TimeOffRow>(
+    `INSERT INTO time_off_requests (requester_id,requester_name,requester_role,kind,date_from,date_to,note)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [input.requesterId, input.requesterName, input.requesterRole, input.kind, input.dateFrom, input.dateTo, input.note]
+  );
+  await logAudit({ actorName: input.requesterName, action: "timeoff.request", target: `#${rows[0].id}`, detail: `${input.kind} ${input.dateFrom}–${input.dateTo}` });
+  return rows[0];
+}
+
+export async function decideTimeOff(input: { id: number; approve: boolean; by: string; note: string }): Promise<void> {
+  await q(
+    "UPDATE time_off_requests SET status=$1, decided_by=$2, decided_note=$3, decided_at=now() WHERE id=$4",
+    [input.approve ? "approved" : "declined", input.by, input.note, input.id]
+  );
+  await logAudit({ actorName: input.by, action: `timeoff.${input.approve ? "approve" : "decline"}`, target: `#${input.id}` });
+}
+
+// ---------------- inter-department messaging ----------------
+
+export type MessageRow = {
+  id: number;
+  from_id: number | null;
+  from_name: string;
+  from_role: string;
+  from_dept: string;
+  to_dept: string;
+  subject: string;
+  body: string;
+  kind: string;
+  meeting_at: string | null;
+  parent_id: number | null;
+  created_at: string;
+};
+
+/** Messages addressed to a department (or to everyone). */
+export async function listInbox(dept: string): Promise<MessageRow[]> {
+  return q<MessageRow>(
+    "SELECT * FROM messages WHERE to_dept=$1 OR to_dept='All staff' ORDER BY created_at DESC",
+    [dept]
+  );
+}
+
+export async function listSent(userId: number): Promise<MessageRow[]> {
+  return q<MessageRow>("SELECT * FROM messages WHERE from_id=$1 ORDER BY created_at DESC", [userId]);
+}
+
+export async function countInbox(dept: string): Promise<number> {
+  const rows = await q<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM messages WHERE to_dept=$1 OR to_dept='All staff'",
+    [dept]
+  );
+  return rows[0]?.n ?? 0;
+}
+
+export async function createMessage(input: {
+  fromId: number | null;
+  fromName: string;
+  fromRole: string;
+  fromDept: string;
+  toDept: string;
+  subject: string;
+  body: string;
+  kind: string;
+  meetingAt: string | null;
+  parentId: number | null;
+}): Promise<MessageRow> {
+  const rows = await q<MessageRow>(
+    `INSERT INTO messages (from_id,from_name,from_role,from_dept,to_dept,subject,body,kind,meeting_at,parent_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    [input.fromId, input.fromName, input.fromRole, input.fromDept, input.toDept, input.subject, input.body, input.kind, input.meetingAt, input.parentId]
+  );
+  await logAudit({ actorName: input.fromName, action: `message.${input.kind}`, target: input.toDept, detail: input.subject });
+  return rows[0];
 }
 
 // ---------------- CRM: cover assignments + permanent-change requests ----------------

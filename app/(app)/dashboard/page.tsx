@@ -9,7 +9,10 @@ import {
   listPermReqs,
   listQip,
   listAssignments,
+  countPendingTimeOff,
   coverMap,
+  OVERSIGHT_ROLES,
+  WORKFORCE_ROLES,
   type Role,
 } from "@/lib/db";
 import { getCourse, CAT_TONE } from "@/lib/content";
@@ -136,6 +139,7 @@ export default async function DashboardPage() {
 
   const role = user.role as Role;
   const profile = profileFor(role);
+  const isTimeOffApprover = OVERSIGHT_ROLES.includes(role) || WORKFORCE_ROLES.includes(role);
   const firstName = user.name.split(" ")[0] || "there";
   const hour = new Date().toLocaleString("en-IE", { hour: "2-digit", hour12: false, timeZone: "Europe/Dublin" });
   const hi = `${greeting(parseInt(hour, 10) || 9)}, ${firstName}`;
@@ -205,12 +209,13 @@ export default async function DashboardPage() {
 
   // ---------- CSM operational cockpit (day-to-day) ----------
   if (role === "Client Service Manager") {
-    const [clients, cover, calls, permReqs, issues] = await Promise.all([
+    const [clients, cover, calls, permReqs, issues, timeOffPending] = await Promise.all([
       listClients(),
       coverMap(),
       listCallLog(120),
       listPermReqs("pending"),
       listHubIssues(),
+      countPendingTimeOff(),
     ]);
     const now = new Date();
     const { weekday, nowMin } = nowParts(now);
@@ -241,6 +246,7 @@ export default async function DashboardPage() {
     if (followCalls.length) todos.push({ icon: "call", tone: "amber", text: `${followCalls.length} call event${followCalls.length === 1 ? "" : "s"} to follow up`, href: "/call-log" });
     if (openIssues2.length) todos.push({ icon: "flag", tone: "amber", text: `${openIssues2.length} complaint${openIssues2.length === 1 ? "" : "s"} / incident${openIssues2.length === 1 ? "" : "s"} open`, href: "/improvement" });
     if (reviewsDue.length) todos.push({ icon: "event_repeat", tone: "amber", text: `${reviewsDue.length} care-plan review${reviewsDue.length === 1 ? "" : "s"} due or overdue`, href: "/clients" });
+    if (timeOffPending) todos.push({ icon: "beach_access", tone: "amber", text: `${timeOffPending} time-off request${timeOffPending === 1 ? "" : "s"} to approve`, href: "/time-off" });
 
     return (
       <>
@@ -387,6 +393,10 @@ export default async function DashboardPage() {
     if (profile.caps.includes("improvement")) {
       const [issues, qip, assignments] = await Promise.all([listHubIssues(), listQip(), listAssignments()]);
       improveTodos = improvementTodos(deptOf(role), hubScopeOf(role) === "dept", issues, qip, assignments);
+    }
+    if (isTimeOffApprover) {
+      const n = await countPendingTimeOff();
+      if (n) improveTodos = [{ icon: "beach_access", tone: "amber", text: `${n} time-off request${n === 1 ? "" : "s"} to approve`, href: "/time-off" }, ...improveTodos];
     }
     return (
       <>

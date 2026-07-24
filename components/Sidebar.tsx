@@ -17,6 +17,7 @@ export default function Sidebar({
   isRecruit = false,
   isImprovement = false,
   isWorkforce = false,
+  canSeeAllRegisters = true,
   hubLabel = "Improvement & Training",
   openCounts = {},
 }: {
@@ -29,6 +30,7 @@ export default function Sidebar({
   isRecruit?: boolean;
   isImprovement?: boolean;
   isWorkforce?: boolean;
+  canSeeAllRegisters?: boolean;
   hubLabel?: string;
   openCounts?: Record<string, number>;
 }) {
@@ -40,6 +42,8 @@ export default function Sidebar({
 
   const overviewItems: Item[] = [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }];
   if (role === "Healthcare Assistant") overviewItems.push({ label: "My working week", icon: "calendar_month", href: "/my-week" });
+  overviewItems.push({ label: "Messages", icon: "forum", href: "/messages" });
+  overviewItems.push({ label: "Time off", icon: "beach_access", href: "/time-off" });
 
   const groups: Group[] = [
     { label: "Overview", items: overviewItems },
@@ -60,10 +64,10 @@ export default function Sidebar({
       ],
     },
     {
-      label: "Risk & Safety",
+      label: canSeeAllRegisters ? "Risk & Safety" : "Raise a concern",
       items: [
-        { label: "Complaints", icon: "forum", href: "/complaints", badge: badge("complaint") },
-        { label: "Incidents", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
+        { label: canSeeAllRegisters ? "Complaints" : "Raise a complaint", icon: "forum", href: "/complaints", badge: badge("complaint") },
+        { label: canSeeAllRegisters ? "Incidents" : "Report an incident", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
         { label: "Safeguarding", icon: "shield", href: "/safeguarding", badge: badge("safeguarding") },
       ],
     },
