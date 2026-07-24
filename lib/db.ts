@@ -19,7 +19,7 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "17";
+const SEED_VERSION = "18";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -433,6 +433,17 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_messages_to ON messages(to_dept);
+
+    CREATE TABLE IF NOT EXISTS user_todos (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      text TEXT NOT NULL,
+      href TEXT,
+      done BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      done_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_todos_user ON user_todos(user_id);
   `);
 }
 
@@ -443,6 +454,7 @@ async function seed(client: PoolClient) {
   await client.query("DELETE FROM carers");
   await client.query("DELETE FROM time_off_requests");
   await client.query("DELETE FROM messages");
+  await client.query("DELETE FROM user_todos");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
   await client.query("DELETE FROM care_notes");
@@ -1665,6 +1677,43 @@ export async function createMessage(input: {
   );
   await logAudit({ actorName: input.fromName, action: `message.${input.kind}`, target: input.toDept, detail: input.subject });
   return rows[0];
+}
+
+// ---------------- personal to-do list ----------------
+
+export type TodoRow = {
+  id: number;
+  user_id: number | null;
+  text: string;
+  href: string | null;
+  done: boolean;
+  created_at: string;
+  done_at: string | null;
+};
+
+/** A user's own to-dos (pending first, newest first). */
+export async function listTodos(userId: number): Promise<TodoRow[]> {
+  return q<TodoRow>("SELECT * FROM user_todos WHERE user_id=$1 ORDER BY done ASC, created_at DESC", [userId]);
+}
+
+export async function addTodo(userId: number, text: string, href: string | null = null): Promise<TodoRow> {
+  const rows = await q<TodoRow>(
+    "INSERT INTO user_todos (user_id,text,href) VALUES ($1,$2,$3) RETURNING *",
+    [userId, text, href]
+  );
+  return rows[0];
+}
+
+/** Toggle / set a to-do's done state — scoped to its owner. */
+export async function setTodoDone(userId: number, id: number, done: boolean): Promise<void> {
+  await q(
+    "UPDATE user_todos SET done=$1, done_at=CASE WHEN $1 THEN now() ELSE NULL END WHERE id=$2 AND user_id=$3",
+    [done, id, userId]
+  );
+}
+
+export async function deleteTodo(userId: number, id: number): Promise<void> {
+  await q("DELETE FROM user_todos WHERE id=$1 AND user_id=$2", [id, userId]);
 }
 
 // ---------------- CRM: cover assignments + permanent-change requests ----------------

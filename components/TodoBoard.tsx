@@ -1,0 +1,108 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+export type SystemTodo = { icon: string; tone: string; text: string; href: string };
+export type PersonalTodo = { id: number; text: string; href: string | null; done: boolean };
+
+export default function TodoBoard({
+  title,
+  emptyText,
+  systemTodos,
+  todos,
+}: {
+  title: string;
+  emptyText: string;
+  systemTodos: SystemTodo[];
+  todos: PersonalTodo[];
+}) {
+  const router = useRouter();
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const pending = todos.filter((t) => !t.done);
+  const done = todos.filter((t) => t.done);
+  const outstanding = systemTodos.length + pending.length;
+  const accent = outstanding ? "amber" : "green";
+
+  async function post(body: unknown) {
+    setBusy(true);
+    try {
+      await fetch("/api/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function add() {
+    const t = text.trim();
+    if (t.length < 2) return;
+    setText("");
+    await post({ action: "add", text: t });
+  }
+
+  return (
+    <div className="card" style={{ borderLeft: `4px solid var(--${accent}-fg)`, marginBottom: 8 }}>
+      <div className="flex between" style={{ alignItems: "center", marginBottom: outstanding || done.length ? 10 : 8 }}>
+        <strong style={{ fontSize: 14 }}>{title}{outstanding ? ` · ${outstanding}` : ""}</strong>
+        {!outstanding && <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>check_circle</span>{emptyText}</span>}
+      </div>
+
+      {/* system prompts — click to jump to the outstanding tab */}
+      {systemTodos.map((t, i) => (
+        <Link key={`s${i}`} href={t.href} className="dash-row todo-row">
+          <span className="ms" style={{ fontSize: 18, color: `var(--${t.tone}-fg)` }}>{t.icon}</span>
+          <span style={{ fontSize: 13 }}>{t.text}</span>
+          <span className="pill tone-grey" style={{ marginLeft: "auto", fontSize: 10.5 }}>Auto</span>
+          <span className="ms" style={{ fontSize: 16, color: "var(--text-2)" }}>chevron_right</span>
+        </Link>
+      ))}
+
+      {/* personal to-dos — tick to complete */}
+      {pending.map((t) => (
+        <div key={`p${t.id}`} className="dash-row todo-row">
+          <button className="todo-check" disabled={busy} title="Mark complete" onClick={() => post({ action: "toggle", id: t.id, done: true })}>
+            <span className="ms" style={{ fontSize: 18 }}>radio_button_unchecked</span>
+          </button>
+          {t.href ? (
+            <Link href={t.href} style={{ fontSize: 13, flex: 1 }}>{t.text}</Link>
+          ) : (
+            <span style={{ fontSize: 13, flex: 1 }}>{t.text}</span>
+          )}
+          <button className="todo-del" disabled={busy} title="Delete" onClick={() => post({ action: "delete", id: t.id })}>
+            <span className="ms" style={{ fontSize: 15 }}>close</span>
+          </button>
+        </div>
+      ))}
+
+      {done.map((t) => (
+        <div key={`d${t.id}`} className="dash-row todo-row done">
+          <button className="todo-check on" disabled={busy} title="Mark not done" onClick={() => post({ action: "toggle", id: t.id, done: false })}>
+            <span className="ms" style={{ fontSize: 18 }}>check_circle</span>
+          </button>
+          <span style={{ fontSize: 13, flex: 1, textDecoration: "line-through", color: "var(--text-2)" }}>{t.text}</span>
+          <button className="todo-del" disabled={busy} title="Delete" onClick={() => post({ action: "delete", id: t.id })}>
+            <span className="ms" style={{ fontSize: 15 }}>close</span>
+          </button>
+        </div>
+      ))}
+
+      {/* add a to-do */}
+      <div className="flex" style={{ gap: 8, marginTop: 8 }}>
+        <input
+          className="input"
+          style={{ fontSize: 13, padding: "7px 10px" }}
+          placeholder="Add a to-do…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") add(); }}
+        />
+        <button className="btn" disabled={busy || text.trim().length < 2} onClick={add}>
+          <span className="ms" style={{ fontSize: 18 }}>add</span>Add
+        </button>
+      </div>
+    </div>
+  );
+}

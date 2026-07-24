@@ -1170,3 +1170,12 @@ button {
   display:flex;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:0 2px;z-index:2}
 .avail-open:hover{background:var(--amber-fg);color:#fff}
 .avail-key.open{background:var(--amber-bg);border:1px dashed var(--amber-fg)}
+
+/* ---------- interactive to-do board ---------- */
+.todo-row{align-items:center}
+.todo-check{background:transparent;border:none;padding:0;display:inline-flex;color:var(--text-2);cursor:pointer}
+.todo-check:hover{color:var(--accent)}
+.todo-check.on{color:var(--green-fg)}
+.todo-del{background:transparent;border:none;padding:2px;display:inline-flex;color:var(--text-2);cursor:pointer;opacity:.55}
+.todo-del:hover{color:var(--red-fg);opacity:1}
+.todo-row.done .todo-del{opacity:.4}
