@@ -46,6 +46,7 @@ export default async function RosterPage({
     maskedName: v.maskedName,
     day: v.day,
     time: v.time,
+    startMin: v.startMin,
     durMin: v.durMin,
     type: v.type,
     carer: v.carer,
