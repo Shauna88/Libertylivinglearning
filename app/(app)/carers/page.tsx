@@ -21,7 +21,8 @@ export default async function CarersPage() {
         <h1>Carer directory</h1>
         <p>
           {active} active {active === 1 ? "carer" : "carers"} · home area, travel radius, skills and weekly hours.
-          These records power the <strong>carer-matching suggestions</strong> when you assign carers to a client.
+          Open a carer to see <strong>their working week</strong>. These records also power the
+          <strong> carer-matching suggestions</strong> when you assign carers to a client.
         </p>
       </header>
       <div className="body fade">

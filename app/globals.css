@@ -997,7 +997,8 @@ button {
   border-radius:8px;background:var(--card);color:var(--text);max-width:180px}
 .tag-cover{font-size:11px;color:var(--amber-fg);background:var(--amber-bg);border-radius:20px;padding:2px 9px;white-space:nowrap}
 .mini{font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--border);
-  background:var(--card);color:var(--text-2);font-weight:600}
+  background:var(--card);color:var(--text-2);font-weight:600;
+  display:inline-flex;align-items:center;text-decoration:none;cursor:pointer}
 .mini:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .mini.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .mini.primary:hover:not(:disabled){background:var(--accent-dark)}
