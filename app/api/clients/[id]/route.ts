@@ -7,8 +7,10 @@ import {
   addClientDoc,
   deleteClientDoc,
   editCarePlanTask,
+  saveClientSchedule,
   type Role,
 } from "@/lib/db";
+import type { ScheduleDay, ScheduleVisit } from "@/lib/crm";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, noteToneFor } from "@/lib/crm";
 
 export const runtime = "nodejs";
@@ -60,6 +62,42 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!docId) return NextResponse.json({ error: "Document id required" }, { status: 400 });
       await deleteClientDoc(docId, who);
       return NextResponse.json({ ok: true });
+    }
+    case "save_schedule": {
+      const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const raw = Array.isArray(body.schedule) ? (body.schedule as unknown[]) : null;
+      if (!raw) return NextResponse.json({ error: "Invalid schedule" }, { status: 400 });
+      const schedule: ScheduleDay[] = [];
+      for (const d of raw as Array<{ day?: unknown; visits?: unknown }>) {
+        const day = String(d.day ?? "");
+        if (!WEEK.includes(day)) continue;
+        const visitsRaw = Array.isArray(d.visits) ? (d.visits as Array<Record<string, unknown>>) : [];
+        const visits: ScheduleVisit[] = [];
+        for (const v of visitsRaw) {
+          const time = String(v.time ?? "").trim();
+          if (!/^\d{1,2}:\d{2}$/.test(time)) continue; // a valid HH:MM is required
+          visits.push({
+            time,
+            dur: String(v.dur ?? "30m").trim() || "30m",
+            type: String(v.type ?? "Call").trim() || "Call",
+            carer: String(v.carer ?? "").trim() || "Unassigned",
+            tasks: Array.isArray(v.tasks)
+              ? (v.tasks as unknown[]).map((t) => String(t).trim()).filter(Boolean)
+              : String(v.tasks ?? "")
+                  .split(/[;,]/)
+                  .map((t) => t.trim())
+                  .filter(Boolean),
+          });
+        }
+        if (visits.length) {
+          visits.sort((a, b) => a.time.localeCompare(b.time));
+          schedule.push({ day, visits });
+        }
+      }
+      schedule.sort((a, b) => WEEK.indexOf(a.day) - WEEK.indexOf(b.day));
+      const ok = await saveClientSchedule({ clientId: id, schedule, by: who });
+      if (!ok) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      return NextResponse.json({ ok: true, calls: schedule.reduce((n, d) => n + d.visits.length, 0) });
     }
     case "add_task":
     case "del_task": {

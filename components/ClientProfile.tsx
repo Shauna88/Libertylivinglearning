@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PiiRevealButton from "@/components/PiiRevealButton";
+import ScheduleEditor from "@/components/ScheduleEditor";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
 
 export type CareNote = { id: number; category: string; tone: string; note: string; author: string; created_at: string };
@@ -31,11 +32,13 @@ export default function ClientProfile({
   client,
   notes = [],
   docs = [],
+  carers = [],
   editable = false,
 }: {
   client: Client;
   notes?: CareNote[];
   docs?: ClientDoc[];
+  carers?: string[];
   editable?: boolean;
 }) {
   // `client` arrives with identifiers masked. Revealing swaps in the real values.
@@ -424,30 +427,36 @@ export default function ClientProfile({
         </div>
       )}
 
-      {/* schedule */}
-      <div className="section-title">Schedule of service</div>
-      <div className="grid cols-2">
-        {client.schedule.map((day) => (
-          <div key={day.day} className="card">
-            <strong style={{ fontSize: 14 }}>{day.day}</strong>
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-              {day.visits.map((v, i) => (
-                <div key={i} style={{ borderLeft: "3px solid var(--accent)", paddingLeft: 10 }}>
-                  <div className="flex" style={{ gap: 8, fontSize: 13 }}>
-                    <span className="code">{v.time}</span>
-                    <strong>{v.type}</strong>
-                    <span className="muted">{v.dur}</span>
+      {/* schedule of service — the permanent weekly plan */}
+      <div className="section-title">Schedule of service {editable && <span className="muted" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>· the permanent weekly plan</span>}</div>
+      {editable ? (
+        <ScheduleEditor clientId={client.id} schedule={client.schedule} carers={carers} />
+      ) : client.schedule.length === 0 ? (
+        <div className="card muted" style={{ fontSize: 13 }}>No schedule set yet.</div>
+      ) : (
+        <div className="grid cols-2">
+          {client.schedule.map((day) => (
+            <div key={day.day} className="card">
+              <strong style={{ fontSize: 14 }}>{day.day}</strong>
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                {day.visits.map((v, i) => (
+                  <div key={i} style={{ borderLeft: "3px solid var(--accent)", paddingLeft: 10 }}>
+                    <div className="flex" style={{ gap: 8, fontSize: 13 }}>
+                      <span className="code">{v.time}</span>
+                      <strong>{v.type}</strong>
+                      <span className="muted">{v.dur}</span>
+                    </div>
+                    <div className="muted" style={{ fontSize: 11.5 }}>
+                      {v.carer}
+                      {v.tasks.length > 0 && ` · ${v.tasks.join(", ")}`}
+                    </div>
                   </div>
-                  <div className="muted" style={{ fontSize: 11.5 }}>
-                    {v.carer}
-                    {v.tasks.length > 0 && ` · ${v.tasks.join(", ")}`}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* carers */}
       {client.carers.length > 0 && (
