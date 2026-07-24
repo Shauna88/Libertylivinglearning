@@ -38,8 +38,11 @@ export default function Sidebar({
     return n ? String(n) : undefined;
   };
 
+  const overviewItems: Item[] = [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }];
+  if (role === "Healthcare Assistant") overviewItems.push({ label: "My working week", icon: "calendar_month", href: "/my-week" });
+
   const groups: Group[] = [
-    { label: "Overview", items: [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }] },
+    { label: "Overview", items: overviewItems },
     {
       label: "Learning",
       items: [
@@ -73,6 +76,8 @@ export default function Sidebar({
   // Workforce group — recruitment and/or the HR compliance view.
   const workforceItems: Item[] = [];
   if (isWorkforce) workforceItems.push({ label: "Workforce & Training", icon: "groups", href: "/workforce" });
+  // Carer directory: shown to workforce roles here, or to CRM roles in the CRM group below.
+  if (isWorkforce && !isCrm) workforceItems.push({ label: "Carer directory", icon: "badge", href: "/carers" });
   if (isRecruit) workforceItems.push({ label: "Recruitment", icon: "person_search", href: "/recruitment" });
   if (workforceItems.length) groups.push({ label: "Workforce", items: workforceItems });
 
@@ -95,6 +100,7 @@ export default function Sidebar({
         { label: "Live monitor", icon: "sensors", href: "/live-monitor" },
         { label: "Client register", icon: "contacts", href: "/clients" },
         { label: "Rostering", icon: "edit_calendar", href: "/roster" },
+        { label: "Carer directory", icon: "badge", href: "/carers" },
         { label: "Call log", icon: "phone_missed", href: "/call-log" },
         { label: "Bulk import", icon: "upload_file", href: "/clients/import" },
       ],
