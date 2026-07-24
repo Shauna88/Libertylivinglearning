@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { IMPROVEMENT_ROLES, listQip, type Role } from "@/lib/db";
+import { listQip, type Role } from "@/lib/db";
+import { hubScopeOf } from "@/lib/roles";
 import { AUDIT_LIFECYCLE, AUDIT_PRINCIPLES, AUDITS } from "@/lib/audits";
 import QipBoard, { type Qip } from "@/components/QipBoard";
 
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function AuditsPage() {
   const session = await auth();
   const role = session!.user.role as Role;
-  if (!IMPROVEMENT_ROLES.includes(role)) redirect("/dashboard");
+  // Audits & QIP belongs to Quality Management (org-wide quality scope), not HR.
+  if (hubScopeOf(role) !== "all") redirect("/dashboard");
 
   const qip = (await listQip()) as Qip[];
   const canEdit = true; // page is already IMPROVEMENT_ROLES-gated
