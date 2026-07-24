@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ScheduleDay } from "@/lib/crm";
+import type { CarerMatch } from "@/lib/carers";
 
 const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const UN = "Unassigned";
@@ -22,6 +23,7 @@ export default function ScheduleWeek({
   cover,
   reasons,
   isApprover,
+  suggestions = [],
 }: {
   clientId: string;
   schedule: ScheduleDay[];
@@ -30,9 +32,11 @@ export default function ScheduleWeek({
   cover: Record<string, string>;
   reasons: Record<string, string>;
   isApprover: boolean;
+  suggestions?: CarerMatch[];
 }) {
   const router = useRouter();
   const [view, setView] = useState<"cards" | "table">("cards");
+  const [showMatch, setShowMatch] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [panel, setPanel] = useState<{ key: string; mode: "unassign" | "perm" } | null>(null);
@@ -42,7 +46,15 @@ export default function ScheduleWeek({
 
   const byDay = new Map(schedule.map((d) => [d.day, d.visits]));
   const pendMap = new Map(pending.map((p) => [`${p.day}|${p.time}`, p]));
-  const carerOptions = [UN, ...carers.filter((c) => !isUn(c))];
+
+  // Best-matched carers (in radius) — used to surface a "suggested" group at
+  // the top of every assignment dropdown and a recommendations card.
+  const matched = suggestions.filter((m) => m.areaFit !== "outside");
+  const suggestedNames = matched.map((m) => m.carer.name);
+  const topPick = suggestedNames[0];
+  const bandTone: Record<string, string> = { strong: "green", good: "blue", fair: "amber", poor: "grey" };
+  // Assignment options: suggested carers first, then everyone else, then Unassign.
+  const otherCarers = carers.filter((c) => !isUn(c) && !suggestedNames.includes(c));
 
   async function post(id: string, url: string, body: unknown) {
     setBusy(id);
@@ -96,6 +108,42 @@ export default function ScheduleWeek({
           ))}
         </div>
       </div>
+
+      {matched.length > 0 && (
+        <div className="card" style={{ marginBottom: 10, padding: 12 }}>
+          <button className="section-toggle" style={{ padding: 0 }} onClick={() => setShowMatch((s) => !s)} aria-expanded={showMatch}>
+            <span className="ms" style={{ fontSize: 18 }}>{showMatch ? "expand_more" : "chevron_right"}</span>
+            <span className="ms" style={{ fontSize: 16, color: "var(--accent)" }}>auto_awesome</span>
+            <strong style={{ fontSize: 13.5 }}>Suggested carers for this client</strong>
+            <span className="pill tone-blue" style={{ marginLeft: 6 }}>{matched.length}</span>
+            {!showMatch && topPick && <span className="muted" style={{ fontSize: 12, marginLeft: 4 }}>· best fit {topPick}</span>}
+          </button>
+          {showMatch && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              <p className="muted" style={{ fontSize: 11.5, margin: 0 }}>
+                Ranked by travel radius, skills matched to this client&apos;s conditions, and hours free this week. A suggestion is a prompt — the coordinator still decides.
+              </p>
+              {matched.map((m, i) => (
+                <div key={m.carer.id} className="sched-visit" style={{ padding: 10 }}>
+                  <div className="flex" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    {i === 0 && <span className="ms" style={{ fontSize: 15, color: "var(--amber-fg, #b8860b)" }}>star</span>}
+                    <strong style={{ fontSize: 13.5 }}>{m.carer.name}</strong>
+                    <span className={`pill tone-${bandTone[m.band]}`}>{m.score}% · {m.band}</span>
+                    <span className="muted" style={{ fontSize: 11.5 }}>{m.carer.homeArea} · {m.carer.pathway}</span>
+                  </div>
+                  <div className="flex wrap" style={{ gap: 5, marginTop: 6 }}>
+                    {m.reasons.map((r, j) => (
+                      <span key={j} className="pill" style={{ fontSize: 10.5, background: r.kind === "warn" ? "var(--amber-bg, #fdf6e3)" : "var(--green-bg, #eaf7ee)", color: r.kind === "warn" ? "var(--amber-fg, #8a6d00)" : "var(--green-fg, #1c7c3f)" }}>
+                        <span className="ms" style={{ fontSize: 12, verticalAlign: "middle", marginRight: 2 }}>{r.kind === "warn" ? "warning" : "check"}</span>{r.text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {view === "table" ? (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
@@ -176,7 +224,16 @@ export default function ScheduleWeek({
                             <label className="rv-assign">
                               <span className="muted" style={{ fontSize: 11 }}>This week:</span>
                               <select className="rv-select" value={st.unassigned ? UN : st.effective} disabled={isBusy} onChange={(e) => { const c = e.target.value; if (c === UN) { setPanel({ key: st.key, mode: "unassign" }); setReason(UNASSIGN_REASONS[0]); setNote(""); } else reassignTemp(day, v.time, c); }}>
-                                {[...new Set([st.effective, ...carerOptions])].map((c) => <option key={c} value={c}>{isUn(c) ? "Unassign…" : c}</option>)}
+                                {!isUn(st.effective) && !suggestedNames.includes(st.effective) && !otherCarers.includes(st.effective) && <option value={st.effective}>{st.effective}</option>}
+                                {matched.length > 0 && (
+                                  <optgroup label="Suggested for this client">
+                                    {matched.map((m) => <option key={m.carer.id} value={m.carer.name}>{m.carer.name === topPick ? "★ " : ""}{m.carer.name} — {m.score}% match</option>)}
+                                  </optgroup>
+                                )}
+                                <optgroup label="All carers">
+                                  {otherCarers.map((c) => <option key={c} value={c}>{c}</option>)}
+                                </optgroup>
+                                <option value={UN}>Unassign…</option>
                               </select>
                             </label>
                             {st.overridden && <button className="mini" disabled={isBusy} onClick={() => revert(day, v.time)}>Revert</button>}
@@ -206,7 +263,14 @@ export default function ScheduleWeek({
                             <div className="perm-form" style={{ marginTop: 6 }}>
                               <select className="rv-select" value={pickCarer} onChange={(e) => setPickCarer(e.target.value)}>
                                 <option value="">New permanent carer…</option>
-                                {carerOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                                {matched.length > 0 && (
+                                  <optgroup label="Suggested for this client">
+                                    {matched.map((m) => <option key={m.carer.id} value={m.carer.name}>{m.carer.name === topPick ? "★ " : ""}{m.carer.name} — {m.score}% match</option>)}
+                                  </optgroup>
+                                )}
+                                <optgroup label="All carers">
+                                  {otherCarers.map((c) => <option key={c} value={c}>{c}</option>)}
+                                </optgroup>
                               </select>
                               {!isApprover && <textarea rows={2} placeholder="Reason for the CSM (why this should be a permanent change)…" value={note} onChange={(e) => setNote(e.target.value)} />}
                               <div className="flex" style={{ gap: 8 }}>

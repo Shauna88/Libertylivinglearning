@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import PiiRevealButton from "@/components/PiiRevealButton";
 import ScheduleEditor from "@/components/ScheduleEditor";
 import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
+import type { CarerMatch } from "@/lib/carers";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
 
 export type CareNote = { id: number; category: string; tone: string; note: string; author: string; created_at: string };
@@ -39,6 +40,7 @@ export default function ClientProfile({
   reasons = {},
   isApprover = false,
   editable = false,
+  suggestions = [],
 }: {
   client: Client;
   notes?: CareNote[];
@@ -49,6 +51,7 @@ export default function ClientProfile({
   reasons?: Record<string, string>;
   isApprover?: boolean;
   editable?: boolean;
+  suggestions?: CarerMatch[];
 }) {
   // `client` arrives with identifiers masked. Revealing swaps in the real values.
   const [identity, setIdentity] = useState<RevealedIdentity | null>(null);
@@ -450,19 +453,41 @@ export default function ClientProfile({
           </button>
         );
       })()}
-      {schedOpen && editable && (
-        <>
-          <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} />
-          {isApprover && (
-            <details className="card" style={{ marginTop: 12 }}>
-              <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Edit plan structure — add / remove calls, times &amp; tasks</summary>
-              <div style={{ marginTop: 12 }}>
-                <ScheduleEditor clientId={client.id} schedule={client.schedule} carers={carers} />
+      {schedOpen && editable && (() => {
+        const weekCalls = client.schedule.reduce((n, d) => n + d.visits.length, 0);
+        const isNew = weekCalls === 0;
+        return (
+          <>
+            {isNew && isApprover && (
+              <div className="card" style={{ marginBottom: 10, borderColor: "var(--accent)", background: "var(--accent-bg, #eef4ff)" }}>
+                <div className="flex" style={{ gap: 8, alignItems: "center" }}>
+                  <span className="ms" style={{ fontSize: 18, color: "var(--accent)" }}>upload_file</span>
+                  <strong style={{ fontSize: 13.5 }}>Set up this client&apos;s original Schedule of Service</strong>
+                </div>
+                <p className="muted" style={{ fontSize: 12.5, margin: "6px 0 0" }}>
+                  This client has no schedule yet. Use <strong>Set up the schedule</strong> below to add each weekly call — day, time, duration, task and carer. Suggested carers for this client&apos;s area and needs appear in the carer dropdowns once calls exist.
+                </p>
               </div>
-            </details>
-          )}
-        </>
-      )}
+            )}
+            {isNew && !isApprover && (
+              <div className="card muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                No Schedule of Service set up yet. A CSM needs to enter this client&apos;s original weekly schedule before calls can be rostered.
+              </div>
+            )}
+            <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} suggestions={suggestions} />
+            {isApprover && (
+              <details className="card" style={{ marginTop: 12 }} open={isNew}>
+                <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                  {isNew ? "Set up the schedule — add each weekly call, time & task" : "Edit plan structure — add / remove calls, times & tasks"}
+                </summary>
+                <div style={{ marginTop: 12 }}>
+                  <ScheduleEditor clientId={client.id} schedule={client.schedule} carers={carers} suggestions={suggestions} />
+                </div>
+              </details>
+            )}
+          </>
+        );
+      })()}
       {!schedOpen ? null : editable ? null : client.schedule.length === 0 ? (
         <div className="card muted" style={{ fontSize: 13 }}>No schedule set yet.</div>
       ) : (
