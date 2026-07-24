@@ -1674,6 +1674,70 @@ export async function saveClientSchedule(input: {
   return true;
 }
 
+/**
+ * Directly set the carer on one visit of a client's base Schedule of Service.
+ * Used by CSM/manager (the approver) — coordinators must request a change via
+ * permanent_change_requests instead. Recomputes the care team.
+ */
+export async function setScheduleCarer(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  carer: string;
+  by: string;
+}): Promise<boolean> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const rows = (
+      await client.query("SELECT data_json FROM clients WHERE id=$1 FOR UPDATE", [input.clientId])
+    ).rows as { data_json: string }[];
+    if (!rows[0]) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const c = JSON.parse(rows[0].data_json) as Client;
+    let found = false;
+    for (const d of c.schedule) {
+      if (d.day !== input.day) continue;
+      for (const v of d.visits) {
+        if (v.time === input.time) {
+          v.carer = input.carer;
+          found = true;
+        }
+      }
+    }
+    if (!found) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const team = new Set<string>();
+    for (const d of c.schedule) {
+      for (const v of d.visits) {
+        for (const one of String(v.carer ?? "").split("+").map((s) => s.trim())) {
+          if (one && !/unassigned|to be allocated|^tbc$/i.test(one)) team.add(one);
+        }
+      }
+    }
+    c.carers = [...team];
+    await client.query("UPDATE clients SET data_json=$1 WHERE id=$2", [JSON.stringify(c), input.clientId]);
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+  await logAudit({
+    actorName: input.by,
+    action: "careplan.schedule.carer",
+    target: `${input.clientId} · ${input.day} ${input.time}`,
+    detail: input.carer,
+  });
+  return true;
+}
+
 /** Add or remove a care-plan task line under a domain (edits clients.data_json). */
 export async function editCarePlanTask(input: {
   clientId: string;

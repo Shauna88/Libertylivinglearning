@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import {
   CRM_ROLES,
+  OVERSIGHT_ROLES,
   getClient,
   addCareNote,
   addClientDoc,
   deleteClientDoc,
   editCarePlanTask,
   saveClientSchedule,
+  setScheduleCarer,
   type Role,
 } from "@/lib/db";
 import type { ScheduleDay, ScheduleVisit } from "@/lib/crm";
@@ -61,6 +63,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const docId = Number(body.docId);
       if (!docId) return NextResponse.json({ error: "Document id required" }, { status: 400 });
       await deleteClientDoc(docId, who);
+      return NextResponse.json({ ok: true });
+    }
+    case "set_schedule_carer": {
+      // Direct permanent carer change — CSM / manager only.
+      if (!OVERSIGHT_ROLES.includes(session.user.role as Role)) {
+        return NextResponse.json({ error: "Only a CSM can change the permanent schedule directly" }, { status: 403 });
+      }
+      const day = String(body.day ?? "");
+      const time = String(body.time ?? "");
+      const carer = String(body.carer ?? "").trim();
+      if (!day || !time || !carer) return NextResponse.json({ error: "day, time and carer are required" }, { status: 400 });
+      const ok = await setScheduleCarer({ clientId: id, day, time, carer, by: who });
+      if (!ok) return NextResponse.json({ error: "Visit not found" }, { status: 404 });
       return NextResponse.json({ ok: true });
     }
     case "save_schedule": {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PiiRevealButton from "@/components/PiiRevealButton";
 import ScheduleEditor from "@/components/ScheduleEditor";
+import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
 
 export type CareNote = { id: number; category: string; tone: string; note: string; author: string; created_at: string };
@@ -33,12 +34,16 @@ export default function ClientProfile({
   notes = [],
   docs = [],
   carers = [],
+  pending = [],
+  isApprover = false,
   editable = false,
 }: {
   client: Client;
   notes?: CareNote[];
   docs?: ClientDoc[];
   carers?: string[];
+  pending?: PendingReq[];
+  isApprover?: boolean;
   editable?: boolean;
 }) {
   // `client` arrives with identifiers masked. Revealing swaps in the real values.
@@ -441,9 +446,20 @@ export default function ClientProfile({
           </button>
         );
       })()}
-      {!schedOpen ? null : editable ? (
-        <ScheduleEditor clientId={client.id} schedule={client.schedule} carers={carers} />
-      ) : client.schedule.length === 0 ? (
+      {schedOpen && editable && (
+        <>
+          <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} isApprover={isApprover} />
+          {isApprover && (
+            <details className="card" style={{ marginTop: 12 }}>
+              <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Edit plan structure — add / remove calls, times &amp; tasks</summary>
+              <div style={{ marginTop: 12 }}>
+                <ScheduleEditor clientId={client.id} schedule={client.schedule} carers={carers} />
+              </div>
+            </details>
+          )}
+        </>
+      )}
+      {!schedOpen ? null : editable ? null : client.schedule.length === 0 ? (
         <div className="card muted" style={{ fontSize: 13 }}>No schedule set yet.</div>
       ) : (
         <div className="grid cols-2">
