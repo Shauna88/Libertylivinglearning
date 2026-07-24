@@ -6,6 +6,7 @@ import {
   listHubIssues,
   listClients,
   listCallLog,
+  listPermReqs,
   coverMap,
   type Role,
 } from "@/lib/db";
@@ -13,7 +14,7 @@ import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
 import { PORTALS, portalKey, rag, ragPct, trend, type Metric } from "@/lib/portals";
 import { deriveTodayVisits, nowParts, isUnassignedCarer } from "@/lib/schedule";
-import { callType } from "@/lib/callevents";
+import { callType, causeLabel } from "@/lib/callevents";
 import { computeFinance, money } from "@/lib/finance";
 
 export const dynamic = "force-dynamic";
@@ -145,6 +146,183 @@ export default async function DashboardPage() {
       </div>
     </>
   );
+
+  // ---------- CSM operational cockpit (day-to-day) ----------
+  if (role === "Client Service Manager") {
+    const [clients, cover, calls, permReqs, issues] = await Promise.all([
+      listClients(),
+      coverMap(),
+      listCallLog(120),
+      listPermReqs("pending"),
+      listHubIssues(),
+    ]);
+    const now = new Date();
+    const { weekday, nowMin } = nowParts(now);
+    const clientById = new Map(clients.map((c) => [c.id, c]));
+    const regHref: Record<string, string> = { complaint: "/complaints", incident: "/incidents", safeguarding: "/safeguarding" };
+
+    const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
+    const uncovered = visits.filter((v) => isUnassignedCarer(v.carer));
+    const sick = calls.filter((c) => (c.cause === "carer_sick" || c.cause === "carer_noshow") && !c.resolved);
+    const followCalls = calls.filter((c) => callType(c.kind)?.followUp && !c.resolved);
+    const openIssues2 = issues.filter((i) => i.status === "open");
+    const reviewsDue = clients.filter((c) => c.status === "active" && (c.reviewTone === "red" || (c.flags ?? []).some((f) => /review/i.test(f))));
+
+    const tiles: { n: number; lbl: string; tone: string; href: string }[] = [
+      { n: visits.length, lbl: `Calls today (${weekday})`, tone: "text", href: "/live-monitor" },
+      { n: uncovered.length, lbl: "Uncovered now", tone: uncovered.length ? "red" : "green", href: "/roster" },
+      { n: permReqs.length, lbl: "Approvals waiting", tone: permReqs.length ? "amber" : "green", href: "/dashboard" },
+      { n: sick.length, lbl: "Sick / no-show", tone: sick.length ? "red" : "green", href: "/call-log" },
+      { n: openIssues2.length, lbl: "Complaints / incidents", tone: openIssues2.length ? "amber" : "green", href: "/improvement" },
+      { n: reviewsDue.length, lbl: "Reviews due", tone: reviewsDue.length ? "amber" : "green", href: "/clients" },
+    ];
+
+    // A single ranked "to-do" so nothing is missed.
+    const todos: { icon: string; tone: string; text: string; href: string }[] = [];
+    if (uncovered.length) todos.push({ icon: "event_busy", tone: "red", text: `${uncovered.length} uncovered call${uncovered.length === 1 ? "" : "s"} today need a carer`, href: "/roster" });
+    if (permReqs.length) todos.push({ icon: "how_to_reg", tone: "amber", text: `${permReqs.length} permanent carer change${permReqs.length === 1 ? "" : "s"} awaiting your approval`, href: "/dashboard" });
+    if (sick.length) todos.push({ icon: "sick", tone: "red", text: `${sick.length} carer sick / no-show call${sick.length === 1 ? "" : "s"} to re-cover`, href: "/call-log" });
+    if (followCalls.length) todos.push({ icon: "call", tone: "amber", text: `${followCalls.length} call event${followCalls.length === 1 ? "" : "s"} to follow up`, href: "/call-log" });
+    if (openIssues2.length) todos.push({ icon: "flag", tone: "amber", text: `${openIssues2.length} complaint${openIssues2.length === 1 ? "" : "s"} / incident${openIssues2.length === 1 ? "" : "s"} open`, href: "/improvement" });
+    if (reviewsDue.length) todos.push({ icon: "event_repeat", tone: "amber", text: `${reviewsDue.length} care-plan review${reviewsDue.length === 1 ? "" : "s"} due or overdue`, href: "/clients" });
+
+    return (
+      <>
+        {header}
+        <div className="body fade">
+          <div className="card mandate">
+            <span className="ms" style={{ fontSize: 20, color: "var(--accent)" }}>flag</span>
+            <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} Here&apos;s what needs you today.</p>
+          </div>
+
+          {/* to-do prompts */}
+          <div className="card" style={{ borderLeft: `4px solid var(--${todos.length ? "amber" : "green"}-fg)`, marginBottom: 8 }}>
+            <div className="flex between" style={{ alignItems: "center", marginBottom: todos.length ? 8 : 0 }}>
+              <strong style={{ fontSize: 14 }}>To do{todos.length ? ` · ${todos.length}` : ""}</strong>
+              {!todos.length && <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>check_circle</span>All clear</span>}
+            </div>
+            {todos.map((t, i) => (
+              <Link key={i} href={t.href} className="dash-row">
+                <span className="ms" style={{ fontSize: 18, color: `var(--${t.tone}-fg)` }}>{t.icon}</span>
+                <span style={{ fontSize: 13 }}>{t.text}</span>
+                <span className="ms" style={{ fontSize: 16, marginLeft: "auto", color: "var(--text-2)" }}>chevron_right</span>
+              </Link>
+            ))}
+          </div>
+
+          <div className="grid cols-4">
+            {tiles.map((t) => (
+              <Link key={t.lbl} href={t.href} className="card metric" style={{ display: "block" }}>
+                <div className="num" style={{ color: t.tone === "text" ? undefined : `var(--${t.tone}-fg)` }}>{t.n}</div>
+                <div className="lbl">{t.lbl}</div>
+              </Link>
+            ))}
+          </div>
+
+          {/* approvals */}
+          <div className="section-title">Approvals — permanent carer changes</div>
+          {permReqs.length === 0 ? (
+            <div className="card muted" style={{ fontSize: 13 }}>No changes waiting for approval.</div>
+          ) : (
+            <div className="card" style={{ borderLeft: "4px solid var(--amber-fg)" }}>
+              {permReqs.map((p) => {
+                const c = clientById.get(p.client_id);
+                return (
+                  <Link key={p.id} href={`/clients/${p.client_id}`} className="dash-row">
+                    <span className="code">{c?.su ?? p.client_id}</span>
+                    <span style={{ fontSize: 12.5 }}>{p.day} {p.time} → <strong>{p.carer}</strong></span>
+                    <span className="muted" style={{ fontSize: 12 }}>by {p.requested_by}</span>
+                    <span className="pill tone-amber" style={{ marginLeft: "auto" }}>Review &amp; approve</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* uncovered today */}
+          <div className="section-title">Uncovered calls today ({weekday})</div>
+          {uncovered.length === 0 ? (
+            <div className="card muted" style={{ fontSize: 13 }}>Every call today is covered. <Link href="/roster" style={{ color: "var(--accent-dark)", fontWeight: 700 }}>Open rostering →</Link></div>
+          ) : (
+            <div className="card" style={{ borderLeft: "4px solid var(--red-fg)" }}>
+              {uncovered.slice(0, 8).map((v) => (
+                <Link key={`${v.clientId}-${v.time}`} href="/roster" className="dash-row">
+                  <span className="code">{v.time}</span>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{v.type}</span>
+                  <span className="muted" style={{ fontSize: 12 }}>{v.su} · {v.area}</span>
+                  <span className="pill tone-red" style={{ marginLeft: "auto" }}>To cover</span>
+                </Link>
+              ))}
+              {uncovered.length > 8 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>+{uncovered.length - 8} more in rostering</div>}
+            </div>
+          )}
+
+          <div className="grid cols-2" style={{ marginTop: 8 }}>
+            {/* sick / absent */}
+            <div>
+              <div className="section-title">Sick &amp; absent carers</div>
+              {sick.length === 0 ? (
+                <div className="card muted" style={{ fontSize: 13 }}>No sick or no-show calls logged.</div>
+              ) : (
+                <div className="card" style={{ borderLeft: "4px solid var(--red-fg)" }}>
+                  {sick.slice(0, 6).map((c) => (
+                    <Link key={c.id} href="/call-log" className="dash-row">
+                      <span className="pill tone-red">{causeLabel(c.cause)}</span>
+                      <span className="muted" style={{ fontSize: 12 }}>{c.carer ?? ""}{c.su ? ` · ${c.su}` : ""}</span>
+                      <span className="muted" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>{c.detail}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* complaints & incidents */}
+            <div>
+              <div className="section-title">Complaints &amp; incidents to follow up</div>
+              {openIssues2.length === 0 ? (
+                <div className="card muted" style={{ fontSize: 13 }}>Nothing open across the registers.</div>
+              ) : (
+                <div className="card" style={{ borderLeft: "4px solid var(--amber-fg)" }}>
+                  {openIssues2.slice(0, 6).map((i) => (
+                    <Link key={`${i.kind}-${i.entry_id}`} href={regHref[i.kind] ?? "/improvement"} className="dash-row">
+                      <span className="pill tone-grey">{i.kind}</span>
+                      <span className="code">{i.ref}</span>
+                      <span className="muted" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>{i.summary}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* reviews due */}
+          {reviewsDue.length > 0 && (
+            <>
+              <div className="section-title">Care-plan reviews due</div>
+              <div className="card" style={{ borderLeft: "4px solid var(--amber-fg)" }}>
+                {reviewsDue.slice(0, 6).map((c) => (
+                  <Link key={c.id} href={`/clients/${c.id}`} className="dash-row">
+                    <span className="code">{c.su}</span>
+                    <span className="muted" style={{ fontSize: 12 }}>{c.area}</span>
+                    <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>{c.reviewNote ?? "Review due"}</span>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+
+          {inbox}
+
+          {portal && (
+            <>
+              <div className="section-title">Service scorecard · HSE Authorisation Scheme</div>
+              <Scorecard metrics={portal.scorecard} />
+            </>
+          )}
+          {quickLinks}
+        </div>
+      </>
+    );
+  }
 
   // ---------- senior scorecard dashboard ----------
   if (portal) {
