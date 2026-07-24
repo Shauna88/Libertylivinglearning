@@ -91,7 +91,7 @@ export default function LoginPage() {
         </button>
 
         <div className="demo-note">
-          <b>Demo accounts</b> — password <span className="mono">liberty</span>. Click to fill:
+          <b>Staff accounts</b> — click to fill the email, then enter your password:
           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
             {DEMO_ACCOUNTS.map((a) => (
               <button
@@ -99,7 +99,6 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   setEmail(a.email);
-                  setPassword("liberty");
                 }}
               >
                 {a.email} — {a.role}
