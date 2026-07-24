@@ -16,13 +16,15 @@ export default async function ClientsPage() {
   const session = await auth();
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
-  const [clients, cover, noteCounts] = await Promise.all([listClients(), coverMap(), recentCareNoteCounts(7)]);
+  const [clients, cover, noteCounts] = await Promise.all([listClients(), coverMap(), recentCareNoteCounts(48)]);
 
   // Build masked register rows — no real names/identifiers reach the browser
   // until the PII gate reveals them.
   const rows: RegisterRow[] = clients.map((c) => {
     const meta = statusMeta(c.status);
-    const wk = clientWeekSummary(c, cover);
+    const paused = c.status === "hospital" || c.status === "hold";
+    const wk = clientWeekSummary(c, cover, paused);
+    const hasPlan = wk.plannedMin > 0;
     return {
       id: c.id,
       su: c.su,
@@ -36,7 +38,9 @@ export default async function ClientsPage() {
       funding: c.funding,
       flags: c.flags,
       reviewTone: c.reviewTone,
-      deliveredHours: wk.minutes > 0 ? hm(wk.minutes) : null,
+      plannedHours: hasPlan ? hm(wk.plannedMin) : null,
+      deliveredHours: hasPlan ? hm(wk.deliveredMin) : null,
+      deliveredShort: hasPlan && wk.deliveredMin < wk.plannedMin,
       unassigned: wk.unassigned,
       newNotes: noteCounts[c.id] ?? 0,
     };
