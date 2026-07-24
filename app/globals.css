@@ -1137,3 +1137,17 @@ button {
 .cc-meta{display:flex;flex-direction:column;gap:4px;margin-top:10px;font-size:11.5px;color:var(--text-2)}
 .cc-meta > span{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cc-meta .ms{font-size:14px;color:var(--text-2)}
+
+/* ---------- carer availability timeline (gaps) ---------- */
+.avail-scale{display:flex;justify-content:space-between;margin:0 0 4px 92px;font-size:10px;color:var(--text-2)}
+.avail-row{display:grid;grid-template-columns:80px 1fr;gap:12px;align-items:center;padding:4px 0}
+.avail-label{display:flex;flex-direction:column;line-height:1.25}
+.avail-bar{position:relative;height:30px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.avail-busy{position:absolute;top:0;bottom:0;background:var(--accent);color:#fff;font-size:10px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;border-right:1px solid var(--card)}
+.avail-gap{position:absolute;top:3px;bottom:3px;background:rgba(28,124,63,0.10);border:1px dashed var(--green-fg,#1c7c3f);
+  border-radius:5px;color:var(--green-fg,#1c7c3f);font-size:10px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.avail-key{width:14px;height:14px;border-radius:4px;display:inline-block}
+.avail-key.busy{background:var(--accent)}
+.avail-key.gap{background:rgba(28,124,63,0.10);border:1px dashed var(--green-fg,#1c7c3f)}
