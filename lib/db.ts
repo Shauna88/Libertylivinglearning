@@ -19,7 +19,7 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "18";
+const SEED_VERSION = "19";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -715,7 +715,7 @@ async function seed(client: PoolClient) {
     await client.query(
       `INSERT INTO messages (from_name,from_role,from_dept,to_dept,subject,body,kind,meeting_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [fn, fr, fd, td, subj, bd, k, k === "meeting" ? "18 Jul 2026, 14:00" : null]
+      [fn, fr, fd, td, subj, bd, k, k === "meeting" ? "2026-07-18T14:00" : null]
     );
   }
 
@@ -970,6 +970,11 @@ export async function listRegister(kind: string): Promise<RegisterEntry[]> {
     "SELECT * FROM register_entries WHERE kind = $1 ORDER BY created_at DESC, id DESC",
     [kind]
   );
+}
+
+/** Every register entry across all kinds — the master governance log. */
+export async function listAllRegister(): Promise<RegisterEntry[]> {
+  return q<RegisterEntry>("SELECT * FROM register_entries ORDER BY created_at DESC, id DESC");
 }
 
 export async function getRegisterEntry(kind: string, id: number): Promise<RegisterEntry | undefined> {

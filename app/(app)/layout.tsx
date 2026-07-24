@@ -12,7 +12,7 @@ import {
   registerOpenCounts,
   type Role,
 } from "@/lib/db";
-import { hubLabel } from "@/lib/roles";
+import { hubLabel, hubScopeOf } from "@/lib/roles";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -45,6 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isRecruit={isRecruit}
         isImprovement={isImprovement}
         isWorkforce={isWorkforce}
+        isQualityMgmt={hubScopeOf(role) === "all"}
         canSeeAllRegisters={canSeeRegisters}
         hubLabel={hubLabel(role)}
         openCounts={openCounts}

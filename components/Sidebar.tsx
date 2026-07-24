@@ -17,6 +17,7 @@ export default function Sidebar({
   isRecruit = false,
   isImprovement = false,
   isWorkforce = false,
+  isQualityMgmt = false,
   canSeeAllRegisters = true,
   hubLabel = "Improvement & Training",
   openCounts = {},
@@ -30,6 +31,7 @@ export default function Sidebar({
   isRecruit?: boolean;
   isImprovement?: boolean;
   isWorkforce?: boolean;
+  isQualityMgmt?: boolean;
   canSeeAllRegisters?: boolean;
   hubLabel?: string;
   openCounts?: Record<string, number>;
@@ -66,6 +68,7 @@ export default function Sidebar({
     {
       label: canSeeAllRegisters ? "Risk & Safety" : "Raise a concern",
       items: [
+        ...(canSeeAllRegisters ? [{ label: "Master log", icon: "inventory_2", href: "/registers" }] : []),
         { label: canSeeAllRegisters ? "Complaints" : "Raise a complaint", icon: "forum", href: "/complaints", badge: badge("complaint") },
         { label: canSeeAllRegisters ? "Incidents" : "Report an incident", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
         { label: "Safeguarding", icon: "shield", href: "/safeguarding", badge: badge("safeguarding") },
@@ -115,7 +118,8 @@ export default function Sidebar({
   // the oversight tools, each shown only to roles that hold the capability.
   const mgmtItems: Item[] = [];
   if (isImprovement) mgmtItems.push({ label: "Improvement & Training", icon: "model_training", href: "/improvement" });
-  if (isImprovement) mgmtItems.push({ label: "Audits & QIP", icon: "fact_check", href: "/audits" });
+  // Audits & QIP is a Quality-department function (not HR).
+  if (isQualityMgmt) mgmtItems.push({ label: "Audits & QIP", icon: "fact_check", href: "/audits" });
   if (isOversight) {
     mgmtItems.push({ label: "Monitor", icon: "insights", href: "/monitor" });
     mgmtItems.push({ label: "PII access log", icon: "policy", href: "/access-log" });
