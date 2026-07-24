@@ -120,7 +120,7 @@ the data modules / prototype; sample people/records are demo data.
 
 Sidebar shell (264px dark-green `#16352A`) + sticky header; nav groups filtered by role.
 
-- **CRM** — Cover board (today's gaps/red triage), Live monitor (visit states), Client register (status chips → client profile: overview / schedule / care plan tasks by domain / care notes / documents / carers / flags), Scheduling + Daily/Carer roster + By area (cover overrides → CSM approval), Call log, Bulk import (CSV + column mapping + template), **PII gate**.
+- **CRM** — Cover board (today's gaps/red triage), Live monitor (visit states), Client register (status chips → client profile: overview / schedule / care plan tasks by domain / care notes / documents / carers / flags), **New referral intake** (`/clients/new`), Scheduling + Daily/Carer roster + By area (cover overrides → CSM approval), Call log, Bulk import (CSV + column mapping + template), **PII gate**.
 - **QMS** — Policy Library, Forms, KPIs, Audits & QIP, the 3 registers with schema-driven record drawer (NIMS ref, proportionate category, open disclosure, external notification).
 - **Improvement & Training hubs** (HR + Quality instances of one workbench, 3 tabs): *Issues to action* (HR sees HR-routed; Quality sees all open) → **Review & sign off** (outcome + note + corrective actions: refresher course / push SOP / schedule HR-08 supervision / **route to department**) ; *Push training & SOPs* (audiences and/or named individuals + note + due) ; *Assignment log* (with withdraw).
 - **Staff Training Hub** (built) + *Assigned to you* feed from pushes.
