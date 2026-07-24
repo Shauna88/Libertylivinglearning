@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import PiiRevealButton from "@/components/PiiRevealButton";
-import type { Client, NextOfKin, RevealedIdentity } from "@/lib/crm";
+import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
+
+export type CareNote = { id: number; category: string; tone: string; note: string; author: string; created_at: string };
+export type ClientDoc = { id: number; name: string; status: string; expiry: string | null; added_by: string };
+
+function fmtWhen(s: string) {
+  return new Date(s).toLocaleString("en-IE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -19,11 +27,44 @@ function riskTone(risk?: string) {
   return risk === "red" ? "red" : risk === "amber" ? "amber" : "green";
 }
 
-export default function ClientProfile({ client }: { client: Client }) {
+export default function ClientProfile({
+  client,
+  notes = [],
+  docs = [],
+  editable = false,
+}: {
+  client: Client;
+  notes?: CareNote[];
+  docs?: ClientDoc[];
+  editable?: boolean;
+}) {
   // `client` arrives with identifiers masked. Revealing swaps in the real values.
   const [identity, setIdentity] = useState<RevealedIdentity | null>(null);
   const id = identity;
   const nok: NextOfKin[] = id?.nok ?? client.nok;
+
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [taskDraft, setTaskDraft] = useState<Record<string, string>>({});
+  const [noteCat, setNoteCat] = useState(CARE_NOTE_CATEGORIES[0].key);
+  const [noteText, setNoteText] = useState("");
+  const [docName, setDocName] = useState("");
+  const [docStatus, setDocStatus] = useState("on_file");
+  const [docExpiry, setDocExpiry] = useState("");
+
+  async function act(body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="fade">
@@ -181,14 +222,99 @@ export default function ClientProfile({ client }: { client: Client }) {
               <ul className="prose" style={{ margin: 0 }}>
                 {d.tasks.map((t, i) => (
                   <li key={i} style={{ fontSize: 12.5 }}>
-                    {t}
+                    <span className="flex between" style={{ gap: 8, alignItems: "flex-start" }}>
+                      <span>{t}</span>
+                      {editable && (
+                        <button
+                          className="task-x"
+                          title="Remove task"
+                          disabled={busy}
+                          onClick={() => act({ action: "del_task", domain: d.domain, task: t })}
+                        >
+                          <span className="ms" style={{ fontSize: 15 }}>close</span>
+                        </button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
+            {editable && (
+              <div className="flex" style={{ gap: 6, marginTop: 10 }}>
+                <input
+                  className="input"
+                  style={{ fontSize: 12.5, padding: "6px 9px" }}
+                  placeholder="Add a task…"
+                  value={taskDraft[d.domain] ?? ""}
+                  onChange={(e) => setTaskDraft((s) => ({ ...s, [d.domain]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (taskDraft[d.domain] ?? "").trim().length > 1) {
+                      act({ action: "add_task", domain: d.domain, task: taskDraft[d.domain].trim() });
+                      setTaskDraft((s) => ({ ...s, [d.domain]: "" }));
+                    }
+                  }}
+                />
+                <button
+                  className="mini primary"
+                  disabled={busy || (taskDraft[d.domain] ?? "").trim().length < 2}
+                  onClick={() => {
+                    act({ action: "add_task", domain: d.domain, task: (taskDraft[d.domain] ?? "").trim() });
+                    setTaskDraft((s) => ({ ...s, [d.domain]: "" }));
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      {/* care notes / diary */}
+      <div className="section-title">Care notes &amp; diary</div>
+      {editable && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="flex" style={{ gap: 8, flexWrap: "wrap" }}>
+            <select className="input" style={{ maxWidth: 170 }} value={noteCat} onChange={(e) => setNoteCat(e.target.value)}>
+              {CARE_NOTE_CATEGORIES.map((c) => (
+                <option key={c.key} value={c.key}>{c.key}</option>
+              ))}
+            </select>
+            <input
+              className="input"
+              style={{ flex: 1, minWidth: 200 }}
+              placeholder="Add a dated care note…"
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+            />
+            <button
+              className="mini primary"
+              disabled={busy || noteText.trim().length < 3}
+              onClick={() => {
+                act({ action: "add_note", category: noteCat, note: noteText.trim() });
+                setNoteText("");
+              }}
+            >
+              Add note
+            </button>
+          </div>
+        </div>
+      )}
+      {notes.length === 0 ? (
+        <div className="card muted" style={{ fontSize: 13 }}>No care notes yet.</div>
+      ) : (
+        <div className="grid" style={{ gap: 8 }}>
+          {notes.map((n) => (
+            <div key={n.id} className="card" style={{ borderLeft: `3px solid var(--${n.tone}-fg)` }}>
+              <div className="flex between wrap" style={{ gap: 8 }}>
+                <span className={`pill tone-${n.tone}`}>{n.category}</span>
+                <span className="muted" style={{ fontSize: 11.5 }}>{fmtWhen(n.created_at)} · {n.author}</span>
+              </div>
+              <p style={{ fontSize: 13, margin: "8px 0 0" }}>{n.note}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* special instructions */}
       {client.notes && client.notes.length > 0 && (
@@ -205,30 +331,97 @@ export default function ClientProfile({ client }: { client: Client }) {
       )}
 
       {/* documents */}
+      <div className="section-title">Documents</div>
       {((client.chkExpired && client.chkExpired.length > 0) || (client.chkExpiring && client.chkExpiring.length > 0)) && (
-        <>
-          <div className="section-title">Documents</div>
-          <div className="card">
-            <div className="flex wrap" style={{ gap: 6 }}>
-              {(client.chkExpired ?? []).map((d, i) => (
-                <span key={"e" + i} className="pill tone-red">
-                  <span className="ms" style={{ fontSize: 13 }}>
-                    error
-                  </span>
-                  {d} — overdue
-                </span>
-              ))}
-              {(client.chkExpiring ?? []).map((d, i) => (
-                <span key={"x" + i} className="pill tone-amber">
-                  <span className="ms" style={{ fontSize: 13 }}>
-                    schedule
-                  </span>
-                  {d} — expiring
-                </span>
-              ))}
-            </div>
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Flagged in record</div>
+          <div className="flex wrap" style={{ gap: 6 }}>
+            {(client.chkExpired ?? []).map((d, i) => (
+              <span key={"e" + i} className="pill tone-red">
+                <span className="ms" style={{ fontSize: 13 }}>error</span>
+                {d} — overdue
+              </span>
+            ))}
+            {(client.chkExpiring ?? []).map((d, i) => (
+              <span key={"x" + i} className="pill tone-amber">
+                <span className="ms" style={{ fontSize: 13 }}>schedule</span>
+                {d} — expiring
+              </span>
+            ))}
           </div>
-        </>
+        </div>
+      )}
+      {editable && (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="flex" style={{ gap: 8, flexWrap: "wrap" }}>
+            <input
+              className="input"
+              style={{ flex: 1, minWidth: 180 }}
+              placeholder="Document name…"
+              value={docName}
+              onChange={(e) => setDocName(e.target.value)}
+            />
+            <select className="input" style={{ maxWidth: 140 }} value={docStatus} onChange={(e) => setDocStatus(e.target.value)}>
+              {Object.entries(DOC_STATUS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+            <input
+              className="input"
+              type="date"
+              style={{ maxWidth: 160 }}
+              value={docExpiry}
+              onChange={(e) => setDocExpiry(e.target.value)}
+              title="Expiry (optional)"
+            />
+            <button
+              className="mini primary"
+              disabled={busy || docName.trim().length < 2}
+              onClick={() => {
+                act({ action: "add_doc", name: docName.trim(), status: docStatus, expiry: docExpiry || null });
+                setDocName("");
+                setDocExpiry("");
+              }}
+            >
+              Add document
+            </button>
+          </div>
+        </div>
+      )}
+      {docs.length > 0 && (
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Document</th>
+                <th>Status</th>
+                <th>Expiry</th>
+                <th>Added</th>
+                {editable && <th></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {docs.map((d) => {
+                const meta = DOC_STATUS[d.status] ?? { label: d.status, tone: "grey" };
+                return (
+                  <tr key={d.id}>
+                    <td style={{ fontWeight: 600 }}>{d.name}</td>
+                    <td><span className={`pill tone-${meta.tone}`}>{meta.label}</span></td>
+                    <td className="muted">{d.expiry ?? "—"}</td>
+                    <td className="muted" style={{ fontSize: 12 }}>{d.added_by}</td>
+                    {editable && (
+                      <td style={{ textAlign: "right" }}>
+                        <button className="task-x" title="Remove" disabled={busy} onClick={() => act({ action: "del_doc", docId: d.id })}>
+                          <span className="ms" style={{ fontSize: 15 }}>close</span>
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* schedule */}

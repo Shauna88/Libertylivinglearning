@@ -82,6 +82,27 @@ export function statusMeta(status: string) {
   return CLIENT_STATUS[status] ?? { label: status, tone: "grey" };
 }
 
+/** Care-note (diary) categories, each with a default tone. */
+export const CARE_NOTE_CATEGORIES: { key: string; tone: string }[] = [
+  { key: "Welfare", tone: "green" },
+  { key: "Medication", tone: "amber" },
+  { key: "Family contact", tone: "blue" },
+  { key: "Health change", tone: "red" },
+  { key: "Environment", tone: "teal" },
+  { key: "General", tone: "grey" },
+];
+
+export function noteToneFor(category: string): string {
+  return CARE_NOTE_CATEGORIES.find((c) => c.key === category)?.tone ?? "grey";
+}
+
+/** Controlled-document statuses. */
+export const DOC_STATUS: Record<string, { label: string; tone: string }> = {
+  on_file: { label: "On file", tone: "green" },
+  expiring: { label: "Expiring", tone: "amber" },
+  overdue: { label: "Overdue", tone: "red" },
+};
+
 // ---------------- masking (PII gate) ----------------
 
 /** "Agnes Conroy" → "A···· C·····" (first letter of each word kept). */
