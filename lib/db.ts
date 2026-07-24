@@ -855,6 +855,26 @@ export async function getClient(id: string): Promise<Client | undefined> {
   return rows[0] ? (JSON.parse(rows[0].data_json) as Client) : undefined;
 }
 
+/** Next free CL-### id, based on the highest existing numeric suffix. */
+export async function nextClientId(): Promise<string> {
+  const rows = await q<{ id: string }>("SELECT id FROM clients");
+  let max = 0;
+  for (const r of rows) {
+    const m = /^CL-(\d+)$/.exec(r.id);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `CL-${String(max + 1).padStart(3, "0")}`;
+}
+
+/** Insert one client record (used by the bulk importer). */
+export async function addClient(c: Client, addedBy: string): Promise<void> {
+  await q(
+    "INSERT INTO clients (id,su,name,area,status,coordinator,data_json) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+    [c.id, c.su, c.name, c.area, c.status, c.csm ?? "", JSON.stringify(c)]
+  );
+  await logAudit({ actorName: addedBy, action: "client.import", target: c.id, detail: `${c.su} · ${c.area}` });
+}
+
 export type PiiLogRow = {
   id: number;
   user_id: number | null;
