@@ -1,20 +1,28 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, listClients, type Role } from "@/lib/db";
+import { CRM_ROLES, listClients, coverMap, recentCareNoteCounts, type Role } from "@/lib/db";
 import { maskName, statusMeta } from "@/lib/crm";
+import { clientWeekSummary } from "@/lib/schedule";
 import ClientRegister, { type RegisterRow } from "@/components/ClientRegister";
+
+function hm(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
 
 export default async function ClientsPage() {
   const session = await auth();
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
-  const clients = await listClients();
+  const [clients, cover, noteCounts] = await Promise.all([listClients(), coverMap(), recentCareNoteCounts(7)]);
 
   // Build masked register rows — no real names/identifiers reach the browser
   // until the PII gate reveals them.
   const rows: RegisterRow[] = clients.map((c) => {
     const meta = statusMeta(c.status);
+    const wk = clientWeekSummary(c, cover);
     return {
       id: c.id,
       su: c.su,
@@ -28,6 +36,9 @@ export default async function ClientsPage() {
       funding: c.funding,
       flags: c.flags,
       reviewTone: c.reviewTone,
+      deliveredHours: wk.minutes > 0 ? hm(wk.minutes) : null,
+      unassigned: wk.unassigned,
+      newNotes: noteCounts[c.id] ?? 0,
     };
   });
 

@@ -1973,6 +1973,18 @@ export async function listCareNotes(clientId: string): Promise<CareNoteRow[]> {
   );
 }
 
+/** Count of care notes added in the last `days` days, per client. */
+export async function recentCareNoteCounts(days = 7): Promise<Record<string, number>> {
+  const rows = await q<{ client_id: string; n: number }>(
+    `SELECT client_id, COUNT(*)::int AS n FROM care_notes
+     WHERE created_at > now() - ($1 || ' days')::interval GROUP BY client_id`,
+    [String(days)]
+  );
+  const m: Record<string, number> = {};
+  for (const r of rows) m[r.client_id] = r.n;
+  return m;
+}
+
 export async function addCareNote(input: {
   clientId: string;
   category: string;
