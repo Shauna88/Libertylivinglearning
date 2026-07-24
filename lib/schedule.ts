@@ -149,6 +149,58 @@ export type CarerVisit = {
 };
 export type CarerDay = { day: string; visits: CarerVisit[]; minutes: number };
 
+export type UnassignedCall = {
+  clientId: string;
+  su: string;
+  area: string;
+  maskedName: string;
+  day: string;
+  time: string;
+  startMin: number;
+  durMin: number;
+  dur: string;
+  type: string;
+};
+
+/**
+ * Every call across all clients whose effective carer (base + cover) is
+ * unassigned — the calls a coordinator still needs to cover. Optionally
+ * restrict to a set of areas (a carer's travel radius).
+ */
+export function unassignedCalls(
+  clients: Client[],
+  coverMap: Record<string, string> = {},
+  areas?: string[]
+): UnassignedCall[] {
+  const out: UnassignedCall[] = [];
+  const areaSet = areas ? new Set(areas) : null;
+  for (const c of clients) {
+    if (c.status === "hospital" || c.status === "discharged" || c.status === "deceased") continue;
+    if (areaSet && !areaSet.has(c.area)) continue;
+    for (const day of c.schedule) {
+      for (const v of day.visits) {
+        const key = visitKey(c.id, day.day, v.time);
+        const overridden = Object.prototype.hasOwnProperty.call(coverMap, key);
+        const effective = overridden ? coverMap[key] : v.carer;
+        if (!isUnassigned(effective)) continue;
+        out.push({
+          clientId: c.id,
+          su: c.su,
+          area: c.area,
+          maskedName: maskName(c.name),
+          day: day.day,
+          time: v.time,
+          startMin: parseTime(v.time),
+          durMin: parseDur(v.dur),
+          dur: v.dur,
+          type: v.type,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 /** Does `carer` (which may be an "A + B" pairing) include `name`? */
 function carerMatches(carer: string, name: string): boolean {
   if (isUnassigned(carer)) return false;

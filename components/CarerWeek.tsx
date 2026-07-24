@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { CarerDay } from "@/lib/schedule";
+import { useRouter } from "next/navigation";
+import type { CarerDay, UnassignedCall } from "@/lib/schedule";
 
 const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -52,8 +53,18 @@ function dayAvailability(day: CarerDay): { busy: Seg[]; gaps: Seg[]; freeMin: nu
   return { busy, gaps: usable, freeMin: usable.reduce((n, g) => n + (g.end - g.start), 0) };
 }
 
-export default function CarerWeek({ week }: { week: CarerDay[] }) {
+export default function CarerWeek({
+  week,
+  assign,
+}: {
+  week: CarerDay[];
+  assign?: { carerName: string; candidates: UnassignedCall[] };
+}) {
+  const router = useRouter();
   const [view, setView] = useState<"cards" | "table" | "avail">("cards");
+  const [pending, setPending] = useState<UnassignedCall | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   const byDay = new Map(week.map((d) => [d.day, d]));
   const totalMin = week.reduce((n, d) => n + d.minutes, 0);
@@ -61,6 +72,42 @@ export default function CarerWeek({ week }: { week: CarerDay[] }) {
   const allTimes = [...new Set(week.flatMap((d) => d.visits.map((v) => v.time)))].sort();
   const avail = WEEK.map((day) => ({ day, ...dayAvailability(byDay.get(day) ?? { day, visits: [], minutes: 0 }) }));
   const freeTotal = avail.reduce((n, a) => n + a.freeMin, 0);
+
+  // Unassigned calls that fit inside one of this carer's free gaps, by day.
+  const candidatesByDay = new Map<string, UnassignedCall[]>();
+  if (assign) {
+    const gapsByDay = new Map(avail.map((a) => [a.day, a.gaps]));
+    for (const c of assign.candidates) {
+      const gaps = gapsByDay.get(c.day) ?? [];
+      const end = c.startMin + c.durMin;
+      const fits = gaps.some((g) => c.startMin >= g.start && end <= g.end);
+      if (!fits) continue;
+      if (!candidatesByDay.has(c.day)) candidatesByDay.set(c.day, []);
+      candidatesByDay.get(c.day)!.push(c);
+    }
+  }
+  const fillableCount = [...candidatesByDay.values()].reduce((n, arr) => n + arr.length, 0);
+
+  async function assignCall(c: UnassignedCall) {
+    if (!assign) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/cover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set", clientId: c.clientId, day: c.day, time: c.time, carer: assign.carerName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(data.error ?? "Could not assign the call."); return; }
+      setPending(null);
+      router.refresh();
+    } catch {
+      setErr("Network error — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div>
@@ -81,35 +128,67 @@ export default function CarerWeek({ week }: { week: CarerDay[] }) {
           <div className="flex between wrap" style={{ gap: 8, marginBottom: 10, alignItems: "center" }}>
             <p className="muted" style={{ fontSize: 12.5, margin: 0, maxWidth: "62ch" }}>
               Free windows in the working day (07:00–22:00) where an extra call could be assigned — booked calls are solid, open gaps are highlighted.
+              {assign && fillableCount > 0 && <> Amber calls are <strong>unassigned client calls in this carer&apos;s radius</strong> that land in a gap — click one to assign it.</>}
             </p>
             <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>event_available</span>{hm(freeTotal)} open this week</span>
           </div>
+
+          {err && <div className="card" style={{ borderColor: "var(--red-fg)", color: "var(--red-fg)", marginBottom: 10 }}>{err}</div>}
+
+          {pending && assign && (
+            <div className="card" style={{ background: "var(--amber-bg)", borderColor: "var(--amber-fg)", marginBottom: 10 }}>
+              <div className="flex between wrap" style={{ gap: 10, alignItems: "center" }}>
+                <div style={{ fontSize: 13 }}>
+                  Assign <strong>{assign.carerName}</strong> to <strong>{pending.su}</strong> · {pending.type} · {pending.day} {pending.time} ({pending.dur})?
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>This week only (a cover assignment) · {pending.area}</div>
+                </div>
+                <div className="flex" style={{ gap: 8 }}>
+                  <button className="mini primary" disabled={busy} onClick={() => assignCall(pending)}>{busy ? "Assigning…" : "Assign this week"}</button>
+                  <button className="mini" disabled={busy} onClick={() => setPending(null)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="avail-scale">
             <span>07:00</span><span>10:00</span><span>13:00</span><span>16:00</span><span>19:00</span><span>22:00</span>
           </div>
-          {avail.map((a) => (
-            <div key={a.day} className="avail-row">
-              <div className="avail-label">
-                <strong style={{ fontSize: 12.5 }}>{a.day.slice(0, 3)}</strong>
-                <span className="muted" style={{ fontSize: 11 }}>{a.freeMin === DAY_SPAN ? "all day" : a.freeMin ? `${hm(a.freeMin)} free` : "full"}</span>
+          {avail.map((a) => {
+            const cands = candidatesByDay.get(a.day) ?? [];
+            return (
+              <div key={a.day} className="avail-row">
+                <div className="avail-label">
+                  <strong style={{ fontSize: 12.5 }}>{a.day.slice(0, 3)}</strong>
+                  <span className="muted" style={{ fontSize: 11 }}>{a.freeMin === DAY_SPAN ? "all day" : a.freeMin ? `${hm(a.freeMin)} free` : "full"}</span>
+                </div>
+                <div className="avail-bar">
+                  {a.busy.map((b, i) => (
+                    <div key={`b${i}`} className="avail-busy" style={{ left: `${pct(b.start)}%`, width: `${pct(b.end) - pct(b.start)}%` }} title={`${clock(b.start)}–${clock(b.end)} · ${b.su}`}>
+                      {pct(b.end) - pct(b.start) > 7 ? b.su : ""}
+                    </div>
+                  ))}
+                  {a.gaps.map((g, i) => (
+                    <div key={`g${i}`} className="avail-gap" style={{ left: `${pct(g.start)}%`, width: `${pct(g.end) - pct(g.start)}%` }} title={`Free ${clock(g.start)}–${clock(g.end)} (${hm(g.end - g.start)})`}>
+                      {pct(g.end) - pct(g.start) > 12 ? `${hm(g.end - g.start)} free` : ""}
+                    </div>
+                  ))}
+                  {cands.map((c, i) => {
+                    const w = Math.max(pct(c.startMin + c.durMin) - pct(c.startMin), 2.2);
+                    return (
+                      <button key={`c${i}`} className="avail-open" style={{ left: `${pct(c.startMin)}%`, width: `${w}%` }}
+                        title={`Unassigned: ${c.su} · ${c.type} · ${c.time} (${c.dur}) — click to assign`} onClick={() => { setErr(""); setPending(c); }}>
+                        <span className="ms" style={{ fontSize: 12 }}>add</span>{w > 6 ? c.su : ""}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="avail-bar">
-                {a.busy.map((b, i) => (
-                  <div key={`b${i}`} className="avail-busy" style={{ left: `${pct(b.start)}%`, width: `${pct(b.end) - pct(b.start)}%` }} title={`${clock(b.start)}–${clock(b.end)} · ${b.su}`}>
-                    {pct(b.end) - pct(b.start) > 7 ? b.su : ""}
-                  </div>
-                ))}
-                {a.gaps.map((g, i) => (
-                  <div key={`g${i}`} className="avail-gap" style={{ left: `${pct(g.start)}%`, width: `${pct(g.end) - pct(g.start)}%` }} title={`Free ${clock(g.start)}–${clock(g.end)} (${hm(g.end - g.start)})`}>
-                    {pct(g.end) - pct(g.start) > 12 ? `${hm(g.end - g.start)} free` : ""}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          <div className="flex" style={{ gap: 14, marginTop: 12, fontSize: 11.5 }}>
+            );
+          })}
+          <div className="flex wrap" style={{ gap: 14, marginTop: 12, fontSize: 11.5 }}>
             <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key busy" />Booked call</span>
             <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key gap" />Open — can assign</span>
+            {assign && <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key open" />Unassigned call to fill{fillableCount > 0 ? ` · ${fillableCount}` : ""}</span>}
           </div>
         </div>
       ) : totalCalls === 0 ? (
