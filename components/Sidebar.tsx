@@ -105,6 +105,7 @@ export default function Sidebar({
   // the oversight tools, each shown only to roles that hold the capability.
   const mgmtItems: Item[] = [];
   if (isImprovement) mgmtItems.push({ label: "Improvement & Training", icon: "model_training", href: "/improvement" });
+  if (isImprovement) mgmtItems.push({ label: "Audits & QIP", icon: "fact_check", href: "/audits" });
   if (isOversight) {
     mgmtItems.push({ label: "Monitor", icon: "insights", href: "/monitor" });
     mgmtItems.push({ label: "PII access log", icon: "policy", href: "/access-log" });

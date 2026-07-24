@@ -23,6 +23,7 @@ sequences the remaining work.
 | Manager Monitor (live completion) | ✅ built |
 | SOP Library (70), Front-line Guide (role lenses) | ✅ built |
 | Policy Library (42), Forms (22), KPIs, Governance | ✅ built |
+| **Audits & QIP** — 6-audit annual programme (section checklists + triggers), live Quality Improvement Plan (`qip_actions`), audit lifecycle & principles | ✅ built |
 | Risk registers — Complaints/Incidents/Safeguarding (intake + list) | ✅ built (basic) |
 | Workforce & Training (HR view, HCA competency matrix) | ✅ built |
 | **CRM core** — client register (status chips, search, masked names), **editable client profile** (identity, care package, **editable care-plan tasks**, **care notes/diary**, **documents register**, schedule), **PII reveal-gate + `pii_access_log`** | ✅ built |
