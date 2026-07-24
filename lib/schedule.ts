@@ -18,16 +18,28 @@ export type TodayVisit = {
   su: string;
   area: string;
   maskedName: string;
+  day: string;
   time: string;
   startMin: number;
   durMin: number;
   type: string;
-  carer: string;
+  carer: string; // effective carer (cover override applied)
+  baseCarer: string; // carer on the base Schedule of Service
+  overridden: boolean; // a cover override is in effect for this visit
   tasks: string[];
   status: VisitStatus;
   statusLabel: string;
   tone: string;
 };
+
+/** Key identifying one visit slot: clientId|day|time. */
+export function visitKey(clientId: string, day: string, time: string): string {
+  return `${clientId}|${day}|${time}`;
+}
+
+export function isUnassignedCarer(carer: string): boolean {
+  return isUnassigned(carer);
+}
 
 const STATUS_META: Record<VisitStatus, { label: string; tone: string }> = {
   upcoming: { label: "Upcoming", tone: "grey" },
@@ -53,23 +65,32 @@ function isUnassigned(carer: string): boolean {
   return !carer || /unassigned|to be allocated|^tbc$/i.test(carer.trim());
 }
 
-/** Build today's visits across all clients, classified against `nowMin`. */
+/**
+ * Build a day's visits across all clients, classified against `nowMin`.
+ * `coverMap` (visitKey → carer) applies cover overrides on top of the base
+ * Schedule of Service; an override carer of "Unassigned" explicitly unallocates.
+ */
 export function deriveTodayVisits(
   clients: Client[],
   weekday: string,
-  nowMin: number
+  nowMin: number,
+  coverMap: Record<string, string> = {}
 ): TodayVisit[] {
   const out: TodayVisit[] = [];
   for (const c of clients) {
     const day = c.schedule.find((d) => d.day === weekday);
     if (!day) continue;
     for (const v of day.visits) {
+      const key = visitKey(c.id, weekday, v.time);
+      const baseCarer = v.carer;
+      const overridden = Object.prototype.hasOwnProperty.call(coverMap, key);
+      const carer = overridden ? coverMap[key] : baseCarer;
       const startMin = parseTime(v.time);
       const durMin = parseDur(v.dur);
       const end = startMin + durMin;
       let status: VisitStatus;
       if (c.status === "hospital") status = "suspended";
-      else if (isUnassigned(v.carer)) status = nowMin >= startMin ? "gap" : "upcoming";
+      else if (isUnassigned(carer)) status = nowMin >= startMin ? "gap" : "upcoming";
       else if (nowMin < startMin - 20) status = "upcoming";
       else if (nowMin < startMin) status = "enroute";
       else if (nowMin < end) status = "inprogress";
@@ -80,11 +101,14 @@ export function deriveTodayVisits(
         su: c.su,
         area: c.area,
         maskedName: maskName(c.name),
+        day: weekday,
         time: v.time,
         startMin,
         durMin,
         type: v.type,
-        carer: v.carer,
+        carer,
+        baseCarer,
+        overridden,
         tasks: v.tasks,
         status,
         statusLabel: meta.label,
@@ -93,6 +117,41 @@ export function deriveTodayVisits(
     }
   }
   return out.sort((a, b) => a.startMin - b.startMin);
+}
+
+/** Group visits by area/pod for the "by area" roster view. */
+export function groupByArea(visits: TodayVisit[]): { area: string; visits: TodayVisit[] }[] {
+  const map = new Map<string, TodayVisit[]>();
+  for (const v of visits) {
+    const key = v.area || "Unassigned area";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(v);
+  }
+  return [...map.entries()]
+    .map(([area, vs]) => ({ area, visits: vs }))
+    .sort((a, b) => a.area.localeCompare(b.area));
+}
+
+/** The pool of carers a coordinator can allocate from (named carers + relief). */
+export function carerPool(clients: Client[]): string[] {
+  const set = new Set<string>();
+  for (const c of clients) {
+    for (const name of c.carers ?? []) {
+      // split any combined "A + B" entries into individual carers
+      for (const one of String(name).split("+").map((s) => s.trim())) {
+        if (one && !isUnassigned(one)) set.add(one);
+      }
+    }
+    for (const d of c.schedule) {
+      for (const v of d.visits) {
+        for (const one of String(v.carer).split("+").map((s) => s.trim())) {
+          if (one && !isUnassigned(one)) set.add(one);
+        }
+      }
+    }
+  }
+  const names = [...set].sort((a, b) => a.localeCompare(b));
+  return [...names, "On-call HCA"];
 }
 
 export function visitSummary(visits: TodayVisit[]) {

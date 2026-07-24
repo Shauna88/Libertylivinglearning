@@ -1,69 +1,93 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, listClients, type Role } from "@/lib/db";
-import { deriveTodayVisits, groupByCarer, nowParts } from "@/lib/schedule";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, listPermReqs, type Role } from "@/lib/db";
+import {
+  deriveTodayVisits,
+  carerPool,
+  nowParts,
+  isUnassignedCarer,
+} from "@/lib/schedule";
+import RosterBoard, { type RosterVisit, type PendingReq } from "@/components/RosterBoard";
 
 export const dynamic = "force-dynamic";
 
-export default async function RosterPage() {
+const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export default async function RosterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ day?: string }>;
+}) {
   const session = await auth();
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
+  const isCsm = OVERSIGHT_ROLES.includes(session!.user.role as Role);
 
-  const clients = await listClients();
   const now = new Date();
-  const { weekday, nowMin } = nowParts(now);
-  const visits = deriveTodayVisits(clients, weekday, nowMin);
-  const byCarer = groupByCarer(visits);
+  const { weekday: today, nowMin } = nowParts(now);
+  const sp = await searchParams;
+  const day = WEEK.includes(sp.day ?? "") ? (sp.day as string) : today;
+  const isToday = day === today;
+
+  const [clients, cover, pending] = await Promise.all([
+    listClients(),
+    coverMap(),
+    listPermReqs("pending"),
+  ]);
+
+  // For days other than today, statuses aren't time-relevant — derive with a
+  // neutral clock so nothing shows as "overdue/done".
+  const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover);
+
+  const visits: RosterVisit[] = visitsRaw.map((v) => ({
+    key: `${v.clientId}|${v.day}|${v.time}`,
+    clientId: v.clientId,
+    su: v.su,
+    area: v.area,
+    maskedName: v.maskedName,
+    day: v.day,
+    time: v.time,
+    durMin: v.durMin,
+    type: v.type,
+    carer: v.carer,
+    baseCarer: v.baseCarer,
+    overridden: v.overridden,
+    unassigned: isUnassignedCarer(v.carer),
+    statusLabel: isToday ? v.statusLabel : "Scheduled",
+    tone: isToday ? v.tone : "grey",
+  }));
+
+  const pendingReqs: PendingReq[] = pending.map((r) => ({
+    id: r.id,
+    clientId: r.client_id,
+    day: r.day,
+    time: r.time,
+    carer: r.carer,
+    note: r.note,
+    requestedBy: r.requested_by,
+  }));
+
+  const pool = carerPool(clients);
+  const gaps = visits.filter((v) => v.unassigned).length;
   const dateLabel = now.toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <>
       <header className="header">
-        <h1>Carer roster</h1>
-        <p>{dateLabel} — today&apos;s visits grouped by carer. {byCarer.length} rounds.</p>
+        <h1>Rostering</h1>
+        <p>
+          Allocate, reassign and cover visits. {isToday ? `Today — ${dateLabel}. ` : `${day}. `}
+          {gaps > 0 ? `${gaps} visit${gaps > 1 ? "s" : ""} to cover.` : "All visits covered."}
+        </p>
       </header>
-      <div className="body fade">
-        <div className="grid cols-2">
-          {byCarer.map((g) => {
-            const unassigned = g.carer === "Unassigned";
-            return (
-              <div key={g.carer} className="card" style={unassigned ? { borderLeft: "4px solid var(--red-fg)" } : undefined}>
-                <div className="flex between" style={{ marginBottom: 8 }}>
-                  <div className="flex" style={{ gap: 8 }}>
-                    <span className="ms" style={{ fontSize: 18, color: unassigned ? "var(--red-fg)" : "var(--accent)" }}>
-                      {unassigned ? "report" : "badge"}
-                    </span>
-                    <strong style={{ fontSize: 14.5 }}>{g.carer}</strong>
-                  </div>
-                  <span className={`pill tone-${unassigned ? "red" : "grey"}`}>{g.visits.length} visits</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {g.visits.map((v, i) => (
-                    <Link
-                      key={i}
-                      href={`/clients/${v.clientId}`}
-                      style={{ borderLeft: `3px solid var(--${v.tone}-fg, var(--accent))`, paddingLeft: 10, display: "block" }}
-                    >
-                      <div className="flex" style={{ gap: 8, fontSize: 13 }}>
-                        <span className="code">{v.time}</span>
-                        <strong>{v.type}</strong>
-                        <span className="muted">{v.durMin}m</span>
-                        <span className={`pill tone-${v.tone}`} style={{ marginLeft: "auto" }}>
-                          {v.statusLabel}
-                        </span>
-                      </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>
-                        {v.maskedName} · {v.su} · {v.area}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <RosterBoard
+        day={day}
+        today={today}
+        week={WEEK}
+        visits={visits}
+        carerPool={pool}
+        pending={pendingReqs}
+        isCsm={isCsm}
+      />
     </>
   );
 }
