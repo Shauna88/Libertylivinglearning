@@ -15,8 +15,11 @@ import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./conten
 import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 import { rolesWith } from "./roles";
+import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers";
 
-const SEED_VERSION = "15";
+const CARER_SEED = CARER_DIRECTORY.carers;
+
+const SEED_VERSION = "16";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -382,6 +385,21 @@ async function createSchema(client: PoolClient) {
       status TEXT NOT NULL DEFAULT 'Open',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS carers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      home_area TEXT NOT NULL DEFAULT '',
+      covers_json TEXT NOT NULL DEFAULT '[]',
+      skills_json TEXT NOT NULL DEFAULT '[]',
+      pathway TEXT NOT NULL DEFAULT '',
+      transport TEXT NOT NULL DEFAULT '',
+      capacity_hours INTEGER NOT NULL DEFAULT 37,
+      committed_hours INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      note TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
 }
 
@@ -389,6 +407,7 @@ async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
   await client.query("DELETE FROM qip_actions");
+  await client.query("DELETE FROM carers");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
   await client.query("DELETE FROM care_notes");
@@ -459,7 +478,8 @@ async function seed(client: PoolClient) {
     { name: "Declan Nolan", email: "coordinator@libertyhomecare.ie", role: "Care Coordinator", region: "Offaly" },
     { name: "Tom Brennan", email: "oncall@libertyhomecare.ie", role: "On-Call Manager", region: "Kildare" },
     { name: "Sinead Kelly", email: "admin@libertyhomecare.ie", role: "Office Administrator", region: "Laois" },
-    { name: "Grace Nolan", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Tullamore" },
+    // The HCA demo login is one of the rostered carers so "My working week" is populated.
+    { name: "Denise Fenlon", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Dublin North" },
     // Read-only client/family portal login, linked to the client record it may view.
     { name: "Deirdre Conroy (family)", email: "family@libertyhomecare.ie", role: "Client / Family", region: "Dublin North", clientId: "CL-001" },
   ];
@@ -610,6 +630,15 @@ async function seed(client: PoolClient) {
     await client.query(
       "INSERT INTO qip_actions (ref,source,action,owner,due,status) VALUES ($1,$2,$3,$4,$5,$6)",
       [ref, source, action, owner, due, status]
+    );
+  }
+
+  // ---- carer directory ----
+  for (const c of CARER_SEED) {
+    await client.query(
+      `INSERT INTO carers (id,name,home_area,covers_json,skills_json,pathway,transport,capacity_hours,committed_hours,status,note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [c.id, c.name, c.homeArea, JSON.stringify(c.covers), JSON.stringify(c.skills), c.pathway, c.transport, c.capacityHours, c.committedHours, c.status, c.note]
     );
   }
 
@@ -1355,6 +1384,106 @@ export async function dsarExportCount(): Promise<number> {
     "SELECT COUNT(*)::int AS n FROM audit_log WHERE action = 'dsar.export'"
   );
   return rows[0]?.n ?? 0;
+}
+
+// ---------------- carer directory ----------------
+
+type CarerDbRow = {
+  id: string;
+  name: string;
+  home_area: string;
+  covers_json: string;
+  skills_json: string;
+  pathway: string;
+  transport: string;
+  capacity_hours: number;
+  committed_hours: number;
+  status: string;
+  note: string;
+};
+
+function rowToCarer(r: CarerDbRow): CarerRecord {
+  return {
+    id: r.id,
+    name: r.name,
+    homeArea: r.home_area,
+    covers: safeArr(r.covers_json),
+    skills: safeArr(r.skills_json),
+    pathway: r.pathway,
+    transport: r.transport,
+    capacityHours: r.capacity_hours,
+    committedHours: r.committed_hours,
+    status: r.status,
+    note: r.note,
+  };
+}
+
+function safeArr(s: string): string[] {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Every carer in the directory (active and inactive), ordered by name. */
+export async function listCarers(): Promise<CarerRecord[]> {
+  const rows = await q<CarerDbRow>("SELECT * FROM carers ORDER BY name");
+  return rows.map(rowToCarer);
+}
+
+/** The full matching directory: static skills/areas metadata + DB carer records. */
+export async function carerDirectory(): Promise<CarerDirectory> {
+  const carers = await listCarers();
+  return { skills: CARER_DIRECTORY.skills, areas: CARER_DIRECTORY.areas, carers };
+}
+
+export async function getCarer(id: string): Promise<CarerRecord | null> {
+  const rows = await q<CarerDbRow>("SELECT * FROM carers WHERE id=$1", [id]);
+  return rows[0] ? rowToCarer(rows[0]) : null;
+}
+
+/** The next free carer id (HCA-###), scanning existing ids. */
+export async function nextCarerId(): Promise<string> {
+  const rows = await q<{ id: string }>("SELECT id FROM carers");
+  let max = 0;
+  for (const r of rows) {
+    const m = /(\d+)\s*$/.exec(r.id);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `HCA-${String(max + 1).padStart(3, "0")}`;
+}
+
+/** Create or update a carer record. Returns the id written. */
+export async function upsertCarer(input: {
+  id?: string;
+  name: string;
+  homeArea: string;
+  covers: string[];
+  skills: string[];
+  pathway: string;
+  transport: string;
+  capacityHours: number;
+  committedHours: number;
+  status: string;
+  note: string;
+  by: string;
+}): Promise<string> {
+  const id = input.id && input.id.trim() ? input.id.trim() : await nextCarerId();
+  await q(
+    `INSERT INTO carers (id,name,home_area,covers_json,skills_json,pathway,transport,capacity_hours,committed_hours,status,note,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
+     ON CONFLICT (id) DO UPDATE SET
+       name=excluded.name, home_area=excluded.home_area, covers_json=excluded.covers_json,
+       skills_json=excluded.skills_json, pathway=excluded.pathway, transport=excluded.transport,
+       capacity_hours=excluded.capacity_hours, committed_hours=excluded.committed_hours,
+       status=excluded.status, note=excluded.note, updated_at=now()`,
+    [id, input.name, input.homeArea, JSON.stringify(input.covers), JSON.stringify(input.skills),
+      input.pathway, input.transport, input.capacityHours, input.committedHours, input.status, input.note]
+  );
+  await logAudit({ actorName: input.by, action: input.id ? "carer.update" : "carer.create", target: id, detail: input.name });
+  return id;
 }
 
 // ---------------- CRM: cover assignments + permanent-change requests ----------------

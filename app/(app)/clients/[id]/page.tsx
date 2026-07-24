@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, coverMap, coverReasons, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, coverMap, coverReasons, carerDirectory, type Role } from "@/lib/db";
 import { carerPool } from "@/lib/schedule";
-import { CARER_DIRECTORY, suggestCarers } from "@/lib/carers";
+import { suggestCarers } from "@/lib/carers";
 import {
   maskName,
   maskAddr,
@@ -23,17 +23,18 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [notes, docs, allClients, pendingAll, cover, reasons] = await Promise.all([
+  const [notes, docs, allClients, pendingAll, cover, reasons, directory] = await Promise.all([
     listCareNotes(id),
     listClientDocs(id),
     listClients(),
     listPermReqs("pending"),
     coverMap(),
     coverReasons(),
+    carerDirectory(),
   ]);
   const carers = carerPool(allClients);
   // Rank the carer directory for this client's area + conditions (best fit first).
-  const suggestions = suggestCarers(CARER_DIRECTORY, { area: client.area, conditions: client.conditions }, { limit: 5 });
+  const suggestions = suggestCarers(directory, { area: client.area, conditions: client.conditions }, { limit: 5 });
   const isApprover = OVERSIGHT_ROLES.includes(session!.user.role as Role);
   const pending = pendingAll
     .filter((p) => p.client_id === id)

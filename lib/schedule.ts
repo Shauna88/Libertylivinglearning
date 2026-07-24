@@ -132,6 +132,73 @@ export function groupByArea(visits: TodayVisit[]): { area: string; visits: Today
     .sort((a, b) => a.area.localeCompare(b.area));
 }
 
+const WEEK_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+export type CarerVisit = {
+  clientId: string;
+  su: string;
+  area: string;
+  maskedName: string;
+  day: string;
+  time: string;
+  startMin: number;
+  dur: string;
+  type: string;
+  tasks: string[];
+  cover: boolean; // this visit is theirs only via a cover override (this week)
+};
+export type CarerDay = { day: string; visits: CarerVisit[]; minutes: number };
+
+/** Does `carer` (which may be an "A + B" pairing) include `name`? */
+function carerMatches(carer: string, name: string): boolean {
+  if (isUnassigned(carer)) return false;
+  const target = name.trim().toLowerCase();
+  return String(carer).split("+").map((s) => s.trim().toLowerCase()).includes(target);
+}
+
+/**
+ * One carer's working week across every client — the base Schedule of Service
+ * with cover overrides applied, filtered to the calls they are the effective
+ * carer for. `cover: true` marks a call that is theirs this week only.
+ */
+export function carerWeek(
+  clients: Client[],
+  carerName: string,
+  coverMap: Record<string, string> = {}
+): CarerDay[] {
+  const byDay = new Map<string, CarerVisit[]>(WEEK_ORDER.map((d) => [d, []]));
+  for (const c of clients) {
+    for (const day of c.schedule) {
+      for (const v of day.visits) {
+        const key = visitKey(c.id, day.day, v.time);
+        const overridden = Object.prototype.hasOwnProperty.call(coverMap, key);
+        const effective = overridden ? coverMap[key] : v.carer;
+        if (!carerMatches(effective, carerName)) continue;
+        const list = byDay.get(day.day);
+        if (!list) continue;
+        list.push({
+          clientId: c.id,
+          su: c.su,
+          area: c.area,
+          maskedName: maskName(c.name),
+          day: day.day,
+          time: v.time,
+          startMin: parseTime(v.time),
+          dur: v.dur,
+          type: v.type,
+          tasks: v.tasks,
+          cover: overridden,
+        });
+      }
+    }
+  }
+  return WEEK_ORDER.map((day) => {
+    const visits = (byDay.get(day) ?? []).sort((a, b) => a.startMin - b.startMin);
+    const minutes = visits.reduce((n, v) => n + parseDur(v.dur), 0);
+    return { day, visits, minutes };
+  });
+}
+
 /** The pool of carers a coordinator can allocate from (named carers + relief). */
 export function carerPool(clients: Client[]): string[] {
   const set = new Set<string>();
