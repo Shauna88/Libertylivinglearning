@@ -45,7 +45,7 @@ export default function LoginPage() {
 
   return (
     <div className="login-wrap">
-      <form className="login-card" onSubmit={submit}>
+      <form className="login-card" onSubmit={submit} autoComplete="off">
         <div className="brand">
           <div className="brand-tile">
             <span className="ms">eco</span>
@@ -66,9 +66,12 @@ export default function LoginPage() {
           <label htmlFor="email">Work email</label>
           <input
             id="email"
+            name="ll-user"
             className="input"
             type="email"
-            autoComplete="username"
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -78,9 +81,14 @@ export default function LoginPage() {
           <label htmlFor="password">Password</label>
           <input
             id="password"
+            name="ll-pass"
             className="input"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
+            data-lpignore="true"
+            data-1p-ignore
+            readOnly
+            onFocus={(e) => e.currentTarget.removeAttribute("readonly")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
