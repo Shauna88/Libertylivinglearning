@@ -1,6 +1,17 @@
+import { auth } from "@/auth";
 import { REGISTERS, severityTone, type RegisterKind } from "@/lib/registers";
-import { listRegister } from "@/lib/db";
+import { listRegister, IMPROVEMENT_ROLES, type Role } from "@/lib/db";
 import NewEntryForm from "@/components/NewEntryForm";
+import RecordDrawer from "@/components/RecordDrawer";
+
+function parseRecord(json: string | null): Record<string, string> {
+  if (!json) return {};
+  try {
+    return JSON.parse(json) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 
 function fmtDate(s: string | Date) {
   return new Date(s).toLocaleDateString("en-IE", {
@@ -12,6 +23,8 @@ function fmtDate(s: string | Date) {
 
 export default async function RegisterScreen({ kind }: { kind: RegisterKind }) {
   const cfg = REGISTERS[kind];
+  const session = await auth();
+  const canEdit = IMPROVEMENT_ROLES.includes(session?.user?.role as Role);
   const entries = await listRegister(kind);
   const open = entries.filter((e) => e.status === "open").length;
   const closed = entries.length - open;
@@ -96,6 +109,7 @@ export default async function RegisterScreen({ kind }: { kind: RegisterKind }) {
                     {fmtDate(e.created_at)}
                   </span>
                 </div>
+                <RecordDrawer kind={kind} id={e.id} record={parseRecord(e.record_json)} canEdit={canEdit} />
               </div>
             ))}
           </div>
