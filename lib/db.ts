@@ -240,6 +240,7 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_register_kind ON register_entries(kind);
+    ALTER TABLE register_entries ADD COLUMN IF NOT EXISTS record_json TEXT;
 
     CREATE TABLE IF NOT EXISTS clients (
       id TEXT PRIMARY KEY,
@@ -753,8 +754,29 @@ export type RegisterEntry = {
   status: string;
   reporter_id: number | null;
   reporter_name: string;
+  record_json: string | null;
   created_at: string;
 };
+
+/** Save the schema-driven regulatory record (NIMS, open disclosure, etc.). */
+export async function updateRegisterRecord(input: {
+  kind: string;
+  id: number;
+  record: Record<string, string>;
+  by: string;
+}): Promise<boolean> {
+  const rows = await q<{ ref: string }>(
+    "UPDATE register_entries SET record_json=$1 WHERE kind=$2 AND id=$3 RETURNING ref",
+    [JSON.stringify(input.record), input.kind, input.id]
+  );
+  if (!rows[0]) return false;
+  await logAudit({
+    actorName: input.by,
+    action: `${input.kind}.record.save`,
+    target: rows[0].ref,
+  });
+  return true;
+}
 
 export async function listRegister(kind: string): Promise<RegisterEntry[]> {
   return q<RegisterEntry>(
