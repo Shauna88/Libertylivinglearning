@@ -10,11 +10,13 @@ import {
   listQip,
   listAssignments,
   countPendingTimeOff,
+  listTodos,
   coverMap,
   OVERSIGHT_ROLES,
   WORKFORCE_ROLES,
   type Role,
 } from "@/lib/db";
+import TodoBoard, { type PersonalTodo } from "@/components/TodoBoard";
 import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
 import { PORTALS, portalKey, rag, ragPct, trend, type Metric } from "@/lib/portals";
@@ -47,25 +49,6 @@ function pastDue(due: string | null): boolean {
   if (!due) return false;
   const t = Date.parse(due);
   return !Number.isNaN(t) && t < Date.now();
-}
-
-/** A ranked, clickable prompt list — "here's what needs you". */
-function PromptList({ title, todos, emptyText }: { title: string; todos: Todo[]; emptyText: string }) {
-  return (
-    <div className="card" style={{ borderLeft: `4px solid var(--${todos.length ? "amber" : "green"}-fg)`, marginBottom: 8 }}>
-      <div className="flex between" style={{ alignItems: "center", marginBottom: todos.length ? 8 : 0 }}>
-        <strong style={{ fontSize: 14 }}>{title}{todos.length ? ` · ${todos.length}` : ""}</strong>
-        {!todos.length && <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>check_circle</span>{emptyText}</span>}
-      </div>
-      {todos.map((t, i) => (
-        <Link key={i} href={t.href} className="dash-row">
-          <span className="ms" style={{ fontSize: 18, color: `var(--${t.tone}-fg)` }}>{t.icon}</span>
-          <span style={{ fontSize: 13 }}>{t.text}</span>
-          <span className="ms" style={{ fontSize: 16, marginLeft: "auto", color: "var(--text-2)" }}>chevron_right</span>
-        </Link>
-      ))}
-    </div>
-  );
 }
 
 /** Daily improvement prompts for a management/department role. */
@@ -140,6 +123,7 @@ export default async function DashboardPage() {
   const role = user.role as Role;
   const profile = profileFor(role);
   const isTimeOffApprover = OVERSIGHT_ROLES.includes(role) || WORKFORCE_ROLES.includes(role);
+  const personalTodos: PersonalTodo[] = (await listTodos(user.id)).map((t) => ({ id: t.id, text: t.text, href: t.href, done: t.done }));
   const firstName = user.name.split(" ")[0] || "there";
   const hour = new Date().toLocaleString("en-IE", { hour: "2-digit", hour12: false, timeZone: "Europe/Dublin" });
   const hi = `${greeting(parseInt(hour, 10) || 9)}, ${firstName}`;
@@ -241,7 +225,7 @@ export default async function DashboardPage() {
     // A single ranked "to-do" so nothing is missed.
     const todos: { icon: string; tone: string; text: string; href: string }[] = [];
     if (uncovered.length) todos.push({ icon: "event_busy", tone: "red", text: `${uncovered.length} uncovered call${uncovered.length === 1 ? "" : "s"} today need a carer`, href: "/roster" });
-    if (permReqs.length) todos.push({ icon: "how_to_reg", tone: "amber", text: `${permReqs.length} permanent carer change${permReqs.length === 1 ? "" : "s"} awaiting your approval`, href: "/dashboard" });
+    if (permReqs.length) todos.push({ icon: "how_to_reg", tone: "amber", text: `${permReqs.length} permanent carer change${permReqs.length === 1 ? "" : "s"} awaiting your approval`, href: "/dashboard#csm-approvals" });
     if (sick.length) todos.push({ icon: "sick", tone: "red", text: `${sick.length} carer sick / no-show call${sick.length === 1 ? "" : "s"} to re-cover`, href: "/call-log" });
     if (followCalls.length) todos.push({ icon: "call", tone: "amber", text: `${followCalls.length} call event${followCalls.length === 1 ? "" : "s"} to follow up`, href: "/call-log" });
     if (openIssues2.length) todos.push({ icon: "flag", tone: "amber", text: `${openIssues2.length} complaint${openIssues2.length === 1 ? "" : "s"} / incident${openIssues2.length === 1 ? "" : "s"} open`, href: "/improvement" });
@@ -257,20 +241,8 @@ export default async function DashboardPage() {
             <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} Here&apos;s what needs you today.</p>
           </div>
 
-          {/* to-do prompts */}
-          <div className="card" style={{ borderLeft: `4px solid var(--${todos.length ? "amber" : "green"}-fg)`, marginBottom: 8 }}>
-            <div className="flex between" style={{ alignItems: "center", marginBottom: todos.length ? 8 : 0 }}>
-              <strong style={{ fontSize: 14 }}>To do{todos.length ? ` · ${todos.length}` : ""}</strong>
-              {!todos.length && <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>check_circle</span>All clear</span>}
-            </div>
-            {todos.map((t, i) => (
-              <Link key={i} href={t.href} className="dash-row">
-                <span className="ms" style={{ fontSize: 18, color: `var(--${t.tone}-fg)` }}>{t.icon}</span>
-                <span style={{ fontSize: 13 }}>{t.text}</span>
-                <span className="ms" style={{ fontSize: 16, marginLeft: "auto", color: "var(--text-2)" }}>chevron_right</span>
-              </Link>
-            ))}
-          </div>
+          {/* to-do prompts + personal to-dos */}
+          <TodoBoard title="To do" emptyText="All clear" systemTodos={todos} todos={personalTodos} />
 
           <div className="grid cols-4">
             {tiles.map((t) => (
@@ -282,7 +254,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* approvals */}
-          <div className="section-title">Approvals — permanent carer changes</div>
+          <div id="csm-approvals" className="section-title" style={{ scrollMarginTop: 90 }}>Approvals — permanent carer changes</div>
           {permReqs.length === 0 ? (
             <div className="card muted" style={{ fontSize: 13 }}>No changes waiting for approval.</div>
           ) : (
@@ -409,7 +381,7 @@ export default async function DashboardPage() {
           {profile.caps.includes("improvement") && (
             <>
               <div className="section-title">Daily improvement prompts{deptOf(role) && hubScopeOf(role) === "dept" ? ` · ${deptOf(role)}` : ""}</div>
-              <PromptList title="Drive your department's improvements" todos={improveTodos} emptyText="Nothing outstanding" />
+              <TodoBoard title="Drive your department's improvements" systemTodos={improveTodos} todos={personalTodos} emptyText="Nothing outstanding" />
             </>
           )}
           {inbox}
@@ -439,7 +411,7 @@ export default async function DashboardPage() {
             <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} This month ({fin.monthLabel}) at a glance.</p>
           </div>
           <div className="section-title">Daily prompts · Finance</div>
-          <PromptList title="Keep the books current" todos={finTodos} emptyText="Nothing outstanding" />
+          <TodoBoard title="Keep the books current" systemTodos={finTodos} todos={personalTodos} emptyText="Nothing outstanding" />
           <div className="grid cols-4">
             <div className="card metric"><div className="num">{money(fin.billedTotal)}</div><div className="lbl">Billed this month</div></div>
             <div className="card metric"><div className="num">{money(fin.payrollTotal)}</div><div className="lbl">Payroll</div></div>
@@ -493,7 +465,7 @@ export default async function DashboardPage() {
             <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} {isOnCall ? "Out-of-hours — here's what's live right now." : "Here's your day."}</p>
           </div>
           <div className="section-title">{isOnCall ? "On call — action now" : "Your day — action now"}</div>
-          <PromptList title={isOnCall ? "Live out-of-hours" : "To do today"} todos={opsTodos} emptyText="All calls covered" />
+          <TodoBoard title={isOnCall ? "Live out-of-hours" : "To do today"} systemTodos={opsTodos} todos={personalTodos} emptyText="All calls covered" />
 
           <div className="grid cols-4">
             <div className="card metric"><div className="num">{visits.length}</div><div className="lbl">Visits today ({weekday})</div></div>
@@ -560,11 +532,14 @@ export default async function DashboardPage() {
   const done = enrollments.filter((e) => e.status === "completed").length;
   const pct = total ? Math.round((done / total) * 100) : 0;
   const barTone = pct >= 90 ? "" : pct >= 70 ? " amber" : " red";
+  const hcaTodos: Todo[] = [];
+  if (total - done > 0) hcaTodos.push({ icon: "school", tone: "amber", text: `${total - done} training course${total - done === 1 ? "" : "s"} to complete`, href: "/training" });
 
   return (
     <>
       {header}
       <div className="body fade">
+        <TodoBoard title="To do" emptyText="Nothing outstanding" systemTodos={hcaTodos} todos={personalTodos} />
         {total > 0 ? (
           <>
             <div className="grid cols-3">
