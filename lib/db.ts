@@ -16,7 +16,7 @@ import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 import { rolesWith } from "./roles";
 
-const SEED_VERSION = "14";
+const SEED_VERSION = "15";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -372,12 +372,23 @@ async function createSchema(client: PoolClient) {
       decided_at TIMESTAMPTZ
     );
     CREATE INDEX IF NOT EXISTS idx_permreq_status ON permanent_change_requests(status);
+
+    CREATE TABLE IF NOT EXISTS qip_actions (
+      ref TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      action TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      due TEXT,
+      status TEXT NOT NULL DEFAULT 'Open',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
 }
 
 async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
+  await client.query("DELETE FROM qip_actions");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
   await client.query("DELETE FROM care_notes");
@@ -586,6 +597,22 @@ async function seed(client: PoolClient) {
     );
   }
 
+  // ---- QMS: QIP / CAPA actions (Quality Improvement Plan) ----
+  const qipSeed: Array<[string, string, string, string, string, string]> = [
+    ["QIP-2026-018", "Workforce audit", "Complete Open Disclosure refresher for all HCAs below threshold", "Director of HR", "31 Jul 2026", "In progress"],
+    ["QIP-2026-017", "INC-2026-027", "Review pressure-area care pathway & competency sign-off", "Clinical Lead", "15 Jul 2026", "In progress"],
+    ["QIP-2026-016", "Complaints trend", "Strengthen visit scheduling controls in Dublin South", "Director of Operations", "22 Jul 2026", "Open"],
+    ["QIP-2026-015", "HS-16 overdue", "Reissue & re-sign Lone Worker Policy; update lone-worker check-ins", "Safety Officer", "05 Jul 2026", "Overdue"],
+    ["QIP-2026-014", "Medication audit", "Roll out revised medication prompting record across all lots", "Clinical Lead", "30 Jun 2026", "In progress"],
+    ["QIP-2026-013", "Q1 Governance", "Embed Dementia programme completion into allocation rules", "Director of Care", "12 Aug 2026", "Open"],
+  ];
+  for (const [ref, source, action, owner, due, status] of qipSeed) {
+    await client.query(
+      "INSERT INTO qip_actions (ref,source,action,owner,due,status) VALUES ($1,$2,$3,$4,$5,$6)",
+      [ref, source, action, owner, due, status]
+    );
+  }
+
   await client.query(
     "INSERT INTO meta (key,value) VALUES ('seed_version',$1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
     [SEED_VERSION]
@@ -757,6 +784,60 @@ export type RegisterEntry = {
   record_json: string | null;
   created_at: string;
 };
+
+// ---------------- QMS: QIP / CAPA actions ----------------
+
+export type QipRow = {
+  ref: string;
+  source: string;
+  action: string;
+  owner: string;
+  due: string | null;
+  status: string;
+  created_at: string;
+};
+
+export async function listQip(): Promise<QipRow[]> {
+  return q<QipRow>("SELECT * FROM qip_actions ORDER BY ref DESC");
+}
+
+export async function addQip(input: {
+  source: string;
+  action: string;
+  owner: string;
+  due: string | null;
+  by: string;
+}): Promise<QipRow> {
+  await ensureReady();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const rows = (await client.query("SELECT ref FROM qip_actions")).rows as { ref: string }[];
+    let max = 0;
+    for (const r of rows) {
+      const m = /QIP-\d+-(\d+)/.exec(r.ref);
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    const ref = `QIP-2026-${String(max + 1).padStart(3, "0")}`;
+    const ins = await client.query(
+      "INSERT INTO qip_actions (ref,source,action,owner,due,status) VALUES ($1,$2,$3,$4,$5,'Open') RETURNING *",
+      [ref, input.source, input.action, input.owner, input.due]
+    );
+    await client.query("COMMIT");
+    await logAudit({ actorName: input.by, action: "qip.add", target: ref, detail: input.action });
+    return ins.rows[0] as QipRow;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function setQipStatus(ref: string, status: string, by: string): Promise<void> {
+  await q("UPDATE qip_actions SET status=$1 WHERE ref=$2", [status, ref]);
+  await logAudit({ actorName: by, action: "qip.status", target: ref, detail: status });
+}
 
 /** Save the schema-driven regulatory record (NIMS, open disclosure, etc.). */
 export async function updateRegisterRecord(input: {
