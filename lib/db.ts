@@ -14,37 +14,63 @@ import bcrypt from "bcryptjs";
 import { COURSES, SOPS, PATHWAYS, getPathwayByRole, type Course } from "./content";
 import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
+import { rolesWith } from "./roles";
 
-const SEED_VERSION = "13";
+const SEED_VERSION = "14";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
 export type Role =
-  | "Healthcare Assistant"
-  | "Care Coordinator"
-  | "Office Administrator"
-  | "On-Call Manager"
+  | "Executive"
+  | "Director of Quality"
+  | "Director of HR"
+  | "Director of Finance"
+  | "Recruitment Manager"
   | "Client Service Manager"
   | "Manager"
+  | "Care Coordinator"
+  | "On-Call Manager"
+  | "Office Administrator"
+  | "Healthcare Assistant"
   | "Client / Family";
+
+/** Every role, in seniority order — the basis for the capability gate arrays. */
+export const ALL_ROLES: Role[] = [
+  "Executive",
+  "Director of Quality",
+  "Director of HR",
+  "Director of Finance",
+  "Recruitment Manager",
+  "Client Service Manager",
+  "Manager",
+  "Care Coordinator",
+  "On-Call Manager",
+  "Office Administrator",
+  "Healthcare Assistant",
+  "Client / Family",
+];
 
 /** The read-only client/family portal role. Sees only their own linked client. */
 export const PORTAL_ROLE: Role = "Client / Family";
 
+// Gate arrays derive from the single role-capability model in lib/roles.ts.
 /** Roles allowed to view the manager Monitor / oversight dashboards. */
-export const OVERSIGHT_ROLES: Role[] = ["Manager", "Client Service Manager"];
+export const OVERSIGHT_ROLES: Role[] = rolesWith("oversight", ALL_ROLES);
 
 /** Roles allowed into the client CRM (service-user records). */
-export const CRM_ROLES: Role[] = ["Care Coordinator", "Client Service Manager", "Manager"];
+export const CRM_ROLES: Role[] = rolesWith("crm", ALL_ROLES);
 
 /** Roles allowed into the Improvement & Training hub (issue review + routing). */
-export const IMPROVEMENT_ROLES: Role[] = ["Manager", "Client Service Manager"];
+export const IMPROVEMENT_ROLES: Role[] = rolesWith("improvement", ALL_ROLES);
 
 /** Roles allowed into Finance (invoicing, rate schemes, payroll). */
-export const FINANCE_ROLES: Role[] = ["Manager", "Client Service Manager"];
+export const FINANCE_ROLES: Role[] = rolesWith("finance", ALL_ROLES);
 
 /** Roles allowed into Recruitment (HR pipeline & onboarding). */
-export const RECRUIT_ROLES: Role[] = ["Manager", "Client Service Manager"];
+export const RECRUIT_ROLES: Role[] = rolesWith("recruit", ALL_ROLES);
+
+/** Roles allowed into Workforce & Training (HR compliance view). */
+export const WORKFORCE_ROLES: Role[] = rolesWith("workforce", ALL_ROLES);
 
 export type UserRow = {
   id: number;
@@ -410,12 +436,17 @@ async function seed(client: PoolClient) {
   // ---- demo users (dev only; replace with real accounts in production) ----
   const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
   const demo: Array<{ name: string; email: string; role: Role; region: string; clientId?: string }> = [
-    { name: "Grace Nolan", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Tullamore" },
-    { name: "Mary James", email: "coordinator@libertyhomecare.ie", role: "Care Coordinator", region: "Offaly" },
-    { name: "Sinead Kelly", email: "admin@libertyhomecare.ie", role: "Office Administrator", region: "Laois" },
+    // Senior / office roles (one login per role — the nine-role model).
+    { name: "Shauna Delaney", email: "manager@libertyhomecare.ie", role: "Executive", region: "All regions" },
+    { name: "Claire Leavy", email: "quality@libertyhomecare.ie", role: "Director of Quality", region: "All regions" },
+    { name: "Laura Souza", email: "hr@libertyhomecare.ie", role: "Director of HR", region: "All regions" },
+    { name: "Mary James", email: "csm@libertyhomecare.ie", role: "Client Service Manager", region: "Offaly" },
+    { name: "Lawrenie De Souza", email: "finance@libertyhomecare.ie", role: "Director of Finance", region: "All regions" },
+    { name: "Karen McLoughlin", email: "recruit@libertyhomecare.ie", role: "Recruitment Manager", region: "All regions" },
+    { name: "Declan Nolan", email: "coordinator@libertyhomecare.ie", role: "Care Coordinator", region: "Offaly" },
     { name: "Tom Brennan", email: "oncall@libertyhomecare.ie", role: "On-Call Manager", region: "Kildare" },
-    { name: "Ana Lyons", email: "csm@libertyhomecare.ie", role: "Client Service Manager", region: "Offaly" },
-    { name: "Laura Souza", email: "manager@libertyhomecare.ie", role: "Manager", region: "All regions" },
+    { name: "Sinead Kelly", email: "admin@libertyhomecare.ie", role: "Office Administrator", region: "Laois" },
+    { name: "Grace Nolan", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Tullamore" },
     // Read-only client/family portal login, linked to the client record it may view.
     { name: "Deirdre Conroy (family)", email: "family@libertyhomecare.ie", role: "Client / Family", region: "Dublin North", clientId: "CL-001" },
   ];

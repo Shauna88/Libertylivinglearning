@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { OVERSIGHT_ROLES, type Role } from "@/lib/db";
+import { WORKFORCE_ROLES, type Role } from "@/lib/db";
 import {
   WF_KPIS,
   READINESS,
@@ -13,7 +13,7 @@ import WorkforceView from "@/components/WorkforceView";
 
 export default async function WorkforcePage() {
   const session = await auth();
-  if (!OVERSIGHT_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
+  if (!WORKFORCE_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
   return (
     <>

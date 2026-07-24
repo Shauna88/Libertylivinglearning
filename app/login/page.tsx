@@ -5,12 +5,16 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 const DEMO_ACCOUNTS = [
-  { email: "manager@libertyhomecare.ie", role: "Manager (oversight)" },
+  { email: "manager@libertyhomecare.ie", role: "Executive / PIC (all areas)" },
+  { email: "quality@libertyhomecare.ie", role: "Director of Quality" },
+  { email: "hr@libertyhomecare.ie", role: "Director of HR" },
   { email: "csm@libertyhomecare.ie", role: "Client Service Manager" },
+  { email: "finance@libertyhomecare.ie", role: "Director of Finance" },
+  { email: "recruit@libertyhomecare.ie", role: "Recruitment Manager" },
   { email: "coordinator@libertyhomecare.ie", role: "Care Coordinator" },
-  { email: "hca@libertyhomecare.ie", role: "Healthcare Assistant" },
-  { email: "admin@libertyhomecare.ie", role: "Office Administrator" },
   { email: "oncall@libertyhomecare.ie", role: "On-Call Manager" },
+  { email: "admin@libertyhomecare.ie", role: "Office Administrator" },
+  { email: "hca@libertyhomecare.ie", role: "Healthcare Assistant" },
   { email: "family@libertyhomecare.ie", role: "Client / Family portal" },
 ];
 

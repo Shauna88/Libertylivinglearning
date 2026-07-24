@@ -15,6 +15,9 @@ export default function Sidebar({
   isCrm = false,
   isFinance = false,
   isRecruit = false,
+  isImprovement = false,
+  isWorkforce = false,
+  hubLabel = "Improvement & Training",
   openCounts = {},
 }: {
   name: string;
@@ -24,6 +27,9 @@ export default function Sidebar({
   isCrm?: boolean;
   isFinance?: boolean;
   isRecruit?: boolean;
+  isImprovement?: boolean;
+  isWorkforce?: boolean;
+  hubLabel?: string;
   openCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
@@ -64,12 +70,11 @@ export default function Sidebar({
     },
   ];
 
-  if (isRecruit) {
-    groups.push({
-      label: "Workforce",
-      items: [{ label: "Recruitment", icon: "person_search", href: "/recruitment" }],
-    });
-  }
+  // Workforce group — recruitment and/or the HR compliance view.
+  const workforceItems: Item[] = [];
+  if (isWorkforce) workforceItems.push({ label: "Workforce & Training", icon: "groups", href: "/workforce" });
+  if (isRecruit) workforceItems.push({ label: "Recruitment", icon: "person_search", href: "/recruitment" });
+  if (workforceItems.length) groups.push({ label: "Workforce", items: workforceItems });
 
   if (isFinance) {
     groups.push({
@@ -95,17 +100,17 @@ export default function Sidebar({
     });
   }
 
+  // Management group — the Improvement & Training hub (label is role-aware) and
+  // the oversight tools, each shown only to roles that hold the capability.
+  const mgmtItems: Item[] = [];
+  if (isImprovement) mgmtItems.push({ label: "Improvement & Training", icon: "model_training", href: "/improvement" });
   if (isOversight) {
-    groups.splice(isCrm ? 3 : 2, 0, {
-      label: "Oversight",
-      items: [
-        { label: "Improvement & Training", icon: "model_training", href: "/improvement" },
-        { label: "Monitor", icon: "insights", href: "/monitor" },
-        { label: "Workforce & Training", icon: "groups", href: "/workforce" },
-        { label: "PII access log", icon: "policy", href: "/access-log" },
-        { label: "Data protection", icon: "encrypted", href: "/data-protection" },
-      ],
-    });
+    mgmtItems.push({ label: "Monitor", icon: "insights", href: "/monitor" });
+    mgmtItems.push({ label: "PII access log", icon: "policy", href: "/access-log" });
+    mgmtItems.push({ label: "Data protection", icon: "encrypted", href: "/data-protection" });
+  }
+  if (mgmtItems.length) {
+    groups.splice(isCrm ? 3 : 2, 0, { label: hubLabel, items: mgmtItems });
   }
 
   const initials = name
