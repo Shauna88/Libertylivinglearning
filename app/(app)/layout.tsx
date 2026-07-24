@@ -28,7 +28,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isRecruit = RECRUIT_ROLES.includes(role as Role);
   const isImprovement = IMPROVEMENT_ROLES.includes(role as Role);
   const isWorkforce = WORKFORCE_ROLES.includes(role as Role);
-  const openCounts = await registerOpenCounts();
+  // Front-line staff can raise register entries but don't see the whole register,
+  // so they don't get the org-wide open badges either.
+  const canSeeRegisters = isOversight || isImprovement || isCrm;
+  const openCounts = canSeeRegisters ? await registerOpenCounts() : {};
 
   return (
     <div className="shell">
@@ -42,6 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isRecruit={isRecruit}
         isImprovement={isImprovement}
         isWorkforce={isWorkforce}
+        canSeeAllRegisters={canSeeRegisters}
         hubLabel={hubLabel(role)}
         openCounts={openCounts}
       />

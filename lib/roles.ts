@@ -57,6 +57,28 @@ export function deptOf(role: string): Dept | null {
   return profileFor(role).dept;
 }
 
+/** Department "mailboxes" you can send a message or meeting request to. */
+export const MESSAGE_DEPTS = [
+  "Executive",
+  "Quality",
+  "HR",
+  "Finance",
+  "Client Services",
+  "Care & Operations",
+  "Administration",
+  "All staff",
+] as const;
+
+/** The mailbox a role receives department messages in (every role has one). */
+export function messagingDept(role: string): string {
+  const d = deptOf(role);
+  if (d) return d;
+  if (role === "Executive" || role === "Manager") return "Executive";
+  if (role === "Office Administrator") return "Administration";
+  if (role === "Healthcare Assistant") return "Care & Operations";
+  return "Executive";
+}
+
 export function hubScopeOf(role: string): "all" | "dept" | "none" {
   return profileFor(role).hubScope;
 }
