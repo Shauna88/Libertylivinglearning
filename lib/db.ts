@@ -19,7 +19,7 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "19";
+const SEED_VERSION = "20";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -444,6 +444,10 @@ async function createSchema(client: PoolClient) {
       done_at TIMESTAMPTZ
     );
     CREATE INDEX IF NOT EXISTS idx_user_todos_user ON user_todos(user_id);
+    -- to_dept set = a collaboration to-do shared with another department
+    ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS to_dept TEXT;
+    ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS from_name TEXT;
+    CREATE INDEX IF NOT EXISTS idx_user_todos_dept ON user_todos(to_dept);
   `);
 }
 
@@ -1692,33 +1696,52 @@ export type TodoRow = {
   text: string;
   href: string | null;
   done: boolean;
+  to_dept: string | null;
+  from_name: string | null;
   created_at: string;
   done_at: string | null;
 };
 
-/** A user's own to-dos (pending first, newest first). */
-export async function listTodos(userId: number): Promise<TodoRow[]> {
-  return q<TodoRow>("SELECT * FROM user_todos WHERE user_id=$1 ORDER BY done ASC, created_at DESC", [userId]);
+/**
+ * The to-dos to show on a user's dashboard: their own personal ones, plus any
+ * collaboration to-dos shared with their department, plus ones they raised to
+ * another department (so they can track them).
+ */
+export async function listDashboardTodos(userId: number, dept: string): Promise<TodoRow[]> {
+  return q<TodoRow>(
+    `SELECT * FROM user_todos
+     WHERE (user_id=$1 AND to_dept IS NULL)
+        OR (to_dept=$2)
+        OR (user_id=$1 AND to_dept IS NOT NULL)
+     ORDER BY done ASC, created_at DESC`,
+    [userId, dept]
+  );
 }
 
-export async function addTodo(userId: number, text: string, href: string | null = null): Promise<TodoRow> {
+export async function addTodo(input: {
+  userId: number;
+  text: string;
+  href?: string | null;
+  toDept?: string | null;
+  fromName?: string | null;
+}): Promise<TodoRow> {
   const rows = await q<TodoRow>(
-    "INSERT INTO user_todos (user_id,text,href) VALUES ($1,$2,$3) RETURNING *",
-    [userId, text, href]
+    "INSERT INTO user_todos (user_id,text,href,to_dept,from_name) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+    [input.userId, input.text, input.href ?? null, input.toDept ?? null, input.fromName ?? null]
   );
   return rows[0];
 }
 
-/** Toggle / set a to-do's done state — scoped to its owner. */
-export async function setTodoDone(userId: number, id: number, done: boolean): Promise<void> {
+/** Toggle a to-do — the owner, or anyone in the department it's shared with. */
+export async function setTodoDone(userId: number, dept: string, id: number, done: boolean): Promise<void> {
   await q(
-    "UPDATE user_todos SET done=$1, done_at=CASE WHEN $1 THEN now() ELSE NULL END WHERE id=$2 AND user_id=$3",
-    [done, id, userId]
+    "UPDATE user_todos SET done=$1, done_at=CASE WHEN $1 THEN now() ELSE NULL END WHERE id=$2 AND (user_id=$3 OR to_dept=$4)",
+    [done, id, userId, dept]
   );
 }
 
-export async function deleteTodo(userId: number, id: number): Promise<void> {
-  await q("DELETE FROM user_todos WHERE id=$1 AND user_id=$2", [id, userId]);
+export async function deleteTodo(userId: number, dept: string, id: number): Promise<void> {
+  await q("DELETE FROM user_todos WHERE id=$1 AND (user_id=$2 OR to_dept=$3)", [id, userId, dept]);
 }
 
 // ---------------- CRM: cover assignments + permanent-change requests ----------------

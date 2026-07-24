@@ -5,21 +5,36 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export type SystemTodo = { icon: string; tone: string; text: string; href: string };
-export type PersonalTodo = { id: number; text: string; href: string | null; done: boolean };
+export type PersonalTodo = {
+  id: number;
+  text: string;
+  href: string | null;
+  done: boolean;
+  toDept?: string | null;
+  fromName?: string | null;
+  mine?: boolean;
+};
 
 export default function TodoBoard({
   title,
   emptyText,
   systemTodos,
   todos,
+  presets = [],
+  depts = [],
+  myDept = "",
 }: {
   title: string;
   emptyText: string;
   systemTodos: SystemTodo[];
   todos: PersonalTodo[];
+  presets?: string[];
+  depts?: string[];
+  myDept?: string;
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
+  const [share, setShare] = useState(""); // "" = just me, else a department
   const [busy, setBusy] = useState(false);
 
   const pending = todos.filter((t) => !t.done);
@@ -40,7 +55,15 @@ export default function TodoBoard({
     const t = text.trim();
     if (t.length < 2) return;
     setText("");
-    await post({ action: "add", text: t });
+    const toDept = share || null;
+    setShare("");
+    await post({ action: "add", text: t, toDept });
+  }
+
+  function tag(t: PersonalTodo) {
+    if (!t.toDept) return null;
+    if (t.mine) return <span className="pill tone-blue" style={{ fontSize: 10 }}><span className="ms" style={{ fontSize: 12 }}>arrow_forward</span>{t.toDept}</span>;
+    return <span className="pill tone-amber" style={{ fontSize: 10 }}><span className="ms" style={{ fontSize: 12 }}>groups</span>{t.fromName ? `from ${t.fromName}` : "shared"}</span>;
   }
 
   return (
@@ -60,17 +83,14 @@ export default function TodoBoard({
         </Link>
       ))}
 
-      {/* personal to-dos — tick to complete */}
+      {/* personal + shared to-dos — tick to complete */}
       {pending.map((t) => (
         <div key={`p${t.id}`} className="dash-row todo-row">
           <button className="todo-check" disabled={busy} title="Mark complete" onClick={() => post({ action: "toggle", id: t.id, done: true })}>
             <span className="ms" style={{ fontSize: 18 }}>radio_button_unchecked</span>
           </button>
-          {t.href ? (
-            <Link href={t.href} style={{ fontSize: 13, flex: 1 }}>{t.text}</Link>
-          ) : (
-            <span style={{ fontSize: 13, flex: 1 }}>{t.text}</span>
-          )}
+          {t.href ? <Link href={t.href} style={{ fontSize: 13, flex: 1 }}>{t.text}</Link> : <span style={{ fontSize: 13, flex: 1 }}>{t.text}</span>}
+          {tag(t)}
           <button className="todo-del" disabled={busy} title="Delete" onClick={() => post({ action: "delete", id: t.id })}>
             <span className="ms" style={{ fontSize: 15 }}>close</span>
           </button>
@@ -83,22 +103,35 @@ export default function TodoBoard({
             <span className="ms" style={{ fontSize: 18 }}>check_circle</span>
           </button>
           <span style={{ fontSize: 13, flex: 1, textDecoration: "line-through", color: "var(--text-2)" }}>{t.text}</span>
+          {tag(t)}
           <button className="todo-del" disabled={busy} title="Delete" onClick={() => post({ action: "delete", id: t.id })}>
             <span className="ms" style={{ fontSize: 15 }}>close</span>
           </button>
         </div>
       ))}
 
-      {/* add a to-do */}
-      <div className="flex" style={{ gap: 8, marginTop: 8 }}>
+      {/* add a to-do — free text, quick-add templates, and share-with-department */}
+      <div className="todo-add">
         <input
           className="input"
-          style={{ fontSize: 13, padding: "7px 10px" }}
+          style={{ fontSize: 13, padding: "7px 10px", flex: "2 1 200px" }}
           placeholder="Add a to-do…"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") add(); }}
         />
+        {presets.length > 0 && (
+          <select className="input todo-select" value="" onChange={(e) => { if (e.target.value) setText(e.target.value); }} title="Common tasks">
+            <option value="">Common tasks…</option>
+            {presets.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+        {depts.length > 0 && (
+          <select className="input todo-select" value={share} onChange={(e) => setShare(e.target.value)} title="Who's it for">
+            <option value="">Just me</option>
+            {depts.filter((d) => d !== myDept).map((d) => <option key={d} value={d}>Share → {d}</option>)}
+          </select>
+        )}
         <button className="btn" disabled={busy || text.trim().length < 2} onClick={add}>
           <span className="ms" style={{ fontSize: 18 }}>add</span>Add
         </button>
