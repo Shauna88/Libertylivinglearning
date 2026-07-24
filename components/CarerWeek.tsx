@@ -58,11 +58,13 @@ export default function CarerWeek({
   assign,
 }: {
   week: CarerDay[];
-  assign?: { carerName: string; candidates: UnassignedCall[] };
+  assign?: { carerName: string; candidates: UnassignedCall[]; isApprover?: boolean };
 }) {
   const router = useRouter();
   const [view, setView] = useState<"cards" | "table" | "avail">("cards");
   const [pending, setPending] = useState<UnassignedCall | null>(null);
+  const [permOpen, setPermOpen] = useState(false);
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -88,19 +90,16 @@ export default function CarerWeek({
   }
   const fillableCount = [...candidatesByDay.values()].reduce((n, arr) => n + arr.length, 0);
 
-  async function assignCall(c: UnassignedCall) {
-    if (!assign) return;
+  function closePending() { setPending(null); setPermOpen(false); setNote(""); }
+
+  async function post(url: string, body: unknown) {
     setBusy(true);
     setErr("");
     try {
-      const res = await fetch("/api/cover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "set", clientId: c.clientId, day: c.day, time: c.time, carer: assign.carerName }),
-      });
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setErr(data.error ?? "Could not assign the call."); return; }
-      setPending(null);
+      if (!res.ok) { setErr(data.error ?? "Something went wrong."); return; }
+      closePending();
       router.refresh();
     } catch {
       setErr("Network error — please try again.");
@@ -108,6 +107,14 @@ export default function CarerWeek({
       setBusy(false);
     }
   }
+  // This week only (cover, no approval).
+  const assignCall = (c: UnassignedCall) =>
+    assign && post("/api/cover", { action: "set", clientId: c.clientId, day: c.day, time: c.time, carer: assign.carerName });
+  // Permanent: an approver rewrites the base schedule; a coordinator requests it.
+  const makePermanent = (c: UnassignedCall) =>
+    assign && post(`/api/clients/${c.clientId}`, { action: "set_schedule_carer", day: c.day, time: c.time, carer: assign.carerName });
+  const requestPermanent = (c: UnassignedCall) =>
+    assign && post("/api/perm-req", { action: "create", clientId: c.clientId, day: c.day, time: c.time, carer: assign.carerName, note });
 
   return (
     <div>
@@ -140,13 +147,33 @@ export default function CarerWeek({
               <div className="flex between wrap" style={{ gap: 10, alignItems: "center" }}>
                 <div style={{ fontSize: 13 }}>
                   Assign <strong>{assign.carerName}</strong> to <strong>{pending.su}</strong> · {pending.type} · {pending.day} {pending.time} ({pending.dur})?
-                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>This week only (a cover assignment) · {pending.area}</div>
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{pending.area}</div>
                 </div>
-                <div className="flex" style={{ gap: 8 }}>
-                  <button className="mini primary" disabled={busy} onClick={() => assignCall(pending)}>{busy ? "Assigning…" : "Assign this week"}</button>
-                  <button className="mini" disabled={busy} onClick={() => setPending(null)}>Cancel</button>
+                <div className="flex wrap" style={{ gap: 8 }}>
+                  <button className="mini primary" disabled={busy} onClick={() => assignCall(pending)}>{busy ? "…" : "Assign this week"}</button>
+                  {!permOpen && (
+                    <button className="mini" disabled={busy} onClick={() => setPermOpen(true)}>
+                      <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>event_repeat</span>{assign.isApprover ? "Make permanent" : "Request permanent"}
+                    </button>
+                  )}
+                  <button className="mini" disabled={busy} onClick={closePending}>Cancel</button>
                 </div>
               </div>
+              {permOpen && (
+                <div style={{ marginTop: 10, borderTop: "1px solid var(--amber-fg)", paddingTop: 10 }}>
+                  {assign.isApprover ? (
+                    <div className="flex wrap" style={{ gap: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 12.5 }}>Change the <strong>base Schedule of Service</strong> so {assign.carerName} keeps this call every week?</span>
+                      <button className="mini primary" disabled={busy} onClick={() => makePermanent(pending)}>{busy ? "…" : "Apply permanently"}</button>
+                    </div>
+                  ) : (
+                    <div className="flex wrap" style={{ gap: 8, alignItems: "center" }}>
+                      <input className="input" style={{ fontSize: 12.5, padding: "6px 9px", flex: "1 1 240px" }} placeholder="Reason for the CSM (why this should be permanent)…" value={note} onChange={(e) => setNote(e.target.value)} />
+                      <button className="mini primary" disabled={busy || note.trim().length < 4} onClick={() => requestPermanent(pending)}>{busy ? "…" : "Send to CSM"}</button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

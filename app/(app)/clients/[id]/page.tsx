@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, coverMap, coverReasons, carerDirectory, type Role } from "@/lib/db";
-import { carerPool } from "@/lib/schedule";
+import { carerPool, carerBusyMap, freeNearbyCarers, type FreeCarer } from "@/lib/schedule";
 import { suggestCarers } from "@/lib/carers";
+import { isUnassignedCarer } from "@/lib/schedule";
 import {
   maskName,
   maskAddr,
@@ -46,6 +47,19 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   for (const [k, v] of Object.entries(cover)) if (k.startsWith(prefix)) clientCover[k.slice(prefix.length)] = v;
   for (const [k, v] of Object.entries(reasons)) if (k.startsWith(prefix)) clientReasons[k.slice(prefix.length)] = v;
 
+  // For each currently-unassigned call on this client, the carers who cover this
+  // area and are free at that slot — quick picks to fill it. Keyed day|time.
+  const busy = carerBusyMap(allClients, cover);
+  const slotSuggest: Record<string, FreeCarer[]> = {};
+  for (const d of client.schedule) {
+    for (const v of d.visits) {
+      const key = `${d.day}|${v.time}`;
+      const effective = clientCover[key] ?? v.carer;
+      if (!isUnassignedCarer(effective)) continue;
+      slotSuggest[key] = freeNearbyCarers(directory.carers, busy, { area: client.area, day: d.day, time: v.time, dur: v.dur }).slice(0, 4);
+    }
+  }
+
   // Mask every identifiable field before it reaches the browser; the PII gate
   // reveals the real values through /api/pii/reveal (which logs the access).
   const masked: Client = {
@@ -81,7 +95,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} editable />
       </div>
     </>
   );

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, WORKFORCE_ROLES, getCarer, listClients, coverMap, type Role } from "@/lib/db";
+import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, type Role } from "@/lib/db";
 import { CARER_DIRECTORY } from "@/lib/carers";
 import { carerWeek, unassignedCalls } from "@/lib/schedule";
 import CarerWeek from "@/components/CarerWeek";
@@ -22,6 +22,7 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
   // could drop this carer into from an open gap.
   const radius = carer.covers.length ? carer.covers : [carer.homeArea];
   const openCalls = carer.status === "active" ? unassignedCalls(clients, cover, radius) : [];
+  const isApprover = OVERSIGHT_ROLES.includes(session!.user.role as Role);
 
   const skillLabel = (k: string) => CARER_DIRECTORY.skills.find((s) => s.key === k)?.label ?? k;
   const free = Math.max(0, carer.capacityHours - carer.committedHours);
@@ -83,7 +84,7 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
         <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 12, maxWidth: "70ch" }}>
           {carer.name}&apos;s Schedule of Service across every client (base plan with this week&apos;s cover applied). Client names are masked.
         </p>
-        <CarerWeek week={week} assign={{ carerName: carer.name, candidates: openCalls }} />
+        <CarerWeek week={week} assign={{ carerName: carer.name, candidates: openCalls, isApprover }} />
       </div>
     </>
   );
