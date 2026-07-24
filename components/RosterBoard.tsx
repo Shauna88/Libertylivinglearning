@@ -67,6 +67,7 @@ export default function RosterBoard({
   const [permFor, setPermFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +84,7 @@ export default function RosterBoard({
         const j = await res.json().catch(() => ({}));
         setError(j.error || "Something went wrong.");
       } else {
+        setSelected(null);
         startTransition(() => router.refresh());
       }
     } catch {
@@ -178,6 +180,8 @@ export default function RosterBoard({
     return [...opts];
   };
 
+  const selVisit = visits.find((v) => v.key === selected) ?? null;
+
   const summary = [
     { icon: "event", label: "Calls today", value: visits.length, tone: "blue" },
     { icon: "person_alert", label: "Unassigned", value: gaps.length, tone: gaps.length ? "red" : "green" },
@@ -187,14 +191,16 @@ export default function RosterBoard({
 
   function Block({ v, showCarer }: { v: RosterVisit; showCarer?: boolean }) {
     return (
-      <div
-        className={`tl-block tl-${v.unassigned ? "red" : v.tone}`}
+      <button
+        type="button"
+        onClick={() => setSelected((s) => (s === v.key ? null : v.key))}
+        className={`tl-block tl-${v.unassigned ? "red" : v.tone}${selected === v.key ? " tl-sel" : ""}`}
         style={{ left: `${pct(v.startMin)}%`, width: `${Math.max(3, (v.durMin / span) * 100)}%` }}
-        title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su}`}
+        title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su} — click to move`}
       >
         <div className="tl-time">{v.time}</div>
         <div className="tl-sub">{showCarer ? v.carer : v.su}</div>
-      </div>
+      </button>
     );
   }
 
@@ -282,6 +288,53 @@ export default function RosterBoard({
         ))}
       </div>
 
+      {/* selected call — move it */}
+      {selVisit && (
+        <div className="card move-bar">
+          <div className="flex between" style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0 }}>
+              <div className="flex" style={{ gap: 8, alignItems: "center" }}>
+                <span className="ms" style={{ color: "var(--accent)" }}>swap_horiz</span>
+                <strong style={{ fontSize: 14.5 }}>Move this call</strong>
+                <span className="code">{selVisit.time}</span>
+              </div>
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
+                {selVisit.type} · {selVisit.su} · {selVisit.area} —{" "}
+                {selVisit.unassigned ? <span style={{ color: "var(--red-fg)", fontWeight: 700 }}>unassigned</span> : <>currently <strong>{selVisit.carer}</strong></>}
+              </div>
+            </div>
+            <button className="mini" onClick={() => setSelected(null)}>Close</button>
+          </div>
+          <div className="move-actions">
+            {suggestFor(selVisit).length > 0 && (
+              <div className="gap-suggest" style={{ justifyContent: "flex-start" }}>
+                <span className="muted" style={{ fontSize: 11 }}>Free now:</span>
+                {suggestFor(selVisit).map((c) => (
+                  <button key={c} className="chip-suggest" disabled={busy === selVisit.key} onClick={() => reassign(selVisit, c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+            <label className="rv-assign">
+              <span className="ms" aria-hidden>badge</span>
+              <select className="rv-select" value={selVisit.unassigned ? UNASSIGNED : selVisit.carer} disabled={busy === selVisit.key} onChange={(e) => reassign(selVisit, e.target.value)}>
+                {carerOptions(selVisit).map((c) => (
+                  <option key={c} value={c}>{c === UNASSIGNED ? "Move to…" : `Move to ${c}`}</option>
+                ))}
+              </select>
+            </label>
+            <Link href={`/clients/${selVisit.clientId}`} className="mini">Open client</Link>
+            {selVisit.overridden && (
+              <button className="mini" disabled={busy === selVisit.key} onClick={() => revert(selVisit)}>Revert to base ({selVisit.baseCarer})</button>
+            )}
+          </div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+            Tip: pick a carer below in <strong>Staff availability</strong> — anyone with capacity can take this call.
+          </div>
+        </div>
+      )}
+
       {/* gaps to cover */}
       {gaps.length > 0 && (
         <>
@@ -345,15 +398,29 @@ export default function RosterBoard({
       )}
 
       {/* staff availability */}
-      <div className="section-title">Staff availability — spare capacity</div>
+      <div className="section-title">
+        Staff availability — spare capacity
+        {selVisit && <span className="muted" style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 12 }}> · click a carer to take the {selVisit.time} call</span>}
+      </div>
       <div className="grid cols-3">
         {availability.map((a) => {
           const light = a.count <= 2;
+          const free = selVisit ? freeAt(a.carer, selVisit.startMin, selVisit.durMin) : false;
+          const clickable = !!selVisit && free && a.carer !== selVisit.carer;
+          const clash = !!selVisit && !free;
           return (
-            <div key={a.carer} className="card avail">
-              <div className="flex between" style={{ alignItems: "center" }}>
+            <button
+              key={a.carer}
+              type="button"
+              disabled={!clickable}
+              onClick={() => clickable && reassign(selVisit!, a.carer)}
+              className={`card avail${clickable ? " avail-target" : ""}${clash ? " avail-clash" : ""}`}
+            >
+              <div className="flex between" style={{ alignItems: "center", width: "100%" }}>
                 <div className="portal-avatar">{a.carer.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()}</div>
-                <span className={`pill tone-${light ? "green" : "grey"}`}>{light ? "Has capacity" : "Busy"}</span>
+                <span className={`pill tone-${clickable ? "green" : clash ? "red" : light ? "green" : "grey"}`}>
+                  {selVisit ? (clickable ? "Assign here" : clash ? "Busy then" : "Already on it") : light ? "Has capacity" : "Busy"}
+                </span>
               </div>
               <div style={{ fontWeight: 700, fontSize: 13.5, marginTop: 8 }}>{a.carer}</div>
               <div className="muted" style={{ fontSize: 12 }}>{a.count} call{a.count === 1 ? "" : "s"} · {fmtHours(a.mins)} booked</div>
@@ -362,7 +429,7 @@ export default function RosterBoard({
                   {a.blocks.map((b) => b.time).join(" · ")}
                 </div>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
