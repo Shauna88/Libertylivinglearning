@@ -96,6 +96,7 @@ export default function Sidebar({
         { label: "Client register", icon: "contacts", href: "/clients" },
         { label: "Rostering", icon: "edit_calendar", href: "/roster" },
         { label: "Call log", icon: "phone_missed", href: "/call-log" },
+        { label: "Bulk import", icon: "upload_file", href: "/clients/import" },
       ],
     });
   }
