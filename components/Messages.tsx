@@ -104,8 +104,8 @@ export default function Messages({
   const list = tab === "inbox" ? inbox : sent;
 
   return (
-    <>
-      <div className="flex between wrap" style={{ gap: 10, marginBottom: 14, alignItems: "center" }}>
+    <div className="msg-wrap">
+      <div className="msg-toolbar">
         <div className="flex" style={{ gap: 6 }}>
           <button className={`chip${tab === "inbox" ? " active" : ""}`} onClick={() => setTab("inbox")}>Inbox · {inbox.length}</button>
           <button className={`chip${tab === "sent" ? " active" : ""}`} onClick={() => setTab("sent")}>Sent · {sent.length}</button>
@@ -114,8 +114,9 @@ export default function Messages({
           <span className="ms" style={{ fontSize: 18 }}>edit</span>New message
         </button>
       </div>
-      {tab === "inbox" && <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>Messages addressed to <strong>{myDept}</strong> or all staff.</p>}
+      {tab === "inbox" && <p className="muted" style={{ fontSize: 12, margin: "0 0 10px" }}>Messages addressed to <strong>{myDept}</strong> or all staff.</p>}
 
+      <div className="msg-scroll">
       {list.length === 0 ? (
         <div className="card muted" style={{ fontSize: 13 }}>{tab === "inbox" ? "No messages for your department." : "You haven't sent any messages."}</div>
       ) : (
@@ -162,6 +163,7 @@ export default function Messages({
           ))}
         </div>
       )}
+      </div>
 
       {compose && (
         <div className="modal-backdrop" onClick={() => !busy && setCompose(false)}>
@@ -212,6 +214,6 @@ export default function Messages({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

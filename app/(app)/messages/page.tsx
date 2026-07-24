@@ -14,14 +14,14 @@ export default async function MessagesPage() {
   const [inbox, sent] = await Promise.all([listInbox(myDept), listSent(userId)]);
 
   return (
-    <>
+    <div className="msg-screen">
       <header className="header">
         <h1>Messages</h1>
         <p>Send a message or request a meeting with another department. You receive anything addressed to <strong>{myDept}</strong> or all staff.</p>
       </header>
-      <div className="body fade">
+      <div className="msg-body fade">
         <Messages inbox={inbox} sent={sent} myDept={myDept} depts={MESSAGE_DEPTS} />
       </div>
-    </>
+    </div>
   );
 }
