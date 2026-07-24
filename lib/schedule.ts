@@ -252,6 +252,21 @@ export function carerWeek(
   });
 }
 
+/** Weekly totals for one client: planned minutes and how many calls are unassigned. */
+export function clientWeekSummary(client: Client, coverMap: Record<string, string> = {}): { minutes: number; unassigned: number } {
+  let minutes = 0;
+  let unassigned = 0;
+  for (const day of client.schedule) {
+    for (const v of day.visits) {
+      minutes += parseDur(v.dur);
+      const key = visitKey(client.id, day.day, v.time);
+      const eff = Object.prototype.hasOwnProperty.call(coverMap, key) ? coverMap[key] : v.carer;
+      if (isUnassigned(eff)) unassigned++;
+    }
+  }
+  return { minutes, unassigned };
+}
+
 export type BusyMap = Map<string, Map<string, { start: number; end: number }[]>>;
 
 /** For every carer, the time intervals they are already booked, by day. */

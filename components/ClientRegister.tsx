@@ -17,6 +17,9 @@ export type RegisterRow = {
   funding: string;
   flags: string[];
   reviewTone: string;
+  deliveredHours: string | null;
+  unassigned: number;
+  newNotes: number;
 };
 
 export default function ClientRegister({
@@ -136,13 +139,27 @@ export default function ClientRegister({
                       <span className={`pill tone-${r.statusTone}`}>{r.statusLabel}</span>
                     </div>
                     <div className="cc-meta">
-                      <span><span className="ms">schedule</span>{r.hoursWk}</span>
+                      <span><span className="ms">schedule</span>{r.hoursWk} contracted</span>
+                      <span><span className="ms">timelapse</span>{r.deliveredHours ?? "—"} scheduled this week</span>
                       <span><span className="ms">badge</span>{r.coordinator}</span>
-                      <span><span className="ms">account_balance</span>{r.funding}</span>
                     </div>
-                    {r.flags.length > 0 && (
-                      <div className={`pill tone-${r.reviewTone}`} style={{ marginTop: 10, fontSize: 11 }}>
-                        <span className="ms" style={{ fontSize: 13 }}>flag</span>{r.flags[0]}{r.flags.length > 1 ? ` +${r.flags.length - 1}` : ""}
+                    {(r.flags.length > 0 || r.unassigned > 0 || r.newNotes > 0) && (
+                      <div className="flex wrap" style={{ gap: 6, marginTop: 10 }}>
+                        {r.unassigned > 0 && (
+                          <span className="pill tone-red" style={{ fontSize: 11 }}>
+                            <span className="ms" style={{ fontSize: 13 }}>person_alert</span>{r.unassigned} unassigned call{r.unassigned === 1 ? "" : "s"}
+                          </span>
+                        )}
+                        {r.newNotes > 0 && (
+                          <span className="pill tone-blue" style={{ fontSize: 11 }}>
+                            <span className="ms" style={{ fontSize: 13 }}>sticky_note_2</span>New diary note{r.newNotes === 1 ? "" : `s (${r.newNotes})`}
+                          </span>
+                        )}
+                        {r.flags.length > 0 && (
+                          <span className={`pill tone-${r.reviewTone}`} style={{ fontSize: 11 }}>
+                            <span className="ms" style={{ fontSize: 13 }}>flag</span>{r.flags[0]}{r.flags.length > 1 ? ` +${r.flags.length - 1}` : ""}
+                          </span>
+                        )}
                       </div>
                     )}
                   </Link>
@@ -174,11 +191,14 @@ export default function ClientRegister({
                   <td className="muted">{r.area}</td>
                   <td><span className={`pill tone-${r.statusTone}`}>{r.statusLabel}</span></td>
                   <td className="muted">{r.coordinator}</td>
-                  <td className="muted">{r.hoursWk}</td>
+                  <td className="muted">{r.hoursWk}<div style={{ fontSize: 11 }}>{r.deliveredHours ?? "—"} this week</div></td>
                   <td>
-                    {r.flags.length > 0 ? (
-                      <span className={`pill tone-${r.reviewTone}`}><span className="ms" style={{ fontSize: 13 }}>flag</span>{r.flags.length}</span>
-                    ) : <span className="muted">—</span>}
+                    <div className="flex wrap" style={{ gap: 5 }}>
+                      {r.unassigned > 0 && <span className="pill tone-red" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>person_alert</span>{r.unassigned}</span>}
+                      {r.newNotes > 0 && <span className="pill tone-blue" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>sticky_note_2</span>Note</span>}
+                      {r.flags.length > 0 && <span className={`pill tone-${r.reviewTone}`} style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>flag</span>{r.flags.length}</span>}
+                      {r.unassigned === 0 && r.newNotes === 0 && r.flags.length === 0 && <span className="muted">—</span>}
+                    </div>
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <Link href={`/clients/${r.id}`} className="btn" style={{ padding: "5px 11px", fontSize: 12.5 }}>Open</Link>
