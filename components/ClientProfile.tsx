@@ -6,7 +6,9 @@ import PiiRevealButton from "@/components/PiiRevealButton";
 import ScheduleEditor from "@/components/ScheduleEditor";
 import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
 import ClientAssessments from "@/components/ClientAssessments";
+import ClientTimeline from "@/components/ClientTimeline";
 import type { CarerMatch } from "@/lib/carers";
+import type { ActivityEvent } from "@/lib/db";
 import type { FreeCarer } from "@/lib/schedule";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
 
@@ -37,6 +39,7 @@ export default function ClientProfile({
   notes = [],
   docs = [],
   assessments = [],
+  activity = [],
   carers = [],
   pending = [],
   cover = {},
@@ -50,6 +53,7 @@ export default function ClientProfile({
   notes?: CareNote[];
   docs?: ClientDoc[];
   assessments?: { itemKey: string; completedOn: string | null; reviewDue: string | null }[];
+  activity?: ActivityEvent[];
   carers?: string[];
   pending?: PendingReq[];
   cover?: Record<string, string>;
@@ -295,6 +299,10 @@ export default function ClientProfile({
       {/* assessments & care-plan reviews */}
       <div className="section-title">Assessments &amp; reviews</div>
       <ClientAssessments clientId={client.id} records={assessments} canEdit={editable} />
+
+      {/* unified activity timeline */}
+      <div className="section-title">Activity</div>
+      <ClientTimeline events={activity} />
 
       {/* care notes / diary */}
       <div className="section-title">Care notes &amp; diary</div>

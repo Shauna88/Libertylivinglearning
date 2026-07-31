@@ -1827,6 +1827,62 @@ export async function assessmentsDueCount(): Promise<{ overdue: number; dueSoon:
   return { overdue, dueSoon };
 }
 
+// ---------------- Unified client activity timeline ----------------
+
+export type ActivityEvent = {
+  at: string; // ISO
+  kind: string;
+  icon: string;
+  tone: string;
+  title: string;
+  detail: string;
+  by: string;
+};
+
+const iso = (v: unknown): string => (v ? new Date(v as string).toISOString() : new Date(0).toISOString());
+
+/**
+ * One chronological feed of everything that has happened on a client's record —
+ * care notes, call events, cover changes, permanent-change requests, documents,
+ * assessments, ECM check-ins and PII reveals — newest first.
+ */
+export async function clientActivity(clientId: string, limit = 60): Promise<ActivityEvent[]> {
+  const [notes, calls, covers, perms, docs, assess, visits, reveals] = await Promise.all([
+    q<{ category: string; tone: string; note: string; author: string; created_at: string }>(
+      "SELECT category,tone,note,author,created_at FROM care_notes WHERE client_id=$1 ORDER BY created_at DESC LIMIT 40", [clientId]),
+    q<{ kind: string; cause: string | null; detail: string; logged_by: string; visit_time: string | null; created_at: string }>(
+      "SELECT kind,cause,detail,logged_by,visit_time,created_at FROM call_log WHERE client_id=$1 ORDER BY created_at DESC LIMIT 40", [clientId]),
+    q<{ day: string; time: string; carer: string; reason: string | null; assigned_by: string; created_at: string }>(
+      "SELECT day,time,carer,reason,assigned_by,created_at FROM cover_assignments WHERE client_id=$1 ORDER BY created_at DESC LIMIT 30", [clientId]),
+    q<{ day: string; time: string; carer: string; note: string; requested_by: string; status: string; requested_at: string; decided_at: string | null; decided_by: string | null }>(
+      "SELECT day,time,carer,note,requested_by,status,requested_at,decided_at,decided_by FROM permanent_change_requests WHERE client_id=$1 ORDER BY requested_at DESC LIMIT 20", [clientId]),
+    q<{ name: string; status: string; added_by: string; created_at: string }>(
+      "SELECT name,status,added_by,created_at FROM client_documents WHERE client_id=$1 ORDER BY created_at DESC LIMIT 20", [clientId]),
+    q<{ item_key: string; review_due: string | null; updated_by: string; updated_at: string }>(
+      "SELECT item_key,review_due,updated_by,updated_at FROM client_assessments WHERE client_id=$1 AND updated_by <> 'Seed' ORDER BY updated_at DESC LIMIT 20", [clientId]),
+    q<{ sched_time: string; carer: string; checkin_at: string | null; checkout_at: string | null; by_name: string }>(
+      "SELECT sched_time,carer,checkin_at,checkout_at,by_name FROM visit_events WHERE client_id=$1 ORDER BY updated_at DESC LIMIT 20", [clientId]),
+    q<{ user_name: string; scope: string; reason: string; created_at: string }>(
+      "SELECT user_name,scope,reason,created_at FROM pii_access_log WHERE client_id=$1 ORDER BY created_at DESC LIMIT 15", [clientId]),
+  ]);
+
+  const out: ActivityEvent[] = [];
+  for (const n of notes) out.push({ at: iso(n.created_at), kind: "note", icon: "sticky_note_2", tone: n.tone || "grey", title: `Care note · ${n.category}`, detail: n.note, by: n.author });
+  for (const c of calls) out.push({ at: iso(c.created_at), kind: "call", icon: "phone_missed", tone: c.kind === "extra" ? "blue" : c.kind === "cancelled" ? "grey" : "red", title: `Call event · ${c.kind}${c.cause ? ` (${c.cause.replace(/_/g, " ")})` : ""}`, detail: c.detail, by: c.logged_by });
+  for (const c of covers) out.push({ at: iso(c.created_at), kind: "cover", icon: "published_with_changes", tone: /unassigned/i.test(c.carer) ? "red" : "blue", title: `Cover change · ${c.day} ${c.time}`, detail: /unassigned/i.test(c.carer) ? `Unassigned${c.reason ? ` — ${c.reason}` : ""}` : `Reassigned to ${c.carer}${c.reason ? ` — ${c.reason}` : ""}`, by: c.assigned_by });
+  for (const p of perms) out.push({ at: iso(p.decided_at ?? p.requested_at), kind: "perm", icon: "how_to_reg", tone: p.status === "approved" ? "green" : p.status === "declined" ? "red" : "amber", title: `Permanent carer change · ${p.status}`, detail: `${p.day} ${p.time} → ${p.carer}${p.note ? ` — ${p.note}` : ""}`, by: p.decided_by ?? p.requested_by });
+  for (const d of docs) out.push({ at: iso(d.created_at), kind: "doc", icon: "description", tone: "grey", title: `Document · ${d.name}`, detail: `Status: ${d.status.replace(/_/g, " ")}`, by: d.added_by });
+  for (const a of assess) out.push({ at: iso(a.updated_at), kind: "assessment", icon: "fact_check", tone: "teal", title: `Assessment · ${a.item_key.replace(/_/g, " ")}`, detail: a.review_due ? `Next review ${a.review_due}` : "Recorded", by: a.updated_by });
+  for (const v of visits) {
+    if (v.checkout_at) out.push({ at: iso(v.checkout_at), kind: "ecm", icon: "task_alt", tone: "green", title: `Checked out · ${v.sched_time}`, detail: `${v.carer || "Carer"} completed the call`, by: v.by_name });
+    else if (v.checkin_at) out.push({ at: iso(v.checkin_at), kind: "ecm", icon: "how_to_reg", tone: "green", title: `Checked in · ${v.sched_time}`, detail: `${v.carer || "Carer"} on site`, by: v.by_name });
+  }
+  for (const r of reveals) out.push({ at: iso(r.created_at), kind: "pii", icon: "lock_open", tone: "amber", title: "Identifiable details revealed", detail: r.reason, by: r.user_name });
+
+  out.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  return out.slice(0, limit);
+}
+
 // ---------------- Electronic Call Monitoring (visit check-in/out) ----------------
 
 export type VisitEventRow = {
