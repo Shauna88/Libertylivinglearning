@@ -186,6 +186,18 @@ button {
   flex-direction: column;
   gap: 6px;
 }
+.brand-logo {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 4px 4px 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.brand-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
 .brand {
   display: flex;
   align-items: center;
