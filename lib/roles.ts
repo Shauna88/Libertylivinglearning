@@ -43,6 +43,7 @@ export const ROLE_PROFILE: Record<string, RoleProfile> = {
   "Office Administrator": { dept: null, caps: [], hubScope: "none", remit: "Training records and general administration." },
   "Healthcare Assistant": { dept: null, caps: [], hubScope: "none", remit: "Your workday, training, and the ability to raise issues." },
   "Client / Family": { dept: null, caps: [], hubScope: "none", remit: "Read-only view of your own care." },
+  Demo: { dept: null, caps: [], hubScope: "none", remit: "A guided, read-only tour — complaints & incidents, the Front-line Guide, training, SOPs and the daily dashboard." },
 };
 
 export function profileFor(role: string): RoleProfile {

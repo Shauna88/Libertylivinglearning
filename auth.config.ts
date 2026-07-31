@@ -18,7 +18,15 @@ export const authConfig = {
         pathname.startsWith("/api/auth") ||
         pathname === "/";
       if (isPublic) return true;
-      return isLoggedIn;
+      if (!isLoggedIn) return false;
+      // The shareable team-demo login is confined to its curated tour — any other
+      // page (reached by typing a URL) bounces back to the demo dashboard.
+      if ((auth!.user as { role?: string }).role === "Demo") {
+        const allowed = ["/dashboard", "/demo-guide", "/frontline", "/training", "/sops", "/complaints", "/incidents"];
+        const ok = allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
+        if (!ok) return Response.redirect(new URL("/dashboard", request.nextUrl));
+      }
+      return true;
     },
     jwt({ token, user }) {
       if (user) {

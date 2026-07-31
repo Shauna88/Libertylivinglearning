@@ -13,6 +13,7 @@ import {
   listDashboardTodos,
   listCarers,
   coverMap,
+  registerOpenCounts,
   OVERSIGHT_ROLES,
   WORKFORCE_ROLES,
   type Role,
@@ -126,6 +127,71 @@ export default async function DashboardPage() {
 
   const role = user.role as Role;
   const profile = profileFor(role);
+
+  // ---- Shareable team-demo login: a curated, read-only daily dashboard ----
+  if (role === "Demo") {
+    const [reg, demoClients, demoCover] = await Promise.all([registerOpenCounts(), listClients(), coverMap()]);
+    const { weekday, nowMin } = nowParts(new Date());
+    const demoVisits = deriveTodayVisits(demoClients, weekday, nowMin, demoCover);
+    const uncoveredToday = demoVisits.filter((v) => v.status === "gap").length;
+    const activeClients = demoClients.filter((c) => c.status === "active").length;
+    const dhour = new Date().toLocaleString("en-IE", { hour: "2-digit", hour12: false, timeZone: "Europe/Dublin" });
+
+    const tiles = [
+      { n: uncoveredToday, label: "Uncovered calls today", tone: uncoveredToday ? "red" : "green", icon: "person_alert" },
+      { n: reg.complaint ?? 0, label: "Open complaints", tone: (reg.complaint ?? 0) ? "amber" : "green", icon: "forum" },
+      { n: reg.incident ?? 0, label: "Open incidents", tone: (reg.incident ?? 0) ? "amber" : "green", icon: "crisis_alert" },
+      { n: activeClients, label: "Active clients", tone: "text", icon: "groups" },
+    ];
+    const tour = [
+      { href: "/frontline", icon: "health_and_safety", title: "Front-line Guide", body: "Plain-English guidance for carers — what to do in real situations, by role." },
+      { href: "/training", icon: "school", title: "Staff Training Hub", body: "Every course and learning pathway, with completions tracked per person." },
+      { href: "/sops", icon: "menu_book", title: "SOP Library", body: "Standard Operating Procedures — the numbered steps, owner and timeframe for each." },
+      { href: "/complaints", icon: "forum", title: "Complaints", body: "The complaints register — how each one is graded, acknowledged and closed out." },
+      { href: "/incidents", icon: "crisis_alert", title: "Incidents", body: "The incidents register — NIMS category, open disclosure and follow-up." },
+      { href: "/demo-guide", icon: "help", title: "Questions & answers", body: "A quick FAQ about what you're looking at and how the platform helps." },
+    ];
+
+    return (
+      <>
+        <header className="header">
+          <div className="flex" style={{ gap: 8, marginBottom: 6 }}>
+            <span className="pill tone-teal"><span className="ms" style={{ fontSize: 14 }}>visibility</span>Read-only demo</span>
+          </div>
+          <h1>{greeting(parseInt(dhour, 10) || 9)} — welcome to the Liberty Living demo</h1>
+          <p>A guided tour of the front-line tools: complaints & incidents, the Front-line Guide, training, SOPs — and the kind of daily snapshot the team works from. Nothing here can be changed.</p>
+        </header>
+        <div className="body fade">
+          <div className="section-title">Today at a glance</div>
+          <div className="grid cols-4" style={{ marginBottom: 22 }}>
+            {tiles.map((t) => (
+              <div key={t.label} className="card metric">
+                <div className="flex" style={{ gap: 8, alignItems: "center" }}>
+                  <span className="ms" style={{ fontSize: 18, color: t.tone === "text" ? "var(--text-2)" : `var(--${t.tone}-fg)` }}>{t.icon}</span>
+                  <div className="num" style={{ color: t.tone === "text" ? undefined : `var(--${t.tone}-fg)` }}>{t.n}</div>
+                </div>
+                <div className="lbl">{t.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="section-title">Take the tour</div>
+          <div className="grid cols-3">
+            {tour.map((c) => (
+              <Link key={c.href} href={c.href} className="card" style={{ display: "block" }}>
+                <div className="flex" style={{ gap: 10, alignItems: "center", marginBottom: 8 }}>
+                  <div className="cc-avatar"><span className="ms" style={{ fontSize: 18 }}>{c.icon}</span></div>
+                  <h3 style={{ margin: 0, fontSize: 15 }}>{c.title}</h3>
+                </div>
+                <p className="muted" style={{ fontSize: 13, margin: 0 }}>{c.body}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const isTimeOffApprover = OVERSIGHT_ROLES.includes(role) || WORKFORCE_ROLES.includes(role);
   const myDept = messagingDept(role);
   const personalTodos: PersonalTodo[] = (await listDashboardTodos(user.id, myDept)).map((t) => ({

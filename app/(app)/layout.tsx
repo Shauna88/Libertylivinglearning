@@ -28,9 +28,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isRecruit = RECRUIT_ROLES.includes(role as Role);
   const isImprovement = IMPROVEMENT_ROLES.includes(role as Role);
   const isWorkforce = WORKFORCE_ROLES.includes(role as Role);
+  const isDemo = role === "Demo";
   // Front-line staff can raise register entries but don't see the whole register,
-  // so they don't get the org-wide open badges either.
-  const canSeeRegisters = isOversight || isImprovement || isCrm;
+  // so they don't get the org-wide open badges either. The team-demo login browses
+  // the registers read-only, so it does get the counts.
+  const canSeeRegisters = isOversight || isImprovement || isCrm || isDemo;
   const openCounts = canSeeRegisters ? await registerOpenCounts() : {};
 
   return (
@@ -46,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isImprovement={isImprovement}
         isWorkforce={isWorkforce}
         isQualityMgmt={hubScopeOf(role) === "all"}
+        isDemo={isDemo}
         canSeeAllRegisters={canSeeRegisters}
         hubLabel={hubLabel(role)}
         openCounts={openCounts}

@@ -27,9 +27,11 @@ export default async function RegisterScreen({ kind }: { kind: RegisterKind }) {
   const role = session?.user?.role as Role;
   const userId = Number(session?.user?.id);
   const canEdit = IMPROVEMENT_ROLES.includes(role);
+  // The shareable team-demo login browses the register read-only (no logging/editing).
+  const isDemo = role === "Demo";
   // Management / operational roles see the whole register; front-line staff
   // (e.g. Healthcare Assistants) can raise entries but only see their own.
-  const canSeeAll = OVERSIGHT_ROLES.includes(role) || IMPROVEMENT_ROLES.includes(role) || CRM_ROLES.includes(role);
+  const canSeeAll = OVERSIGHT_ROLES.includes(role) || IMPROVEMENT_ROLES.includes(role) || CRM_ROLES.includes(role) || isDemo;
   const all = await listRegister(kind);
   const entries = canSeeAll ? all : all.filter((e) => e.reporter_id === userId);
   const open = entries.filter((e) => e.status === "open").length;
@@ -76,9 +78,11 @@ export default async function RegisterScreen({ kind }: { kind: RegisterKind }) {
           </div>
         )}
 
-        <div style={{ marginTop: 22 }}>
-          <NewEntryForm cfg={cfg} />
-        </div>
+        {!isDemo && (
+          <div style={{ marginTop: 22 }}>
+            <NewEntryForm cfg={cfg} />
+          </div>
+        )}
 
         {entries.length === 0 ? (
           <div className="card muted">{canSeeAll ? "No entries yet. Use the button above to log one." : "You haven't raised anything yet. Use the button above if you need to."}</div>
