@@ -36,7 +36,7 @@ export default function DashboardHero({
         <div className="dash-hero-eyebrow">{eyebrow}</div>
         {top.length === 0 ? (
           <div className="dash-hero-clear">
-            <span className="ms" style={{ fontSize: 26 }}>task_alt</span>
+            <span className="ms" aria-hidden="true" style={{ fontSize: 26 }}>task_alt</span>
             <div>
               <div className="dash-hero-clear-title">{clearText}</div>
               <div className="dash-hero-sub">{clearSub}</div>
@@ -45,7 +45,7 @@ export default function DashboardHero({
         ) : (
           <>
             <div className="dash-hero-label">
-              <span className="ms" style={{ fontSize: 15 }}>priority_high</span>
+              <span className="ms" aria-hidden="true" style={{ fontSize: 15 }}>priority_high</span>
               Needs you now
             </div>
             <ul className="dash-hero-actions">
@@ -53,10 +53,10 @@ export default function DashboardHero({
                 <li key={i}>
                   <Link href={a.href} className={`dash-hero-action tone-${a.tone}`}>
                     <span className={`dash-hero-dot tone-${a.tone}`}>
-                      <span className="ms" style={{ fontSize: 16 }}>{a.icon}</span>
+                      <span className="ms" aria-hidden="true" style={{ fontSize: 16 }}>{a.icon}</span>
                     </span>
                     <span className="dash-hero-action-text">{a.text}</span>
-                    <span className="ms dash-hero-go" style={{ fontSize: 18 }}>arrow_forward</span>
+                    <span className="ms dash-hero-go" aria-hidden="true" style={{ fontSize: 18 }}>arrow_forward</span>
                   </Link>
                 </li>
               ))}

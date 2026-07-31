@@ -169,6 +169,29 @@ button {
   animation: qmsfade 0.35s ease both;
 }
 
+/* ---------- accessibility ---------- */
+/* Visible keyboard focus everywhere (mouse clicks stay ring-free via :focus-visible). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* On the dark green sidebar / top bar, the light brand green reads against the ground. */
+.sidebar :focus-visible,
+.mobile-topbar :focus-visible {
+  outline-color: var(--brand-green);
+}
+/* Respect users who ask for less motion — drop transitions/animations, keep state changes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ---------- app shell ---------- */
 .shell {
   display: flex;

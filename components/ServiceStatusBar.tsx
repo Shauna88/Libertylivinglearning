@@ -29,9 +29,9 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
   const urgent = items.some((i) => i.tone === "red");
 
   return (
-    <div className={`svc-status${urgent ? " urgent" : ""}`}>
+    <div className={`svc-status${urgent ? " urgent" : ""}`} role="region" aria-label="Service status">
       <span className="svc-status-lead">
-        <span className="ms" style={{ fontSize: 16 }}>{urgent ? "priority_high" : "info"}</span>
+        <span className="ms" aria-hidden="true" style={{ fontSize: 16 }}>{urgent ? "priority_high" : "info"}</span>
         Service status
       </span>
       <div className="svc-status-items">
@@ -41,13 +41,13 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
           return (
             <span key={i.key} className="svc-chip-wrap">
               <Link href={i.href} className={`svc-chip tone-${i.tone}`}>
-                <span className="ms" style={{ fontSize: 13 }}>{i.icon}</span>
+                <span className="ms" aria-hidden="true" style={{ fontSize: 13 }}>{i.icon}</span>
                 <strong>{i.vital.n}</strong> {label}
-                <span className="ms svc-chip-caret" style={{ fontSize: 14 }}>expand_more</span>
+                <span className="ms svc-chip-caret" aria-hidden="true" style={{ fontSize: 14 }}>expand_more</span>
               </Link>
               <div className="svc-pop" role="tooltip">
                 <div className={`svc-pop-head tone-${i.tone}`}>
-                  <span className="ms" style={{ fontSize: 15 }}>{i.icon}</span>
+                  <span className="ms" aria-hidden="true" style={{ fontSize: 15 }}>{i.icon}</span>
                   {i.vital.n} {label}
                 </div>
                 <ul className="svc-pop-list">
@@ -60,7 +60,7 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
                 </ul>
                 {hidden > 0 && <div className="svc-pop-more">+{hidden} more</div>}
                 <div className="svc-pop-foot">
-                  Open <span className="ms" style={{ fontSize: 13 }}>arrow_forward</span>
+                  Open <span className="ms" aria-hidden="true" style={{ fontSize: 13 }}>arrow_forward</span>
                 </div>
               </div>
             </span>

@@ -168,18 +168,13 @@ export default async function DashboardPage() {
           <p>A guided tour of the front-line tools: complaints & incidents, the Front-line Guide, training, SOPs — and the kind of daily snapshot the team works from. Nothing here can be changed.</p>
         </header>
         <div className="body fade">
-          <div className="section-title">Today at a glance</div>
-          <div className="grid cols-4" style={{ marginBottom: 22 }}>
-            {tiles.map((t) => (
-              <div key={t.label} className="card metric">
-                <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-                  <span className="ms" style={{ fontSize: 18, color: t.tone === "text" ? "var(--text-2)" : `var(--${t.tone}-fg)` }}>{t.icon}</span>
-                  <div className="num" style={{ color: t.tone === "text" ? undefined : `var(--${t.tone}-fg)` }}>{t.n}</div>
-                </div>
-                <div className="lbl">{t.label}</div>
-              </div>
-            ))}
-          </div>
+          <DashboardHero
+            eyebrow="Read-only demo · today"
+            actions={[]}
+            stats={tiles.map((t) => ({ n: t.n, label: t.label, tone: t.tone === "text" ? undefined : t.tone }))}
+            clearText="Today at a glance"
+            clearSub="A snapshot of the kind of daily view the team works from — nothing here can be changed."
+          />
 
           <div className="section-title">Take the tour</div>
           <div className="grid cols-3">
@@ -635,7 +630,6 @@ export default async function DashboardPage() {
   const total = enrollments.length;
   const done = enrollments.filter((e) => e.status === "completed").length;
   const pct = total ? Math.round((done / total) * 100) : 0;
-  const barTone = pct >= 90 ? "" : pct >= 70 ? " amber" : " red";
   const hcaTodos: Todo[] = [];
   if (total - done > 0) hcaTodos.push({ icon: "school", tone: "amber", text: `${total - done} training course${total - done === 1 ? "" : "s"} to complete`, href: "/training" });
 
@@ -643,18 +637,20 @@ export default async function DashboardPage() {
     <>
       {header}
       <div className="body fade">
+        <DashboardHero
+          eyebrow="Your training · today"
+          actions={hcaTodos}
+          stats={total > 0 ? [
+            { n: `${pct}%`, label: "Training compliance", tone: pct >= 90 ? "green" : pct >= 70 ? "amber" : "red" },
+            { n: `${done}/${total}`, label: "Courses completed" },
+            { n: total - done, label: "Outstanding", tone: total - done ? "amber" : "green" },
+          ] : []}
+          clearText="You're all caught up"
+          clearSub={total > 0 ? "All your assigned training is complete." : "No training assigned yet — the hub is ready when courses are pushed to you."}
+        />
         <TodoBoard title="To do" emptyText="Nothing outstanding" systemTodos={hcaTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} />
         {total > 0 ? (
           <>
-            <div className="grid cols-3">
-              <div className="card metric">
-                <div className="num">{pct}%</div>
-                <div className="lbl">Training compliance</div>
-                <div className={`bar${barTone}`} style={{ marginTop: 8 }}><span style={{ width: `${pct}%` }} /></div>
-              </div>
-              <div className="card metric"><div className="num">{done}/{total}</div><div className="lbl">Courses completed</div></div>
-              <div className="card metric"><div className="num">{total - done}</div><div className="lbl">Outstanding</div></div>
-            </div>
             <div className="section-title">Your qualification pathway</div>
             <div className="grid cols-2">
               {enrollments.map((e) => {
