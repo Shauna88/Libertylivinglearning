@@ -14,6 +14,7 @@ import {
   listCarers,
   coverMap,
   registerOpenCounts,
+  complianceAlerts,
   OVERSIGHT_ROLES,
   WORKFORCE_ROLES,
   type Role,
@@ -447,6 +448,12 @@ export default async function DashboardPage() {
     if (isTimeOffApprover) {
       const n = await countPendingTimeOff();
       if (n) improveTodos = [{ icon: "beach_access", tone: "amber", text: `${n} time-off request${n === 1 ? "" : "s"} to approve`, href: "/time-off" }, ...improveTodos];
+    }
+    if (profile.caps.includes("workforce")) {
+      const ca = await complianceAlerts();
+      if (ca.blocked) improveTodos = [{ icon: "block", tone: "red", text: `${ca.blocked} carer${ca.blocked === 1 ? "" : "s"} not cleared to roster — a credential is expired or unrecorded`, href: "/compliance" }, ...improveTodos];
+      else if (ca.expired) improveTodos = [{ icon: "event_busy", tone: "red", text: `${ca.expired} carer credential${ca.expired === 1 ? "" : "s"} expired`, href: "/compliance" }, ...improveTodos];
+      else if (ca.expiring) improveTodos = [{ icon: "schedule", tone: "amber", text: `${ca.expiring} carer credential${ca.expiring === 1 ? "" : "s"} expiring soon`, href: "/compliance" }, ...improveTodos];
     }
     return (
       <>

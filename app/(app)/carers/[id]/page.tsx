@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, type Role } from "@/lib/db";
+import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, listCarerCompliance, type Role } from "@/lib/db";
 import { CARER_DIRECTORY } from "@/lib/carers";
 import { carerWeek, unassignedCalls } from "@/lib/schedule";
+import { summariseCompliance } from "@/lib/compliance";
 import CarerWeek from "@/components/CarerWeek";
+import CarerCompliance from "@/components/CarerCompliance";
 
 const CAN_VIEW: Role[] = [...new Set([...CRM_ROLES, ...WORKFORCE_ROLES])] as Role[];
 
@@ -16,8 +18,13 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
   const carer = await getCarer(id);
   if (!carer) notFound();
 
-  const [clients, cover] = await Promise.all([listClients(), coverMap()]);
+  const [clients, cover, complianceRows] = await Promise.all([listClients(), coverMap(), listCarerCompliance(id)]);
   const week = carerWeek(clients, carer.name, cover);
+  const canEditCompliance = [...WORKFORCE_ROLES, ...OVERSIGHT_ROLES].includes(session!.user.role as Role);
+  const complianceSummary = summariseCompliance(
+    complianceRows.map((r) => ({ itemKey: r.item_key, held: true, expiry: r.expiry })),
+    new Date()
+  );
   // Unassigned calls within this carer's travel radius — the ones a coordinator
   // could drop this carer into from an open gap.
   const radius = carer.covers.length ? carer.covers : [carer.homeArea];
@@ -39,6 +46,13 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
           </Link>
           <span className="code">{carer.id}</span>
           {carer.status !== "active" && <span className="pill tone-grey">Inactive</span>}
+          {complianceSummary.blockedFromRoster ? (
+            <span className="pill tone-red"><span className="ms" style={{ fontSize: 14 }}>block</span>Not cleared to roster</span>
+          ) : complianceSummary.expired > 0 ? (
+            <span className="pill tone-red"><span className="ms" style={{ fontSize: 14 }}>warning</span>{complianceSummary.expired} credential{complianceSummary.expired === 1 ? "" : "s"} expired</span>
+          ) : complianceSummary.expiring > 0 ? (
+            <span className="pill tone-amber"><span className="ms" style={{ fontSize: 14 }}>schedule</span>{complianceSummary.expiring} expiring soon</span>
+          ) : null}
         </div>
         <h1>{carer.name}</h1>
         <p>{carer.homeArea || "No area set"} · {carer.pathway || "Pathway not set"} · {carer.transport || "—"}</p>
@@ -78,6 +92,13 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
             </Link>
           </div>
         </div>
+
+        {/* compliance & credentials */}
+        <CarerCompliance
+          carerId={carer.id}
+          records={complianceRows.map((r) => ({ itemKey: r.item_key, expiry: r.expiry }))}
+          canEdit={canEditCompliance}
+        />
 
         {/* their working week */}
         <h2 style={{ fontSize: 16, marginBottom: 4 }}>Working week</h2>

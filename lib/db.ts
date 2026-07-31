@@ -16,10 +16,11 @@ import { CLIENTS, type Client } from "./crm";
 import { defaultDept } from "./improvement";
 import { rolesWith } from "./roles";
 import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers";
+import { summariseCompliance } from "./compliance";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "23";
+const SEED_VERSION = "24";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
@@ -407,6 +408,17 @@ async function createSchema(client: PoolClient) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
+    -- One row per credential a carer holds; row present = held, expiry (ISO
+    -- date) or NULL for items that do not expire. Drives compliance alerts.
+    CREATE TABLE IF NOT EXISTS carer_compliance (
+      carer_id TEXT NOT NULL,
+      item_key TEXT NOT NULL,
+      expiry TEXT,
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (carer_id, item_key)
+    );
+
     CREATE TABLE IF NOT EXISTS time_off_requests (
       id SERIAL PRIMARY KEY,
       requester_id INTEGER,
@@ -466,6 +478,7 @@ async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
   await client.query("DELETE FROM qip_actions");
+  await client.query("DELETE FROM carer_compliance");
   await client.query("DELETE FROM carers");
   await client.query("DELETE FROM time_off_requests");
   await client.query("DELETE FROM messages");
@@ -706,6 +719,44 @@ async function seed(client: PoolClient) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [c.id, c.name, c.homeArea, JSON.stringify(c.covers), JSON.stringify(c.skills), c.pathway, c.transport, c.capacityHours, c.committedHours, c.status, c.note]
     );
+  }
+
+  // ---- carer compliance credentials (demo) ----
+  // Dates are relative to seed time so the register always shows a live mix of
+  // in-date / expiring / expired credentials.
+  const isoOffset = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  const complianceBase: Record<string, string | null> = {
+    garda_vetting: isoOffset(500),
+    right_to_work: null,
+    manual_handling: isoOffset(300),
+    safeguarding: isoOffset(400),
+    references: null,
+    infection_control: isoOffset(200),
+    first_aid: isoOffset(350),
+    medication: isoOffset(280),
+    driving_licence: isoOffset(900),
+    car_insurance: isoOffset(150),
+  };
+  const MISSING = "__missing__";
+  // Per-carer overrides (by index) give the demo a realistic spread.
+  const complianceOverrides: Record<string, string | null>[] = [
+    { manual_handling: isoOffset(-12) }, // 0: manual handling expired → blocks rostering
+    { garda_vetting: isoOffset(25), first_aid: isoOffset(30) }, // 1: two expiring soon
+    { infection_control: isoOffset(-40) }, // 2: IPC expired (advisory)
+    {}, // 3: fully in date
+    { safeguarding: MISSING }, // 4: safeguarding not recorded → blocks rostering
+    { car_insurance: isoOffset(18) }, // 5: insurance expiring
+  ];
+  for (let i = 0; i < CARER_SEED.length; i++) {
+    const c = CARER_SEED[i];
+    const plan = { ...complianceBase, ...(complianceOverrides[i] ?? {}) };
+    for (const [item, val] of Object.entries(plan)) {
+      if (val === MISSING) continue; // omit the row → "missing"
+      await client.query(
+        `INSERT INTO carer_compliance (carer_id,item_key,expiry,updated_by) VALUES ($1,$2,$3,$4)`,
+        [c.id, item, val, "Seed"]
+      );
+    }
   }
 
   // ---- time-off requests (demo) ----
@@ -1585,6 +1636,72 @@ export async function upsertCarer(input: {
   );
   await logAudit({ actorName: input.by, action: input.id ? "carer.update" : "carer.create", target: id, detail: input.name });
   return id;
+}
+
+// ---------------- Carer compliance / credential expiry ----------------
+
+export type CarerComplianceRow = {
+  carer_id: string;
+  item_key: string;
+  expiry: string | null;
+  updated_by: string;
+  updated_at: string;
+};
+
+/** One carer's held credentials. */
+export async function listCarerCompliance(carerId: string): Promise<CarerComplianceRow[]> {
+  return q<CarerComplianceRow>("SELECT * FROM carer_compliance WHERE carer_id=$1", [carerId]);
+}
+
+/** Every carer's held credentials — for the org-wide compliance register. */
+export async function listAllCompliance(): Promise<CarerComplianceRow[]> {
+  return q<CarerComplianceRow>("SELECT * FROM carer_compliance");
+}
+
+/**
+ * Record, update or clear one credential for a carer. `held: false` removes the
+ * record (→ "missing"); otherwise it upserts, with an optional ISO expiry
+ * (null for items that don't expire).
+ */
+export async function setCarerCompliance(input: {
+  carerId: string;
+  itemKey: string;
+  held: boolean;
+  expiry: string | null;
+  by: string;
+}): Promise<void> {
+  if (!input.held) {
+    await q("DELETE FROM carer_compliance WHERE carer_id=$1 AND item_key=$2", [input.carerId, input.itemKey]);
+  } else {
+    await q(
+      `INSERT INTO carer_compliance (carer_id,item_key,expiry,updated_by,updated_at)
+       VALUES ($1,$2,$3,$4,now())
+       ON CONFLICT (carer_id,item_key) DO UPDATE SET expiry=excluded.expiry, updated_by=excluded.updated_by, updated_at=now()`,
+      [input.carerId, input.itemKey, input.expiry, input.by]
+    );
+  }
+  await logAudit({ actorName: input.by, action: "compliance.set", target: `${input.carerId}/${input.itemKey}`, detail: input.held ? input.expiry ?? "no expiry" : "cleared" });
+}
+
+/** Org-wide credential alert counts across active carers, for dashboards. */
+export async function complianceAlerts(): Promise<{ blocked: number; expired: number; expiring: number; missing: number }> {
+  const [carers, all] = await Promise.all([listCarers(), listAllCompliance()]);
+  const byCarer = new Map<string, { itemKey: string; held: boolean; expiry: string | null }[]>();
+  for (const r of all) {
+    if (!byCarer.has(r.carer_id)) byCarer.set(r.carer_id, []);
+    byCarer.get(r.carer_id)!.push({ itemKey: r.item_key, held: true, expiry: r.expiry });
+  }
+  const now = new Date();
+  const out = { blocked: 0, expired: 0, expiring: 0, missing: 0 };
+  for (const c of carers) {
+    if (c.status !== "active") continue;
+    const s = summariseCompliance(byCarer.get(c.id) ?? [], now);
+    out.expired += s.expired;
+    out.expiring += s.expiring;
+    out.missing += s.missing;
+    if (s.blockedFromRoster) out.blocked += 1;
+  }
+  return out;
 }
 
 // ---------------- HR: holiday / time-off requests ----------------

@@ -128,6 +128,7 @@ Sidebar shell (264px dark-green `#16352A`) + sticky header; nav groups filtered 
 - **Improvement & Training hubs** (HR + Quality instances of one workbench, 3 tabs): *Issues to action* (HR sees HR-routed; Quality sees all open) → **Review & sign off** (outcome + note + corrective actions: refresher course / push SOP / schedule HR-08 supervision / **route to department**) ; *Push training & SOPs* (audiences and/or named individuals + note + due) ; *Assignment log* (with withdraw).
 - **Staff Training Hub** (built) + *Assigned to you* feed from pushes.
 - **Workforce** (built) + **Recruitment** (sourcing → vetting → references → RTW → onboarding-ready; checklist template in prototype `recruitChecklistTemplate()`).
+- **Compliance & credential expiry** (`/compliance`) — Garda vetting, mandatory training, right-to-work and insurance tracked per active carer; a register flags expired / expiring (≤45d) / missing credentials, safety-critical lapses mark a carer **"not cleared to roster"**, credentials are editable on the carer profile (`carer_compliance`), and management dashboards prompt on lapses.
 - **Finance** — overview, client invoicing, rate schemes, HCA pay & hours.
 - **Governance** (built), **Data export** (CSV/JSON + data dictionary).
 
