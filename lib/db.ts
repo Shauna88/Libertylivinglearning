@@ -19,7 +19,7 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "21";
+const SEED_VERSION = "22";
 const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
@@ -35,7 +35,8 @@ export type Role =
   | "On-Call Manager"
   | "Office Administrator"
   | "Healthcare Assistant"
-  | "Client / Family";
+  | "Client / Family"
+  | "Demo";
 
 /** Every role, in seniority order — the basis for the capability gate arrays. */
 export const ALL_ROLES: Role[] = [
@@ -51,10 +52,14 @@ export const ALL_ROLES: Role[] = [
   "Office Administrator",
   "Healthcare Assistant",
   "Client / Family",
+  "Demo",
 ];
 
 /** The read-only client/family portal role. Sees only their own linked client. */
 export const PORTAL_ROLE: Role = "Client / Family";
+
+/** The shareable, read-only team-demo role — a curated tour, holds no capabilities. */
+export const DEMO_ROLE: Role = "Demo";
 
 // Gate arrays derive from the single role-capability model in lib/roles.ts.
 /** Roles allowed to view the manager Monitor / oversight dashboards. */
@@ -538,6 +543,8 @@ async function seed(client: PoolClient) {
     { name: "Denise Fenlon", email: "hca@libertyhomecare.ie", role: "Healthcare Assistant", region: "Dublin North" },
     // Read-only client/family portal login, linked to the client record it may view.
     { name: "Deirdre Conroy (family)", email: "family@libertyhomecare.ie", role: "Client / Family", region: "Dublin North", clientId: "CL-001" },
+    // Shareable, read-only team-demo login — a curated tour of the front-line tools.
+    { name: "Team demo", email: "demo@libertyhomecare.ie", role: "Demo", region: "Showcase" },
   ];
 
   for (const u of demo) {

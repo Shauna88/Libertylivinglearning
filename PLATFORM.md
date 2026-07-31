@@ -69,6 +69,7 @@ One codebase; nav + dashboard gated **server-side** by role. Map to an `AppRole`
 | `hca` | field carer | Own dashboard + Training Hub; can **raise** complaints/incidents/safeguarding + **request** holiday; no other staff's records |
 | `coord` | Care Coordinator | HCA-staff + CRM (cover board, monitor, scheduling, rosters, call log, bulk import) |
 | `client` | client/family | **Read-only** portal: own weekly schedule + assigned carers |
+| `demo` | Team demo | **Read-only, shareable tour** — a curated dashboard, Front-line Guide, training, SOPs, complaints & incidents, and a Q&A page. Nothing else (locked in nav **and** by URL via middleware); no logging/editing |
 
 Implementation: extend the `Role` union in `lib/db.ts`, add a `nav allowlist` per role
 (a `ROLE_NAV: Record<AppRole, NavKey[]>` map), gate each route in its server component

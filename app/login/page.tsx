@@ -16,6 +16,7 @@ const DEMO_ACCOUNTS = [
   { email: "admin@libertyhomecare.ie", role: "Office Administrator" },
   { email: "hca@libertyhomecare.ie", role: "Healthcare Assistant" },
   { email: "family@libertyhomecare.ie", role: "Client / Family portal" },
+  { email: "demo@libertyhomecare.ie", role: "Team demo (read-only tour)" },
 ];
 
 export default function LoginPage() {

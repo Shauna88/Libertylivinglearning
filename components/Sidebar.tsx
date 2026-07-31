@@ -18,6 +18,7 @@ export default function Sidebar({
   isImprovement = false,
   isWorkforce = false,
   isQualityMgmt = false,
+  isDemo = false,
   canSeeAllRegisters = true,
   hubLabel = "Improvement & Training",
   openCounts = {},
@@ -32,6 +33,7 @@ export default function Sidebar({
   isImprovement?: boolean;
   isWorkforce?: boolean;
   isQualityMgmt?: boolean;
+  isDemo?: boolean;
   canSeeAllRegisters?: boolean;
   hubLabel?: string;
   openCounts?: Record<string, number>;
@@ -41,6 +43,33 @@ export default function Sidebar({
     const n = openCounts[kind];
     return n ? String(n) : undefined;
   };
+
+  // The shareable team-demo login gets a curated, read-only tour — only the
+  // areas we want to show, nothing else.
+  const demoGroups: Group[] = [
+    {
+      label: "Overview",
+      items: [
+        { label: "Daily dashboard", icon: "space_dashboard", href: "/dashboard" },
+        { label: "Questions & answers", icon: "help", href: "/demo-guide" },
+      ],
+    },
+    {
+      label: "Learning",
+      items: [
+        { label: "Front-line Guide", icon: "health_and_safety", href: "/frontline" },
+        { label: "Staff Training Hub", icon: "school", href: "/training" },
+        { label: "SOP Library", icon: "menu_book", href: "/sops" },
+      ],
+    },
+    {
+      label: "Risk & Safety",
+      items: [
+        { label: "Complaints", icon: "forum", href: "/complaints", badge: badge("complaint") },
+        { label: "Incidents", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
+      ],
+    },
+  ];
 
   const overviewItems: Item[] = [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }];
   if (role === "Healthcare Assistant") overviewItems.push({ label: "My working week", icon: "calendar_month", href: "/my-week" });
@@ -129,6 +158,8 @@ export default function Sidebar({
     groups.splice(isCrm ? 3 : 2, 0, { label: hubLabel, items: mgmtItems });
   }
 
+  const navGroups = isDemo ? demoGroups : groups;
+
   const initials = name
     .split(" ")
     .map((p) => p[0])
@@ -148,7 +179,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      {groups.map((g) => (
+      {navGroups.map((g) => (
         <div className="nav-group" key={g.label}>
           <div className="nav-label">{g.label}</div>
           {g.items.map((it) => {
