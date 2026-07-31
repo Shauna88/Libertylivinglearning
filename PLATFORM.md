@@ -129,6 +129,7 @@ Sidebar shell (264px dark-green `#16352A`) + sticky header; nav groups filtered 
 - **Staff Training Hub** (built) + *Assigned to you* feed from pushes.
 - **Workforce** (built) + **Recruitment** (sourcing → vetting → references → RTW → onboarding-ready; checklist template in prototype `recruitChecklistTemplate()`).
 - **Compliance & credential expiry** (`/compliance`) — Garda vetting, mandatory training, right-to-work and insurance tracked per active carer; a register flags expired / expiring (≤45d) / missing credentials, safety-critical lapses mark a carer **"not cleared to roster"**, credentials are editable on the carer profile (`carer_compliance`), and management dashboards prompt on lapses.
+- **Electronic Call Monitoring** (`/ecm`) — actual point-of-care **check-in / check-out** for every call today (`visit_events`) against the plan, with real delivered time; a call **15 min past its start with no check-in raises a missed-visit alert** (alert cards + tiles), and the CSM / coordinator / on-call dashboards prompt on missed visits. In production the carer checks in on their phone; here the office can record it too.
 - **Finance** — overview, client invoicing, rate schemes, HCA pay & hours.
 - **Governance** (built), **Data export** (CSV/JSON + data dictionary).
 

@@ -137,6 +137,7 @@ export default function Sidebar({
       label: "Client Management · CRM",
       items: [
         { label: "Live monitor", icon: "sensors", href: "/live-monitor" },
+        { label: "Live calls · ECM", icon: "how_to_reg", href: "/ecm" },
         { label: "Client register", icon: "contacts", href: "/clients" },
         { label: "Rostering", icon: "edit_calendar", href: "/roster" },
         { label: "Carer directory", icon: "badge", href: "/carers" },

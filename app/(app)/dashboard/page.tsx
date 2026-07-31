@@ -15,6 +15,7 @@ import {
   coverMap,
   registerOpenCounts,
   complianceAlerts,
+  ecmAlertCount,
   OVERSIGHT_ROLES,
   WORKFORCE_ROLES,
   type Role,
@@ -301,8 +302,11 @@ export default async function DashboardPage() {
       { n: reviewsDue.length, lbl: "Reviews due", tone: reviewsDue.length ? "amber" : "green", href: "/clients" },
     ];
 
+    const ecmAlerts = await ecmAlertCount();
+
     // A single ranked "to-do" so nothing is missed.
     const todos: { icon: string; tone: string; text: string; href: string }[] = [];
+    if (ecmAlerts) todos.push({ icon: "notification_important", tone: "red", text: `${ecmAlerts} call${ecmAlerts === 1 ? "" : "s"} with no check-in — check for a missed visit`, href: "/ecm" });
     if (uncovered.length) todos.push({ icon: "event_busy", tone: "red", text: `${uncovered.length} uncovered call${uncovered.length === 1 ? "" : "s"} today need a carer`, href: "/roster" });
     if (permReqs.length) todos.push({ icon: "how_to_reg", tone: "amber", text: `${permReqs.length} permanent carer change${permReqs.length === 1 ? "" : "s"} awaiting your approval`, href: "/dashboard#csm-approvals" });
     if (sick.length) todos.push({ icon: "sick", tone: "red", text: `${sick.length} carer sick / no-show call${sick.length === 1 ? "" : "s"} to re-cover`, href: "/call-log" });
@@ -535,7 +539,10 @@ export default async function DashboardPage() {
     const paused = clients.filter((c) => c.status === "hospital" || c.status === "hold");
     const sick = calls.filter((c) => (c.cause === "carer_sick" || c.cause === "carer_noshow") && !c.resolved);
 
+    const ecmAlerts = await ecmAlertCount();
+
     const opsTodos: Todo[] = [];
+    if (ecmAlerts) opsTodos.push({ icon: "notification_important", tone: "red", text: `${ecmAlerts} call${ecmAlerts === 1 ? "" : "s"} with no check-in — check for a missed visit`, href: "/ecm" });
     if (gaps.length) opsTodos.push({ icon: "event_busy", tone: "red", text: `${gaps.length} uncovered call${gaps.length === 1 ? "" : "s"} today need a carer`, href: "/roster" });
     if (sick.length) opsTodos.push({ icon: "sick", tone: "red", text: `${sick.length} carer sick / no-show call${sick.length === 1 ? "" : "s"} to re-cover`, href: "/call-log" });
     if (followUps.length) opsTodos.push({ icon: "call", tone: "amber", text: `${followUps.length} call event${followUps.length === 1 ? "" : "s"} to follow up`, href: "/call-log" });
