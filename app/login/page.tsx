@@ -99,20 +99,20 @@ export default function LoginPage() {
         </button>
 
         <div className="demo-note">
-          <b>Staff accounts</b> — click to fill the email, then enter your password:
-          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+          <b>Staff accounts</b> — pick a department to fill the email, then enter your password:
+          <select
+            className="input"
+            style={{ marginTop: 6 }}
+            value={DEMO_ACCOUNTS.some((a) => a.email === email) ? email : ""}
+            onChange={(e) => setEmail(e.target.value)}
+          >
+            <option value="">Select a department login…</option>
             {DEMO_ACCOUNTS.map((a) => (
-              <button
-                key={a.email}
-                type="button"
-                onClick={() => {
-                  setEmail(a.email);
-                }}
-              >
-                {a.email} — {a.role}
-              </button>
+              <option key={a.email} value={a.email}>
+                {a.role} — {a.email}
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       </form>
     </div>

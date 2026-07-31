@@ -21,6 +21,8 @@ export type RegisterRow = {
   deliveredHours: string | null;
   deliveredShort: boolean;
   unassigned: number;
+  soon24: number;
+  soonLabel: string | null;
   newNotes: number;
 };
 
@@ -149,6 +151,12 @@ export default function ClientRegister({
                     </div>
                     {(r.flags.length > 0 || r.unassigned > 0 || r.newNotes > 0) && (
                       <div className="flex wrap" style={{ gap: 6, marginTop: 10 }}>
+                        {r.soon24 > 0 && (
+                          <span className="pill tone-red urgent-soon" style={{ fontSize: 11 }}>
+                            <span className="ms" style={{ fontSize: 13 }}>alarm</span>
+                            {r.soon24 === 1 && r.soonLabel ? `Unassigned call in ${r.soonLabel}` : `${r.soon24} unassigned in next 24h`}
+                          </span>
+                        )}
                         {r.unassigned > 0 && (
                           <span className="pill tone-red" style={{ fontSize: 11 }}>
                             <span className="ms" style={{ fontSize: 13 }}>person_alert</span>{r.unassigned} unassigned call{r.unassigned === 1 ? "" : "s"}
@@ -198,10 +206,11 @@ export default function ClientRegister({
                   <td className="muted">{r.hoursWk}<div style={{ fontSize: 11, color: r.deliveredShort ? "var(--amber-fg)" : undefined }}>{r.deliveredHours ?? "—"} / {r.plannedHours ?? "—"} this wk</div></td>
                   <td>
                     <div className="flex wrap" style={{ gap: 5 }}>
+                      {r.soon24 > 0 && <span className="pill tone-red urgent-soon" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>alarm</span>{r.soon24 === 1 && r.soonLabel ? `in ${r.soonLabel}` : `${r.soon24}·24h`}</span>}
                       {r.unassigned > 0 && <span className="pill tone-red" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>person_alert</span>{r.unassigned}</span>}
                       {r.newNotes > 0 && <span className="pill tone-blue" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>sticky_note_2</span>Note</span>}
                       {r.flags.length > 0 && <span className={`pill tone-${r.reviewTone}`} style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>flag</span>{r.flags.length}</span>}
-                      {r.unassigned === 0 && r.newNotes === 0 && r.flags.length === 0 && <span className="muted">—</span>}
+                      {r.soon24 === 0 && r.unassigned === 0 && r.newNotes === 0 && r.flags.length === 0 && <span className="muted">—</span>}
                     </div>
                   </td>
                   <td style={{ textAlign: "right" }}>

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CRM_ROLES, listClients, coverMap, recentCareNoteCounts, type Role } from "@/lib/db";
 import { maskName, statusMeta } from "@/lib/crm";
-import { clientWeekSummary } from "@/lib/schedule";
+import { clientWeekSummary, upcomingUnassignedCalls, nowParts } from "@/lib/schedule";
 import ClientRegister, { type RegisterRow } from "@/components/ClientRegister";
 
 function hm(mins: number) {
@@ -12,11 +12,19 @@ function hm(mins: number) {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
+// Short "time until start" label for an imminent unassigned call.
+function untilLabel(mins: number) {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.round(mins / 60);
+  return `${h}h`;
+}
+
 export default async function ClientsPage() {
   const session = await auth();
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
   const [clients, cover, noteCounts] = await Promise.all([listClients(), coverMap(), recentCareNoteCounts(48)]);
+  const { weekday, nowMin } = nowParts(new Date());
 
   // Build masked register rows — no real names/identifiers reach the browser
   // until the PII gate reveals them.
@@ -24,6 +32,7 @@ export default async function ClientsPage() {
     const meta = statusMeta(c.status);
     const paused = c.status === "hospital" || c.status === "hold";
     const wk = clientWeekSummary(c, cover, paused);
+    const soon = upcomingUnassignedCalls(c, cover, weekday, nowMin, 24);
     const hasPlan = wk.plannedMin > 0;
     return {
       id: c.id,
@@ -42,6 +51,8 @@ export default async function ClientsPage() {
       deliveredHours: hasPlan ? hm(wk.deliveredMin) : null,
       deliveredShort: hasPlan && wk.deliveredMin < wk.plannedMin,
       unassigned: wk.unassigned,
+      soon24: soon.count,
+      soonLabel: soon.soonestMin === null ? null : untilLabel(soon.soonestMin),
       newNotes: noteCounts[c.id] ?? 0,
     };
   });

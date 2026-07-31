@@ -401,6 +401,16 @@ button {
   color: var(--red-fg);
   background: var(--red-bg);
 }
+/* Imminent uncovered call — within the next 24h. Ringed + gently pulsing so it
+   reads as more urgent than the plain weekly "unassigned calls" flag. */
+.pill.urgent-soon {
+  box-shadow: 0 0 0 1.5px var(--red-fg);
+  animation: soonpulse 2s ease-in-out infinite;
+}
+@keyframes soonpulse {
+  0%, 100% { box-shadow: 0 0 0 1.5px var(--red-fg); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--red-fg) 30%, transparent); }
+}
 .tone-blue {
   color: var(--blue-fg);
   background: var(--blue-bg);
