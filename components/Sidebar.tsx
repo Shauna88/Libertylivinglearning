@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useState } from "react";
 
 type Item = { label: string; icon: string; href?: string; badge?: string; soon?: boolean; exact?: boolean };
 type Group = { label: string; items: Item[] };
@@ -39,6 +40,7 @@ export default function Sidebar({
   openCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
+  const [navOpen, setNavOpen] = useState(false);
   const badge = (kind: string) => {
     const n = openCounts[kind];
     return n ? String(n) : undefined;
@@ -176,11 +178,22 @@ export default function Sidebar({
     .toUpperCase();
 
   return (
-    <aside className="sidebar">
-      <div className="brand-logo">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
-      </div>
+    <>
+      <header className="mobile-topbar">
+        <button className="hamburger" aria-label="Open menu" onClick={() => setNavOpen(true)}>
+          <span className="ms">menu</span>
+        </button>
+        <div className="mobile-topbar-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
+        </div>
+      </header>
+      <div className={`sidebar-overlay${navOpen ? " show" : ""}`} onClick={() => setNavOpen(false)} />
+      <aside className={`sidebar${navOpen ? " open" : ""}`}>
+        <div className="brand-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
+        </div>
 
       {navGroups.map((g) => (
         <div className="nav-group" key={g.label}>
@@ -202,7 +215,7 @@ export default function Sidebar({
             );
             if (it.href) {
               return (
-                <Link key={it.label} href={it.href} className={`nav-item${active ? " active" : ""}`}>
+                <Link key={it.label} href={it.href} className={`nav-item${active ? " active" : ""}`} onClick={() => setNavOpen(false)}>
                   {inner}
                 </Link>
               );
@@ -228,6 +241,7 @@ export default function Sidebar({
           <span className="ms">logout</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

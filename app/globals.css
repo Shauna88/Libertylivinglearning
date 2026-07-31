@@ -89,9 +89,12 @@
   --teal-fg: #1f7a87;
   --teal-bg: #e2f0f2;
 
-  --radius: 12px;
+  --radius: 14px;
   --radius-sm: 9px;
   --sidebar-w: 264px;
+  --shadow-sm: 0 1px 2px rgba(12, 46, 32, 0.04), 0 1px 3px rgba(12, 46, 32, 0.05);
+  --shadow-md: 0 4px 10px rgba(12, 46, 32, 0.06), 0 12px 26px rgba(12, 46, 32, 0.08);
+  --shadow-lg: 0 8px 20px rgba(12, 46, 32, 0.1), 0 24px 48px rgba(12, 46, 32, 0.14);
 
   --font-ui: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -373,10 +376,11 @@ button {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(238, 242, 236, 0.85);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
-  padding: 18px 32px;
+  padding: 20px 34px;
 }
 .header h1 {
   margin: 0;
@@ -401,6 +405,16 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+/* Cards that are links (clickable rows / tiles) get a gentle lift on hover. */
+a.card {
+  transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+a.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 .grid {
   display: grid;
@@ -529,6 +543,7 @@ button {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  box-shadow: 0 1px 2px rgba(12, 46, 32, 0.15);
 }
 .btn-primary:hover {
   background: var(--accent-dark);
@@ -769,17 +784,27 @@ button {
   font-size: 13px;
 }
 .tbl th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-2);
-  padding: 8px 10px;
+  padding: 11px 12px;
+  background: color-mix(in srgb, var(--grey-bg) 60%, var(--card));
   border-bottom: 1px solid var(--border);
 }
 .tbl td {
-  padding: 10px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.tbl tbody tr {
+  transition: background 0.12s ease;
+}
+.tbl tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-tint) 45%, transparent);
 }
 .tbl tr:last-child td {
   border-bottom: none;
@@ -790,7 +815,7 @@ button {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: linear-gradient(160deg, #16352a 0%, #1e6f49 100%);
+  background: radial-gradient(120% 120% at 15% 0%, #124a33 0%, #0c2e20 55%, #08251a 100%);
   padding: 24px;
 }
 .login-card {
@@ -887,15 +912,122 @@ button {
   }
 }
 
-@media (max-width: 720px) {
+/* ---------- mobile top bar + drawer sidebar ---------- */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 60;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--sidebar);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.mobile-topbar .hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: none;
+}
+.mobile-topbar .hamburger:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.mobile-topbar-logo {
+  height: 26px;
+  background: #fff;
+  border-radius: 7px;
+  padding: 4px 8px;
+}
+.mobile-topbar-logo img {
+  height: 100%;
+  width: auto;
+  display: block;
+}
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .mobile-topbar {
+    display: flex;
+  }
+  .main {
+    padding-top: 56px; /* clear the fixed mobile top bar */
+  }
   .sidebar {
-    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 70;
+    transform: translateX(-100%);
+    transition: transform 0.24s ease;
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay.show {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: rgba(12, 46, 32, 0.45);
+    backdrop-filter: blur(2px);
+  }
+  .header {
+    top: 56px;
   }
   .body,
   .header {
     padding-left: 18px;
     padding-right: 18px;
   }
+  .body {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 520px) {
+  .header h1 {
+    font-size: 18px;
+  }
+  .body {
+    padding-bottom: 40px;
+  }
+  .svc-status {
+    padding: 8px 16px;
+  }
+}
+
+/* ---------- polished scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 45%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  background-clip: padding-box;
 }
 
 /* ---------- client / family portal (standalone, read-only) ---------- */
