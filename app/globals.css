@@ -186,6 +186,50 @@ button {
   flex-direction: column;
   gap: 6px;
 }
+/* Service status bar — shared vital signs across every office login */
+.svc-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 20px;
+  background: var(--amber-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--amber-fg) 25%, transparent);
+  font-size: 12.5px;
+}
+.svc-status.urgent {
+  background: var(--red-bg);
+  border-bottom-color: color-mix(in srgb, var(--red-fg) 25%, transparent);
+}
+.svc-status-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.svc-status-items {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.svc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.65);
+}
+.svc-chip.tone-red { color: var(--red-fg); }
+.svc-chip.tone-amber { color: var(--amber-fg); }
+.svc-chip:hover { background: #fff; }
+
 .brand-logo {
   background: #fff;
   border-radius: 12px;

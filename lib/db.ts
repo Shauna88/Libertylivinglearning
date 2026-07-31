@@ -2032,6 +2032,32 @@ export async function ecmAlertCount(): Promise<number> {
   return n;
 }
 
+/**
+ * Service-wide "vital signs" — the handful of things any department needs to
+ * know today so nothing slips through the cracks. One shared source, shown the
+ * same to every office login via the Service status bar.
+ */
+export async function serviceVitals(): Promise<{
+  uncovered: number; missedVisits: number; carersNotCleared: number;
+  reviewsOverdue: number; openSafeguarding: number; openComplaints: number; openIncidents: number;
+}> {
+  const [reg, comp, assess, missedVisits, clients, cover] = await Promise.all([
+    registerOpenCounts(), complianceAlerts(), assessmentsDueCount(), ecmAlertCount(), listClients(), coverMap(),
+  ]);
+  const { weekday, nowMin } = nowParts(new Date());
+  const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
+  const uncovered = visits.filter((v) => v.status === "gap").length;
+  return {
+    uncovered,
+    missedVisits,
+    carersNotCleared: comp.blocked,
+    reviewsOverdue: assess.overdue,
+    openSafeguarding: reg.safeguarding ?? 0,
+    openComplaints: reg.complaint ?? 0,
+    openIncidents: reg.incident ?? 0,
+  };
+}
+
 // ---------------- HR: holiday / time-off requests ----------------
 
 export type TimeOffRow = {
