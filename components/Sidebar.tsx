@@ -189,7 +189,7 @@ export default function Sidebar({
     <>
       <header className="mobile-topbar">
         <button className="hamburger" aria-label="Open menu" onClick={() => setNavOpen(true)}>
-          <span className="ms">menu</span>
+          <span className="ms" aria-hidden="true">menu</span>
         </button>
         <div className="mobile-topbar-logo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -197,7 +197,7 @@ export default function Sidebar({
         </div>
       </header>
       <div className={`sidebar-overlay${navOpen ? " show" : ""}`} onClick={() => setNavOpen(false)} />
-      <aside className={`sidebar${navOpen ? " open" : ""}`}>
+      <aside className={`sidebar${navOpen ? " open" : ""}`} role="navigation" aria-label="Main">
         <div className="brand-logo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
@@ -211,14 +211,14 @@ export default function Sidebar({
         <div className={`nav-group${isCollapsed && !groupActive ? " collapsed" : ""}`} key={g.label}>
           <button className="nav-label" onClick={() => toggleGroup(g.label)} aria-expanded={!isCollapsed || groupActive}>
             <span>{g.label}</span>
-            <span className="ms nav-chevron">{isCollapsed && !groupActive ? "expand_more" : "expand_less"}</span>
+            <span className="ms nav-chevron" aria-hidden="true">{isCollapsed && !groupActive ? "expand_more" : "expand_less"}</span>
           </button>
           {(!isCollapsed || groupActive) && g.items.map((it) => {
             const active =
               it.href && (it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/"));
             const inner = (
               <>
-                <span className="ms">{it.icon}</span>
+                <span className="ms" aria-hidden="true">{it.icon}</span>
                 <span>{it.label}</span>
                 {it.badge && <span className="nav-badge">{it.badge}</span>}
                 {it.soon && (
@@ -253,8 +253,8 @@ export default function Sidebar({
             {role} · {region}
           </div>
         </div>
-        <button className="signout" title="Sign out" onClick={() => signOut({ redirectTo: "/login" })}>
-          <span className="ms">logout</span>
+        <button className="signout" title="Sign out" aria-label="Sign out" onClick={() => signOut({ redirectTo: "/login" })}>
+          <span className="ms" aria-hidden="true">logout</span>
         </button>
       </div>
       </aside>

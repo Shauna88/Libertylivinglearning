@@ -22,6 +22,7 @@ import {
   type Role,
 } from "@/lib/db";
 import TodoBoard, { type PersonalTodo } from "@/components/TodoBoard";
+import DashboardHero from "@/components/DashboardHero";
 import { messagingDept, MESSAGE_DEPTS } from "@/lib/roles";
 import { presetsFor } from "@/lib/todopresets";
 import { buildRefGroups } from "@/lib/refs";
@@ -167,18 +168,13 @@ export default async function DashboardPage() {
           <p>A guided tour of the front-line tools: complaints & incidents, the Front-line Guide, training, SOPs — and the kind of daily snapshot the team works from. Nothing here can be changed.</p>
         </header>
         <div className="body fade">
-          <div className="section-title">Today at a glance</div>
-          <div className="grid cols-4" style={{ marginBottom: 22 }}>
-            {tiles.map((t) => (
-              <div key={t.label} className="card metric">
-                <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-                  <span className="ms" style={{ fontSize: 18, color: t.tone === "text" ? "var(--text-2)" : `var(--${t.tone}-fg)` }}>{t.icon}</span>
-                  <div className="num" style={{ color: t.tone === "text" ? undefined : `var(--${t.tone}-fg)` }}>{t.n}</div>
-                </div>
-                <div className="lbl">{t.label}</div>
-              </div>
-            ))}
-          </div>
+          <DashboardHero
+            eyebrow="Read-only demo · today"
+            actions={[]}
+            stats={tiles.map((t) => ({ n: t.n, label: t.label, tone: t.tone === "text" ? undefined : t.tone }))}
+            clearText="Today at a glance"
+            clearSub="A snapshot of the kind of daily view the team works from — nothing here can be changed."
+          />
 
           <div className="section-title">Take the tour</div>
           <div className="grid cols-3">
@@ -325,22 +321,16 @@ export default async function DashboardPage() {
       <>
         {header}
         <div className="body fade">
-          <div className="card mandate">
-            <span className="ms" style={{ fontSize: 20, color: "var(--accent)" }}>flag</span>
-            <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} Here&apos;s what needs you today.</p>
-          </div>
+          <DashboardHero
+            eyebrow={`Today · ${weekday}`}
+            actions={todos}
+            stats={tiles.map((t) => ({ n: t.n, label: t.lbl, tone: t.tone === "text" ? undefined : t.tone, href: t.href }))}
+            clearText="Every call's covered"
+            clearSub="No urgent actions across rostering, ECM, approvals or the registers."
+          />
 
-          {/* to-do prompts + personal to-dos */}
+          {/* full working list — system prompts + personal to-dos */}
           <TodoBoard title="To do" emptyText="All clear" systemTodos={todos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} />
-
-          <div className="grid cols-4">
-            {tiles.map((t) => (
-              <Link key={t.lbl} href={t.href} className="card metric" style={{ display: "block" }}>
-                <div className="num" style={{ color: t.tone === "text" ? undefined : `var(--${t.tone}-fg)` }}>{t.n}</div>
-                <div className="lbl">{t.lbl}</div>
-              </Link>
-            ))}
-          </div>
 
           {/* approvals */}
           <div id="csm-approvals" className="section-title" style={{ scrollMarginTop: 90 }}>Approvals — permanent carer changes</div>
@@ -469,10 +459,14 @@ export default async function DashboardPage() {
       <>
         {header}
         <div className="body fade">
-          <div className="card mandate">
-            <span className="ms" style={{ fontSize: 20, color: "var(--accent)" }}>flag</span>
-            <p style={{ margin: 0, fontSize: 13.5 }}>{portal.mandate}</p>
-          </div>
+          <DashboardHero
+            eyebrow="Your remit · today"
+            actions={improveTodos}
+            stats={portal.scorecard.slice(0, 4).map((m) => ({ n: m.value, label: m.name, tone: rag(m.value, m.target, m.dir) }))}
+            note={portal.mandate}
+            clearText="Nothing outstanding"
+            clearSub="No open actions for your department right now."
+          />
           {profile.caps.includes("improvement") && (
             <>
               <div className="section-title">Daily improvement prompts{deptOf(role) && hubScopeOf(role) === "dept" ? ` · ${deptOf(role)}` : ""}</div>
@@ -501,18 +495,20 @@ export default async function DashboardPage() {
       <>
         {header}
         <div className="body fade">
-          <div className="card mandate">
-            <span className="ms" style={{ fontSize: 20, color: "var(--accent)" }}>flag</span>
-            <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} This month ({fin.monthLabel}) at a glance.</p>
-          </div>
-          <div className="section-title">Daily prompts · Finance</div>
+          <DashboardHero
+            eyebrow={`This month · ${fin.monthLabel}`}
+            actions={finTodos}
+            stats={[
+              { n: money(fin.billedTotal), label: "Billed this month" },
+              { n: money(fin.payrollTotal), label: "Payroll" },
+              { n: money(fin.margin), label: `Margin (${fin.marginPct}%)`, tone: "green" },
+              { n: unpaid, label: "Invoices unpaid", tone: unpaid ? "amber" : "green", href: "/finance/invoicing" },
+            ]}
+            note={profile.remit}
+            clearText="Books are current"
+            clearSub="No invoices to chase and margin's healthy this month."
+          />
           <TodoBoard title="Keep the books current" systemTodos={finTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} emptyText="Nothing outstanding" />
-          <div className="grid cols-4">
-            <div className="card metric"><div className="num">{money(fin.billedTotal)}</div><div className="lbl">Billed this month</div></div>
-            <div className="card metric"><div className="num">{money(fin.payrollTotal)}</div><div className="lbl">Payroll</div></div>
-            <div className="card metric"><div className="num" style={{ color: "var(--green-fg)" }}>{money(fin.margin)}</div><div className="lbl">Margin ({fin.marginPct}%)</div></div>
-            <div className="card metric"><div className="num" style={{ color: unpaid ? "var(--amber-fg)" : "var(--green-fg)" }}>{unpaid}</div><div className="lbl">Invoices unpaid</div></div>
-          </div>
           <div className="section-title">By funding scheme</div>
           <div className="grid cols-3">
             {fin.pods.map((p) => (
@@ -561,19 +557,21 @@ export default async function DashboardPage() {
       <>
         {header}
         <div className="body fade">
-          <div className="card mandate">
-            <span className="ms" style={{ fontSize: 20, color: "var(--accent)" }}>flag</span>
-            <p style={{ margin: 0, fontSize: 13.5 }}>{profile.remit} {isOnCall ? "Out-of-hours — here's what's live right now." : "Here's your day."}</p>
-          </div>
-          <div className="section-title">{isOnCall ? "On call — action now" : "Your day — action now"}</div>
-          <TodoBoard title={isOnCall ? "Live out-of-hours" : "To do today"} systemTodos={opsTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} emptyText="All calls covered" />
+          <DashboardHero
+            eyebrow={`${isOnCall ? "Out of hours" : "Today"} · ${weekday}`}
+            actions={opsTodos}
+            stats={[
+              { n: visits.length, label: `Visits today (${weekday})`, href: "/live-monitor" },
+              { n: gaps.length, label: isOnCall ? "Uncovered now" : "Gaps to cover", tone: gaps.length ? "red" : "green", href: "/roster" },
+              { n: followUps.length, label: "Calls to follow up", tone: followUps.length ? "amber" : "green", href: "/call-log" },
+              { n: isOnCall ? paused.length : active, label: isOnCall ? "Paused (hosp / hold)" : "Active clients", tone: isOnCall && paused.length ? "blue" : undefined, href: "/live-monitor" },
+            ]}
+            clearText={isOnCall ? "Quiet on call" : "You're all clear"}
+            clearSub={isOnCall ? "Nothing live out-of-hours right now." : "Every visit today is covered and nothing's waiting."}
+          />
 
-          <div className="grid cols-4">
-            <div className="card metric"><div className="num">{visits.length}</div><div className="lbl">Visits today ({weekday})</div></div>
-            <div className="card metric"><div className="num" style={{ color: gaps.length ? "var(--red-fg)" : "var(--green-fg)" }}>{gaps.length}</div><div className="lbl">{isOnCall ? "Uncovered now" : "Gaps to cover"}</div></div>
-            <div className="card metric"><div className="num" style={{ color: followUps.length ? "var(--amber-fg)" : "var(--green-fg)" }}>{followUps.length}</div><div className="lbl">Calls to follow up</div></div>
-            <div className="card metric"><div className="num" style={{ color: isOnCall && paused.length ? "var(--blue-fg)" : undefined }}>{isOnCall ? paused.length : active}</div><div className="lbl">{isOnCall ? "Paused (hosp / hold)" : "Active clients"}</div></div>
-          </div>
+          {/* full working list */}
+          <TodoBoard title={isOnCall ? "Live out-of-hours" : "To do today"} systemTodos={opsTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} emptyText="All calls covered" />
 
           <div className="section-title">{isOnCall ? "Uncovered calls right now" : "Gaps to cover today"}</div>
           {gaps.length === 0 ? (
@@ -632,7 +630,6 @@ export default async function DashboardPage() {
   const total = enrollments.length;
   const done = enrollments.filter((e) => e.status === "completed").length;
   const pct = total ? Math.round((done / total) * 100) : 0;
-  const barTone = pct >= 90 ? "" : pct >= 70 ? " amber" : " red";
   const hcaTodos: Todo[] = [];
   if (total - done > 0) hcaTodos.push({ icon: "school", tone: "amber", text: `${total - done} training course${total - done === 1 ? "" : "s"} to complete`, href: "/training" });
 
@@ -640,18 +637,20 @@ export default async function DashboardPage() {
     <>
       {header}
       <div className="body fade">
+        <DashboardHero
+          eyebrow="Your training · today"
+          actions={hcaTodos}
+          stats={total > 0 ? [
+            { n: `${pct}%`, label: "Training compliance", tone: pct >= 90 ? "green" : pct >= 70 ? "amber" : "red" },
+            { n: `${done}/${total}`, label: "Courses completed" },
+            { n: total - done, label: "Outstanding", tone: total - done ? "amber" : "green" },
+          ] : []}
+          clearText="You're all caught up"
+          clearSub={total > 0 ? "All your assigned training is complete." : "No training assigned yet — the hub is ready when courses are pushed to you."}
+        />
         <TodoBoard title="To do" emptyText="Nothing outstanding" systemTodos={hcaTodos} todos={personalTodos} presets={todoPresets} depts={shareDepts} myDept={myDept} refGroups={todoRefGroups} />
         {total > 0 ? (
           <>
-            <div className="grid cols-3">
-              <div className="card metric">
-                <div className="num">{pct}%</div>
-                <div className="lbl">Training compliance</div>
-                <div className={`bar${barTone}`} style={{ marginTop: 8 }}><span style={{ width: `${pct}%` }} /></div>
-              </div>
-              <div className="card metric"><div className="num">{done}/{total}</div><div className="lbl">Courses completed</div></div>
-              <div className="card metric"><div className="num">{total - done}</div><div className="lbl">Outstanding</div></div>
-            </div>
             <div className="section-title">Your qualification pathway</div>
             <div className="grid cols-2">
               {enrollments.map((e) => {

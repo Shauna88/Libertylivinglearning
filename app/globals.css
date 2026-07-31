@@ -169,6 +169,29 @@ button {
   animation: qmsfade 0.35s ease both;
 }
 
+/* ---------- accessibility ---------- */
+/* Visible keyboard focus everywhere (mouse clicks stay ring-free via :focus-visible). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* On the dark green sidebar / top bar, the light brand green reads against the ground. */
+.sidebar :focus-visible,
+.mobile-topbar :focus-visible {
+  outline-color: var(--brand-green);
+}
+/* Respect users who ask for less motion — drop transitions/animations, keep state changes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ---------- app shell ---------- */
 .shell {
   display: flex;
@@ -220,6 +243,10 @@ button {
   gap: 8px;
   flex-wrap: wrap;
 }
+.svc-chip-wrap {
+  position: relative;
+  display: inline-flex;
+}
 .svc-chip {
   display: inline-flex;
   align-items: center;
@@ -228,17 +255,122 @@ button {
   border-radius: 999px;
   font-weight: 600;
   background: rgba(255, 255, 255, 0.65);
+  transition: background 0.12s, box-shadow 0.12s;
 }
 .svc-chip.tone-red { color: var(--red-fg); }
 .svc-chip.tone-amber { color: var(--amber-fg); }
-.svc-chip:hover { background: #fff; }
+.svc-chip-caret {
+  opacity: 0.5;
+  margin-left: -1px;
+  transition: transform 0.14s, opacity 0.12s;
+}
+.svc-chip-wrap:hover .svc-chip,
+.svc-chip-wrap:focus-within .svc-chip {
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.svc-chip-wrap:hover .svc-chip-caret,
+.svc-chip-wrap:focus-within .svc-chip-caret {
+  opacity: 0.9;
+  transform: rotate(180deg);
+}
+
+/* Hover / focus panel — the actual items behind the figure. */
+.svc-pop {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 40;
+  min-width: 244px;
+  max-width: 340px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s;
+  pointer-events: none;
+}
+.svc-chip-wrap:hover .svc-pop,
+.svc-chip-wrap:focus-within .svc-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+/* A hover bridge so the gap between chip and panel doesn't drop the hover. */
+.svc-pop::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 0;
+  right: 0;
+  height: 9px;
+}
+.svc-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 7px 9px 6px;
+}
+.svc-pop-head.tone-red { color: var(--red-fg); }
+.svc-pop-head.tone-amber { color: var(--amber-fg); }
+.svc-pop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.svc-pop-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.svc-pop-list li:hover {
+  background: var(--accent-tint);
+}
+.svc-pop-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.svc-pop-sub {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.svc-pop-more {
+  padding: 5px 9px 2px;
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+.svc-pop-foot {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 3px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
 
 .brand-logo {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin: 4px 4px 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background: var(--bg);
+  border-radius: 11px;
+  padding: 12px 16px;
+  margin: 2px 6px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 .brand-logo img {
   display: block;
@@ -277,63 +409,91 @@ button {
   font-weight: 600;
 }
 .nav-group {
-  margin-top: 12px;
+  margin-top: 18px;
 }
+.brand-logo + .nav-group {
+  margin-top: 4px;
+}
+/* Group headers read as quiet section dividers — the toggle affordance (a
+   faint chevron) only surfaces on hover, or stays visible when collapsed. */
 .nav-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--sidebar-muted-2);
-  padding: 7px 10px;
+  padding: 5px 12px 7px;
+  margin-bottom: 2px;
   background: none;
   border: none;
   border-radius: 8px;
-  transition: background 0.12s, color 0.12s;
+  transition: color 0.12s;
 }
 .nav-label:hover {
-  background: var(--sidebar-hover);
   color: var(--sidebar-muted);
 }
 .nav-chevron {
-  font-size: 16px !important;
-  opacity: 0.55;
-  transition: opacity 0.12s;
+  font-size: 15px !important;
+  opacity: 0;
+  transition: opacity 0.14s;
 }
 .nav-label:hover .nav-chevron {
-  opacity: 0.9;
+  opacity: 0.7;
 }
 .nav-group.collapsed {
-  margin-top: 4px;
+  margin-top: 8px;
+}
+.nav-group.collapsed .nav-chevron {
+  opacity: 0.45;
 }
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 9px 11px;
-  border-radius: 9px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
   font-size: 13.5px;
   font-weight: 600;
   color: var(--sidebar-text);
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item + .nav-item {
+  margin-top: 1px;
 }
 .nav-item .ms {
   font-size: 20px;
   color: var(--sidebar-muted);
+  transition: color 0.15s;
 }
 .nav-item:hover {
   background: var(--sidebar-hover);
-}
-.nav-item.active {
-  background: var(--sidebar-active);
   color: #fff;
 }
+.nav-item:hover .ms {
+  color: var(--sidebar-text);
+}
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(166, 205, 173, 0.16), rgba(255, 255, 255, 0.04));
+  color: #fff;
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-green);
+}
 .nav-item.active .ms {
-  color: var(--accent);
+  color: var(--brand-green);
 }
 .nav-badge {
   margin-left: auto;
@@ -1246,6 +1406,82 @@ a.card:hover {
 /* ---------- personalised dashboards ---------- */
 .mandate{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;background:var(--accent-tint);border-color:var(--accent-tint)}
 .mandate p{color:var(--accent-dark)}
+
+/* Blend hero — leads with what needs you now, key figures alongside. */
+.dash-hero{
+  display:grid;
+  grid-template-columns:1.4fr 1fr;
+  gap:22px;
+  align-items:stretch;
+  margin-bottom:22px;
+  padding:20px 22px;
+  border-radius:var(--radius);
+  color:#fff;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(166,205,173,0.22) 0%, transparent 55%),
+    linear-gradient(135deg, var(--deep) 0%, var(--accent-dark) 100%);
+  box-shadow:var(--shadow-md);
+}
+.dash-hero.solo{grid-template-columns:1fr}
+.dash-hero-main{display:flex;flex-direction:column;min-width:0}
+.dash-hero-eyebrow{
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--brand-green);margin-bottom:12px;
+}
+.dash-hero-label{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:#f4c9c0;margin-bottom:10px;
+}
+.dash-hero-actions{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.dash-hero-action{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 13px;border-radius:11px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.10);
+  transition:background .14s,border-color .14s,transform .14s;
+}
+.dash-hero-action:hover{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.2);transform:translateX(2px)}
+.dash-hero-dot{
+  flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;
+}
+.dash-hero-dot.tone-red{background:var(--red-fg)}
+.dash-hero-dot.tone-amber{background:var(--amber-fg)}
+.dash-hero-dot.tone-blue{background:var(--blue-fg)}
+.dash-hero-dot.tone-green{background:var(--green-fg)}
+.dash-hero-action-text{flex:1;min-width:0;font-size:13.5px;font-weight:600;line-height:1.35;color:#fff}
+.dash-hero-go{color:rgba(255,255,255,0.5);flex:none}
+.dash-hero-action:hover .dash-hero-go{color:#fff}
+.dash-hero-more{margin-top:11px;font-size:12px;color:var(--brand-green);font-weight:600}
+.dash-hero-note{margin-top:auto;padding-top:12px;font-size:12px;line-height:1.45;color:#cfe0d4}
+.dash-hero-clear{display:flex;align-items:center;gap:13px;padding-top:2px;color:var(--brand-green)}
+.dash-hero-clear-title{font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em}
+.dash-hero-sub{font-size:12.5px;color:var(--brand-green);margin-top:2px}
+
+.dash-hero-stats{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:9px;align-content:start;
+}
+.dash-hero-stat{
+  padding:11px 13px;border-radius:11px;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.09);
+  transition:background .14s,border-color .14s;
+}
+a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,255,255,0.2)}
+.dash-hero-stat-num{
+  font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1;color:#fff;
+  font-variant-numeric:tabular-nums;
+}
+.dash-hero-stat-num.tone-red{color:#ffb3a3}
+.dash-hero-stat-num.tone-amber{color:#f4d58a}
+.dash-hero-stat-num.tone-green{color:var(--brand-green)}
+.dash-hero-stat-num.tone-blue{color:#a9cdf3}
+.dash-hero-stat-lbl{font-size:11px;color:#cfe0d4;margin-top:5px;line-height:1.3;font-weight:500}
+
+@media (max-width: 720px){
+  .dash-hero{grid-template-columns:1fr;gap:16px;padding:18px}
+  .dash-hero-stats{grid-template-columns:repeat(2,1fr)}
+}
 
 .dash-inbox{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
 .dash-inbox:hover{border-color:var(--accent)}
