@@ -177,14 +177,9 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-tile">
-          <span className="ms">eco</span>
-        </div>
-        <div>
-          <div className="brand-name">Liberty Living</div>
-          <div className="brand-sub">Quality & Training Hub</div>
-        </div>
+      <div className="brand-logo">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
       </div>
 
       {navGroups.map((g) => (

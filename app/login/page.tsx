@@ -47,16 +47,9 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit} autoComplete="off">
-        <div className="brand">
-          <div className="brand-tile">
-            <span className="ms">eco</span>
-          </div>
-          <div>
-            <div className="brand-name">Liberty Living</div>
-            <div className="brand-sub" style={{ color: "var(--text-2)" }}>
-              Quality & Training Hub
-            </div>
-          </div>
+        <div style={{ marginBottom: 18 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" style={{ height: 46, width: "auto", maxWidth: "100%" }} />
         </div>
         <h1>Sign in</h1>
         <p className="sub">Access your training, SOPs and quality dashboards.</p>
