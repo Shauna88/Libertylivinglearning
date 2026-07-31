@@ -279,6 +279,50 @@ export function clientWeekSummary(
   return { plannedMin, deliveredMin, unassigned, unassignedMin };
 }
 
+const WEEK_IDX: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
+};
+
+/**
+ * Unassigned calls for one client that start within the next `horizonHours`
+ * (default 24) from `weekday` + `nowMin`, treating the weekly Schedule of
+ * Service as repeating. Returns how many fall in the window and the
+ * minutes-until-start of the soonest one — so the register can flag an
+ * imminent uncovered call before it becomes a same-day emergency.
+ */
+export function upcomingUnassignedCalls(
+  client: Client,
+  coverMap: Record<string, string>,
+  weekday: string,
+  nowMin: number,
+  horizonHours = 24
+): { count: number; soonestMin: number | null } {
+  if (client.status === "hospital" || client.status === "discharged" || client.status === "deceased")
+    return { count: 0, soonestMin: null };
+  const today = WEEK_IDX[weekday];
+  if (today === undefined) return { count: 0, soonestMin: null };
+  const horizon = horizonHours * 60;
+  let count = 0;
+  let soonest: number | null = null;
+  for (const day of client.schedule) {
+    const idx = WEEK_IDX[day.day];
+    if (idx === undefined) continue;
+    const dayOffset = (idx - today + 7) % 7; // 0..6 days ahead (repeating week)
+    for (const v of day.visits) {
+      const key = visitKey(client.id, day.day, v.time);
+      const eff = Object.prototype.hasOwnProperty.call(coverMap, key) ? coverMap[key] : v.carer;
+      if (!isUnassigned(eff)) continue;
+      let mins = dayOffset * 1440 + parseTime(v.time) - nowMin;
+      if (mins < 0) mins += 7 * 1440; // already passed today → next week's occurrence
+      if (mins >= 0 && mins < horizon) {
+        count++;
+        if (soonest === null || mins < soonest) soonest = mins;
+      }
+    }
+  }
+  return { count, soonestMin: soonest };
+}
+
 export type BusyMap = Map<string, Map<string, { start: number; end: number }[]>>;
 
 /** For every carer, the time intervals they are already booked, by day. */
