@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const FUNDING = ["HSE HSAS", "Fair Deal (NHSS)", "HSE Home Support", "Private", "Other"];
+const FUNDING = ["HSE HSAS", "HSE Home Support", "Private", "Other"];
 const SEX = ["", "Female", "Male", "Other / prefer not to say"];
 
 type F = Record<string, string>;

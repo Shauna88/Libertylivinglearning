@@ -23,7 +23,7 @@ import { ecmState, isEcmAlert } from "./ecm";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "26";
+const SEED_VERSION = "27";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
