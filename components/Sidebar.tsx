@@ -41,6 +41,14 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (label: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
   const badge = (kind: string) => {
     const n = openCounts[kind];
     return n ? String(n) : undefined;
@@ -195,10 +203,17 @@ export default function Sidebar({
           <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
         </div>
 
-      {navGroups.map((g) => (
-        <div className="nav-group" key={g.label}>
-          <div className="nav-label">{g.label}</div>
-          {g.items.map((it) => {
+      {navGroups.map((g) => {
+        const isCollapsed = collapsed.has(g.label);
+        // A group is "active" if the current page lives in it — never collapse that one visually.
+        const groupActive = g.items.some((it) => it.href && (pathname === it.href || pathname.startsWith(it.href + "/")));
+        return (
+        <div className={`nav-group${isCollapsed && !groupActive ? " collapsed" : ""}`} key={g.label}>
+          <button className="nav-label" onClick={() => toggleGroup(g.label)} aria-expanded={!isCollapsed || groupActive}>
+            <span>{g.label}</span>
+            <span className="ms nav-chevron">{isCollapsed && !groupActive ? "expand_more" : "expand_less"}</span>
+          </button>
+          {(!isCollapsed || groupActive) && g.items.map((it) => {
             const active =
               it.href && (it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/"));
             const inner = (
@@ -227,7 +242,8 @@ export default function Sidebar({
             );
           })}
         </div>
-      ))}
+        );
+      })}
 
       <div className="sidebar-foot">
         <div className="avatar">{initials}</div>
