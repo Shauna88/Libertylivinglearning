@@ -74,6 +74,7 @@ export default function Sidebar({
   const overviewItems: Item[] = [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }];
   if (role === "Healthcare Assistant") overviewItems.push({ label: "My working week", icon: "calendar_month", href: "/my-week" });
   overviewItems.push({ label: "Messages", icon: "forum", href: "/messages" });
+  if (isCrm || isOversight || isWorkforce) overviewItems.push({ label: "Notifications", icon: "notifications_active", href: "/notifications" });
   overviewItems.push({ label: "Time off", icon: "beach_access", href: "/time-off" });
 
   const groups: Group[] = [
