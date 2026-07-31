@@ -40,19 +40,25 @@
 }
 
 :root {
-  --bg: #eef2ec;
-  --sidebar: #16352a;
-  --sidebar-text: #cfe0d4;
-  --sidebar-muted: #7fa38e;
-  --sidebar-muted-2: #6e9580;
+  /* Liberty Living Homecare brand palette:
+     Dark Green #0c2e20 · Living Burgundy #6d2639 · Support Green #5a6c5c
+     Main Green #a6cdad · Light Grey #f0f1ef */
+  --bg: #f0f1ef;
+  --sidebar: #0c2e20;
+  --sidebar-text: #d7e4da;
+  --sidebar-muted: #86a894;
+  --sidebar-muted-2: #6f9280;
   --sidebar-hover: rgba(255, 255, 255, 0.06);
   --sidebar-active: rgba(255, 255, 255, 0.12);
   --divider: rgba(255, 255, 255, 0.08);
 
-  --accent: #2e8b5e;
-  --accent-dark: #1e6f49;
-  --accent-tint: #e2f1e8;
-  --deep: #16352a;
+  --accent: #35785a;
+  --accent-dark: #245640;
+  --accent-tint: #e4f0e8;
+  --deep: #0c2e20;
+  --brand-green: #a6cdad;
+  --burgundy: #6d2639;
+  --burgundy-bg: #f3e2e7;
 
   --text: #1b2a22;
   --text-2: #647568;
@@ -190,10 +196,10 @@ button {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: var(--accent);
+  background: var(--brand-green);
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--burgundy);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .brand-tile .ms {

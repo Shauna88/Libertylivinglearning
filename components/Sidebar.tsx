@@ -183,7 +183,7 @@ export default function Sidebar({
         </div>
         <div>
           <div className="brand-name">Liberty Living</div>
-          <div className="brand-sub">Quality & Training Hub</div>
+          <div className="brand-sub">Homecare</div>
         </div>
       </div>
 
