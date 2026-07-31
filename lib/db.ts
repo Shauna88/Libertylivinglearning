@@ -17,10 +17,12 @@ import { defaultDept } from "./improvement";
 import { rolesWith } from "./roles";
 import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers";
 import { summariseCompliance } from "./compliance";
+import { deriveTodayVisits, nowParts } from "./schedule";
+import { ecmState, isEcmAlert } from "./ecm";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "24";
+const SEED_VERSION = "25";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
@@ -419,6 +421,21 @@ async function createSchema(client: PoolClient) {
       PRIMARY KEY (carer_id, item_key)
     );
 
+    -- Electronic Call Monitoring: actual point-of-care check-in / check-out for
+    -- one call on one date. Row present = a check-in happened. Absence past the
+    -- planned start time is what raises a missed-visit alert.
+    CREATE TABLE IF NOT EXISTS visit_events (
+      client_id TEXT NOT NULL,
+      service_date TEXT NOT NULL,
+      sched_time TEXT NOT NULL,
+      carer TEXT NOT NULL DEFAULT '',
+      checkin_at TIMESTAMPTZ,
+      checkout_at TIMESTAMPTZ,
+      by_name TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (client_id, service_date, sched_time)
+    );
+
     CREATE TABLE IF NOT EXISTS time_off_requests (
       id SERIAL PRIMARY KEY,
       requester_id INTEGER,
@@ -478,6 +495,7 @@ async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
   await client.query("DELETE FROM qip_actions");
+  await client.query("DELETE FROM visit_events");
   await client.query("DELETE FROM carer_compliance");
   await client.query("DELETE FROM carers");
   await client.query("DELETE FROM time_off_requests");
@@ -1702,6 +1720,87 @@ export async function complianceAlerts(): Promise<{ blocked: number; expired: nu
     if (s.blockedFromRoster) out.blocked += 1;
   }
   return out;
+}
+
+// ---------------- Electronic Call Monitoring (visit check-in/out) ----------------
+
+export type VisitEventRow = {
+  client_id: string;
+  service_date: string;
+  sched_time: string;
+  carer: string;
+  checkin_at: string | null;
+  checkout_at: string | null;
+  by_name: string;
+  updated_at: string;
+};
+
+/** All check-in/out records for one service date, keyed clientId|schedTime. */
+export async function visitEventMap(serviceDate: string): Promise<Record<string, VisitEventRow>> {
+  const rows = await q<VisitEventRow>("SELECT * FROM visit_events WHERE service_date=$1", [serviceDate]);
+  const m: Record<string, VisitEventRow> = {};
+  for (const r of rows) m[`${r.client_id}|${r.sched_time}`] = r;
+  return m;
+}
+
+/** Record a point-of-care check-in for a call (idempotent per call/date). */
+export async function checkInVisit(input: {
+  clientId: string; serviceDate: string; schedTime: string; carer: string; by: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO visit_events (client_id,service_date,sched_time,carer,checkin_at,by_name,updated_at)
+     VALUES ($1,$2,$3,$4,now(),$5,now())
+     ON CONFLICT (client_id,service_date,sched_time)
+       DO UPDATE SET checkin_at=COALESCE(visit_events.checkin_at, now()), carer=excluded.carer, by_name=excluded.by_name, updated_at=now()`,
+    [input.clientId, input.serviceDate, input.schedTime, input.carer, input.by]
+  );
+  await logAudit({ actorName: input.by, action: "ecm.checkin", target: `${input.clientId}@${input.schedTime}`, detail: input.serviceDate });
+}
+
+/** Record check-out (completes the call). */
+export async function checkOutVisit(input: {
+  clientId: string; serviceDate: string; schedTime: string; by: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO visit_events (client_id,service_date,sched_time,checkin_at,checkout_at,by_name,updated_at)
+     VALUES ($1,$2,$3,now(),now(),$4,now())
+     ON CONFLICT (client_id,service_date,sched_time)
+       DO UPDATE SET checkin_at=COALESCE(visit_events.checkin_at, now()), checkout_at=now(), by_name=excluded.by_name, updated_at=now()`,
+    [input.clientId, input.serviceDate, input.schedTime, input.by]
+  );
+  await logAudit({ actorName: input.by, action: "ecm.checkout", target: `${input.clientId}@${input.schedTime}`, detail: input.serviceDate });
+}
+
+/** Clear a check-in/out record (undo). */
+export async function clearVisitEvent(input: {
+  clientId: string; serviceDate: string; schedTime: string; by: string;
+}): Promise<void> {
+  await q("DELETE FROM visit_events WHERE client_id=$1 AND service_date=$2 AND sched_time=$3",
+    [input.clientId, input.serviceDate, input.schedTime]);
+  await logAudit({ actorName: input.by, action: "ecm.undo", target: `${input.clientId}@${input.schedTime}`, detail: input.serviceDate });
+}
+
+/** Today's missed-visit (late / no-check-in) count, for dashboard alerts. */
+export async function ecmAlertCount(): Promise<number> {
+  const now = new Date();
+  const { weekday, nowMin } = nowParts(now);
+  const serviceDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+  const [clients, cover, events] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate)]);
+  const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
+  let n = 0;
+  for (const v of visits) {
+    const ev = events[`${v.clientId}|${v.time}`];
+    const s = ecmState({
+      startMin: v.startMin,
+      endMin: v.startMin + v.durMin,
+      nowMin,
+      unassigned: v.status === "gap",
+      suspended: v.status === "suspended",
+      event: ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at } : null,
+    });
+    if (isEcmAlert(s)) n++;
+  }
+  return n;
 }
 
 // ---------------- HR: holiday / time-off requests ----------------
