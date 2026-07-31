@@ -22,7 +22,6 @@ export const RATE_SCHEMES: RateScheme[] = [
   { id: "cho7", code: "02", name: "CHO7 Dublin South & West", pod: "Dublin South / West", color: "#6E59B6", funder: "HSE HSAS", rates: { wd: 29, sat: 32, sun: 37, bh: 37 } },
   { id: "cho9", code: "03", name: "CHO9 Dublin North", pod: "Dublin North", color: "#1E8A5B", funder: "HSE HSAS", rates: { wd: 30, sat: 33, sun: 38, bh: 38 } },
   { id: "cho8", code: "04", name: "CHO8 Laois / Offaly · Midlands", pod: "Midlands", color: "#B0813A", funder: "HSE HSAS", rates: { wd: 28, sat: 31, sun: 35, bh: 35 } },
-  { id: "fairdeal", code: "05", name: "Fair Deal · NHSS contribution", pod: "All areas", color: "#4E7A8C", funder: "Fair Deal (NHSS)", rates: { wd: 27, sat: 30, sun: 34, bh: 34 } },
   { id: "private", code: "06", name: "Private / Self-funded", pod: "All areas", color: "#B03A5A", funder: "Private", rates: { wd: 32, sat: 36, sun: 42, bh: 48 } },
 ];
 
@@ -52,7 +51,6 @@ export function clientSchemeId(c: Client): string {
   const f = c.funding || "";
   const a = c.area || "";
   if (/private/i.test(f)) return "private";
-  if (/fair deal/i.test(f) && !/hsas/i.test(f)) return "fairdeal";
   if (/dublin north/i.test(a)) return "cho9";
   if (/dublin (west|south)|lucan|kildare/i.test(a)) return "cho7";
   if (/offaly|laois|midland|tullamore|birr|portlaoise|mountmellick/i.test(a)) return "cho8";
@@ -61,7 +59,6 @@ export function clientSchemeId(c: Client): string {
 
 export function invoiceTo(funding: string): { to: string; addr: string } {
   if (/private/i.test(funding)) return { to: "Private client account", addr: "Invoiced directly to the service user / family" };
-  if (/fair deal/i.test(funding)) return { to: "HSE Nursing Home Support Scheme (Fair Deal)", addr: "Client contribution · NHSS shared cost" };
   return { to: "Finance Shared Services (FSS) Payment Services", addr: "Accounts Payable 1010, Block D, Parkgate Business Centre, Parkgate Street, D08 YFF1" };
 }
 
