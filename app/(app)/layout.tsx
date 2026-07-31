@@ -41,6 +41,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // login (front-line, portal and the read-only demo get their own focused views).
   const showVitals = !["Healthcare Assistant", "Demo"].includes(role);
   const vitals = showVitals ? await serviceVitals() : null;
+  // The bar only renders when something is actually flagged — reflect that in the
+  // shell so the (pinned) bar and the page header don't both claim the top slot.
+  const hasAlerts = !!vitals && Object.values(vitals).some((v) => v.n > 0);
 
   return (
     <div className="shell">
@@ -60,7 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         hubLabel={hubLabel(role)}
         openCounts={openCounts}
       />
-      <div className="main">
+      <div className={`main${hasAlerts ? " has-svc" : ""}`}>
         {vitals && <ServiceStatusBar vitals={vitals} />}
         {children}
       </div>

@@ -92,6 +92,7 @@
   --radius: 14px;
   --radius-sm: 9px;
   --sidebar-w: 264px;
+  --topbar-h: 0px; /* height reserved at the very top (mobile top bar); 0 on desktop */
   --shadow-sm: 0 1px 2px rgba(12, 46, 32, 0.04), 0 1px 3px rgba(12, 46, 32, 0.05);
   --shadow-md: 0 4px 10px rgba(12, 46, 32, 0.06), 0 12px 26px rgba(12, 46, 32, 0.08);
   --shadow-lg: 0 8px 20px rgba(12, 46, 32, 0.1), 0 24px 48px rgba(12, 46, 32, 0.14);
@@ -212,8 +213,13 @@ button {
   flex-direction: column;
   gap: 6px;
 }
-/* Service status bar — shared vital signs across every office login */
+/* Service status bar — shared vital signs across every office login.
+   Pinned to the top so the vital signals (and their hover panels) stay
+   reachable on every page, not just at the top of the dashboard. */
 .svc-status {
+  position: sticky;
+  top: var(--topbar-h, 0px);
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -557,13 +563,19 @@ button {
 }
 .header {
   position: sticky;
-  top: 0;
+  top: var(--topbar-h, 0px);
   z-index: 5;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   padding: 20px 34px;
+}
+/* When the pinned service-status bar is shown, it takes the top slot; the page
+   header then scrolls with the content (avoids two bars fighting for the top,
+   and the status alerts stay visible on every page). */
+.main.has-svc .header {
+  position: static;
 }
 .header h1 {
   margin: 0;
@@ -1168,8 +1180,10 @@ a.card:hover {
     background: rgba(12, 46, 32, 0.45);
     backdrop-filter: blur(2px);
   }
-  .header {
-    top: 56px;
+  :root {
+    /* reserve the fixed mobile top bar's height so the sticky status bar and
+       page header pin just below it */
+    --topbar-h: 56px;
   }
   .body,
   .header {
