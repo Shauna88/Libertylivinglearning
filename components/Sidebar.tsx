@@ -124,6 +124,7 @@ export default function Sidebar({
     groups.push({
       label: "Finance",
       items: [
+        ...(!isOversight ? [{ label: "Analytics", icon: "query_stats", href: "/analytics" }] : []),
         { label: "Finance overview", icon: "account_balance_wallet", href: "/finance", exact: true },
         { label: "Client invoicing", icon: "receipt_long", href: "/finance/invoicing" },
         { label: "Rate schemes", icon: "payments", href: "/finance/rate-schemes" },
@@ -155,6 +156,7 @@ export default function Sidebar({
   // Audits & QIP is a Quality-department function (not HR).
   if (isQualityMgmt) mgmtItems.push({ label: "Audits & QIP", icon: "fact_check", href: "/audits" });
   if (isOversight) {
+    mgmtItems.push({ label: "Analytics", icon: "query_stats", href: "/analytics" });
     mgmtItems.push({ label: "Monitor", icon: "insights", href: "/monitor" });
     mgmtItems.push({ label: "PII access log", icon: "policy", href: "/access-log" });
     mgmtItems.push({ label: "Data protection", icon: "encrypted", href: "/data-protection" });
