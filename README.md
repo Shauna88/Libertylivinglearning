@@ -90,7 +90,7 @@ entries; bump `SEED_VERSION` in `lib/db.ts` to force a reseed.
 
 ### Demo accounts
 
-All demo accounts use the password **`liberty`** (click any account on the login screen to autofill):
+Staff/role accounts use the password **`libertylevi`**; the shareable read-only team-demo login (`demo@libertyhomecare.ie`) keeps **`liberty`**. Pick an account from the login-screen dropdown to autofill the email.
 
 | Email | Role | Sees |
 |-------|------|------|

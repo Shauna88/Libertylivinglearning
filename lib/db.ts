@@ -19,8 +19,9 @@ import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "22";
-const DEMO_PASSWORD = "liberty"; // demo accounts only; see README
+const SEED_VERSION = "23";
+const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
+const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
 
 export type Role =
@@ -527,7 +528,9 @@ async function seed(client: PoolClient) {
   }
 
   // ---- demo users (dev only; replace with real accounts in production) ----
-  const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
+  // Staff/role logins share one password; the shareable team-demo login keeps its own.
+  const staffHash = bcrypt.hashSync(STAFF_PASSWORD, 10);
+  const demoHash = bcrypt.hashSync(DEMO_LOGIN_PASSWORD, 10);
   const demo: Array<{ name: string; email: string; role: Role; region: string; clientId?: string }> = [
     // Senior / office roles (one login per role — the nine-role model).
     { name: "Shauna Delaney", email: "manager@libertyhomecare.ie", role: "Executive", region: "All regions" },
@@ -550,7 +553,7 @@ async function seed(client: PoolClient) {
   for (const u of demo) {
     const ins = await client.query(
       "INSERT INTO users (name,email,password_hash,role,region,client_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
-      [u.name, u.email, hash, u.role, u.region, u.clientId ?? null]
+      [u.name, u.email, u.role === "Demo" ? demoHash : staffHash, u.role, u.region, u.clientId ?? null]
     );
     const uid = ins.rows[0].id as number;
     const pathway = getPathwayByRole(u.role);
