@@ -10,9 +10,11 @@ import {
   WORKFORCE_ROLES,
   PORTAL_ROLE,
   registerOpenCounts,
+  serviceVitals,
   type Role,
 } from "@/lib/db";
 import { hubLabel, hubScopeOf } from "@/lib/roles";
+import ServiceStatusBar from "@/components/ServiceStatusBar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -35,6 +37,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const canSeeRegisters = isOversight || isImprovement || isCrm || isDemo;
   const openCounts = canSeeRegisters ? await registerOpenCounts() : {};
 
+  // Shared service-status bar: the same vital signals for every office/department
+  // login (front-line, portal and the read-only demo get their own focused views).
+  const showVitals = !["Healthcare Assistant", "Demo"].includes(role);
+  const vitals = showVitals ? await serviceVitals() : null;
+
   return (
     <div className="shell">
       <Sidebar
@@ -53,7 +60,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         hubLabel={hubLabel(role)}
         openCounts={openCounts}
       />
-      <div className="main">{children}</div>
+      <div className="main">
+        {vitals && <ServiceStatusBar vitals={vitals} />}
+        {children}
+      </div>
     </div>
   );
 }
