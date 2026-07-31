@@ -40,10 +40,12 @@ const AREA_LINKS: { cap: Capability; href: string; icon: string; label: string }
   { cap: "crm", href: "/roster", icon: "edit_calendar", label: "Rostering" },
   { cap: "crm", href: "/call-log", icon: "phone_missed", label: "Call log" },
   { cap: "improvement", href: "/improvement", icon: "model_training", label: "Improvement & Training" },
+  { cap: "oversight", href: "/analytics", icon: "query_stats", label: "Analytics" },
   { cap: "oversight", href: "/monitor", icon: "insights", label: "Training monitor" },
   { cap: "workforce", href: "/workforce", icon: "groups", label: "Workforce & Training" },
   { cap: "recruit", href: "/recruitment", icon: "person_search", label: "Recruitment" },
   { cap: "finance", href: "/finance", icon: "account_balance_wallet", label: "Finance" },
+  { cap: "finance", href: "/analytics", icon: "query_stats", label: "Analytics" },
   { cap: "oversight", href: "/data-protection", icon: "encrypted", label: "Data protection" },
 ];
 
