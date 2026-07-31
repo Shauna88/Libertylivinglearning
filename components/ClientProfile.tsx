@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import PiiRevealButton from "@/components/PiiRevealButton";
 import ScheduleEditor from "@/components/ScheduleEditor";
 import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
+import ClientAssessments from "@/components/ClientAssessments";
 import type { CarerMatch } from "@/lib/carers";
 import type { FreeCarer } from "@/lib/schedule";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
@@ -35,6 +36,7 @@ export default function ClientProfile({
   client,
   notes = [],
   docs = [],
+  assessments = [],
   carers = [],
   pending = [],
   cover = {},
@@ -47,6 +49,7 @@ export default function ClientProfile({
   client: Client;
   notes?: CareNote[];
   docs?: ClientDoc[];
+  assessments?: { itemKey: string; completedOn: string | null; reviewDue: string | null }[];
   carers?: string[];
   pending?: PendingReq[];
   cover?: Record<string, string>;
@@ -288,6 +291,10 @@ export default function ClientProfile({
           </div>
         ))}
       </div>
+
+      {/* assessments & care-plan reviews */}
+      <div className="section-title">Assessments &amp; reviews</div>
+      <ClientAssessments clientId={client.id} records={assessments} canEdit={editable} />
 
       {/* care notes / diary */}
       <div className="section-title">Care notes &amp; diary</div>

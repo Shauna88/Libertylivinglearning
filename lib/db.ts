@@ -17,12 +17,13 @@ import { defaultDept } from "./improvement";
 import { rolesWith } from "./roles";
 import { CARER_DIRECTORY, type CarerRecord, type CarerDirectory } from "./carers";
 import { summariseCompliance } from "./compliance";
+import { summariseAssessments } from "./assessments";
 import { deriveTodayVisits, nowParts } from "./schedule";
 import { ecmState, isEcmAlert } from "./ecm";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "25";
+const SEED_VERSION = "26";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
@@ -421,6 +422,19 @@ async function createSchema(client: PoolClient) {
       PRIMARY KEY (carer_id, item_key)
     );
 
+    -- Structured client assessments & care-plan reviews; row present = done,
+    -- review_due (ISO date) or NULL for the one-off initial assessment.
+    CREATE TABLE IF NOT EXISTS client_assessments (
+      client_id TEXT NOT NULL,
+      item_key TEXT NOT NULL,
+      completed_on TEXT,
+      review_due TEXT,
+      note TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (client_id, item_key)
+    );
+
     -- Electronic Call Monitoring: actual point-of-care check-in / check-out for
     -- one call on one date. Row present = a check-in happened. Absence past the
     -- planned start time is what raises a missed-visit alert.
@@ -495,6 +509,7 @@ async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
   await client.query("DELETE FROM qip_actions");
+  await client.query("DELETE FROM client_assessments");
   await client.query("DELETE FROM visit_events");
   await client.query("DELETE FROM carer_compliance");
   await client.query("DELETE FROM carers");
@@ -633,6 +648,38 @@ async function seed(client: PoolClient) {
       "INSERT INTO clients (id,su,name,area,status,coordinator,data_json) VALUES ($1,$2,$3,$4,$5,$6,$7)",
       [c.id, c.su, c.name, c.area, c.status, c.csm ?? "", JSON.stringify(c)]
     );
+  }
+
+  // ---- CRM: structured assessments & care-plan reviews (demo) ----
+  const aIso = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  const NA = "__na__";
+  const assessBase: Record<string, string | null> = {
+    initial: null, // one-off (done, no recurring review)
+    care_plan_review: aIso(45),
+    falls_risk: aIso(120),
+    moving_handling: aIso(220),
+    environmental: aIso(220),
+    medication_risk: aIso(80),
+    skin_integrity: aIso(95),
+    nutrition: aIso(100),
+  };
+  const assessOverrides: Record<string, Record<string, string | null>> = {
+    "CL-001": { care_plan_review: aIso(-15), falls_risk: aIso(18) }, // review overdue + falls due soon
+    "CL-004": { care_plan_review: aIso(12), skin_integrity: aIso(-30) }, // review due soon + skin overdue
+    // A brand-new referral: only the initial assessment done, the rest still to do.
+    "CL-003": { care_plan_review: NA, falls_risk: NA, moving_handling: NA, environmental: NA, medication_risk: NA, skin_integrity: NA, nutrition: NA },
+    "CL-007": { environmental: NA },
+  };
+  for (const c of CLIENTS) {
+    if (c.status === "discharged" || c.status === "deceased") continue;
+    const plan = { ...assessBase, ...(assessOverrides[c.id] ?? {}) };
+    for (const [item, due] of Object.entries(plan)) {
+      if (due === NA) continue; // not done → no row
+      await client.query(
+        `INSERT INTO client_assessments (client_id,item_key,completed_on,review_due,updated_by) VALUES ($1,$2,$3,$4,$5)`,
+        [c.id, item, item === "initial" ? aIso(-300) : aIso(-60), due, "Seed"]
+      );
+    }
   }
 
   // ---- CRM: sample call-monitor events (full event model) ----
@@ -1720,6 +1767,64 @@ export async function complianceAlerts(): Promise<{ blocked: number; expired: nu
     if (s.blockedFromRoster) out.blocked += 1;
   }
   return out;
+}
+
+// ---------------- CRM: structured assessments & care-plan reviews ----------------
+
+export type AssessmentRow = {
+  client_id: string;
+  item_key: string;
+  completed_on: string | null;
+  review_due: string | null;
+  note: string;
+  updated_by: string;
+  updated_at: string;
+};
+
+/** One client's assessment records. */
+export async function listClientAssessments(clientId: string): Promise<AssessmentRow[]> {
+  return q<AssessmentRow>("SELECT * FROM client_assessments WHERE client_id=$1", [clientId]);
+}
+
+/** Every client's assessment records — for the reviews-due surfacing. */
+export async function listAllAssessments(): Promise<AssessmentRow[]> {
+  return q<AssessmentRow>("SELECT * FROM client_assessments");
+}
+
+/** Record / update / clear one assessment for a client. */
+export async function setClientAssessment(input: {
+  clientId: string; itemKey: string; done: boolean; completedOn: string | null; reviewDue: string | null; by: string;
+}): Promise<void> {
+  if (!input.done) {
+    await q("DELETE FROM client_assessments WHERE client_id=$1 AND item_key=$2", [input.clientId, input.itemKey]);
+  } else {
+    await q(
+      `INSERT INTO client_assessments (client_id,item_key,completed_on,review_due,updated_by,updated_at)
+       VALUES ($1,$2,$3,$4,$5,now())
+       ON CONFLICT (client_id,item_key) DO UPDATE SET completed_on=excluded.completed_on, review_due=excluded.review_due, updated_by=excluded.updated_by, updated_at=now()`,
+      [input.clientId, input.itemKey, input.completedOn, input.reviewDue, input.by]
+    );
+  }
+  await logAudit({ actorName: input.by, action: "assessment.set", target: `${input.clientId}/${input.itemKey}`, detail: input.done ? input.reviewDue ?? "done" : "cleared" });
+}
+
+/** Count of clients with an overdue or due-soon assessment / review, for dashboards. */
+export async function assessmentsDueCount(): Promise<{ overdue: number; dueSoon: number }> {
+  const [clients, all] = await Promise.all([listClients(), listAllAssessments()]);
+  const byClient = new Map<string, { itemKey: string; reviewDue: string | null }[]>();
+  for (const r of all) {
+    if (!byClient.has(r.client_id)) byClient.set(r.client_id, []);
+    byClient.get(r.client_id)!.push({ itemKey: r.item_key, reviewDue: r.review_due });
+  }
+  const now = new Date();
+  let overdue = 0, dueSoon = 0;
+  for (const c of clients) {
+    if (c.status !== "active" && c.status !== "review" && c.status !== "new") continue;
+    const s = summariseAssessments(byClient.get(c.id) ?? [], now);
+    if (s.overdue > 0) overdue++;
+    else if (s.dueSoon > 0) dueSoon++;
+  }
+  return { overdue, dueSoon };
 }
 
 // ---------------- Electronic Call Monitoring (visit check-in/out) ----------------

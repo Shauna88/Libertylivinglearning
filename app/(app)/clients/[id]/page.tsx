@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClients, listPermReqs, coverMap, coverReasons, carerDirectory, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClientAssessments, listClients, listPermReqs, coverMap, coverReasons, carerDirectory, type Role } from "@/lib/db";
 import { carerPool, carerBusyMap, freeNearbyCarers, type FreeCarer } from "@/lib/schedule";
 import { suggestCarers } from "@/lib/carers";
 import { isUnassignedCarer } from "@/lib/schedule";
@@ -24,15 +24,17 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [notes, docs, allClients, pendingAll, cover, reasons, directory] = await Promise.all([
+  const [notes, docs, assessmentRows, allClients, pendingAll, cover, reasons, directory] = await Promise.all([
     listCareNotes(id),
     listClientDocs(id),
+    listClientAssessments(id),
     listClients(),
     listPermReqs("pending"),
     coverMap(),
     coverReasons(),
     carerDirectory(),
   ]);
+  const assessments = assessmentRows.map((r) => ({ itemKey: r.item_key, completedOn: r.completed_on, reviewDue: r.review_due }));
   const carers = carerPool(allClients);
   // Rank the carer directory for this client's area + conditions (best fit first).
   const suggestions = suggestCarers(directory, { area: client.area, conditions: client.conditions }, { limit: 5 });
@@ -95,7 +97,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} assessments={assessments} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} editable />
       </div>
     </>
   );
