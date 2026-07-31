@@ -2037,24 +2037,103 @@ export async function ecmAlertCount(): Promise<number> {
  * know today so nothing slips through the cracks. One shared source, shown the
  * same to every office login via the Service status bar.
  */
-export async function serviceVitals(): Promise<{
-  uncovered: number; missedVisits: number; carersNotCleared: number;
-  reviewsOverdue: number; openSafeguarding: number; openComplaints: number; openIncidents: number;
-}> {
-  const [reg, comp, assess, missedVisits, clients, cover] = await Promise.all([
-    registerOpenCounts(), complianceAlerts(), assessmentsDueCount(), ecmAlertCount(), listClients(), coverMap(),
-  ]);
-  const { weekday, nowMin } = nowParts(new Date());
+/** One line item behind a service-status figure (shown on hover). */
+export type VitalItem = { label: string; sub?: string };
+/** A single vital signal: how many, plus a sample of what's behind it. */
+export type Vital = { n: number; items: VitalItem[] };
+export type ServiceVitals = {
+  uncovered: Vital; missedVisits: Vital; carersNotCleared: Vital;
+  reviewsOverdue: Vital; openSafeguarding: Vital; openComplaints: Vital; openIncidents: Vital;
+};
+
+const VITAL_SAMPLE = 8; // most items we surface in a hover panel
+
+export async function serviceVitals(): Promise<ServiceVitals> {
+  const now = new Date();
+  const { weekday, nowMin } = nowParts(now);
+  const serviceDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+  const [carers, allComp, clients, allAssess, cover, events, safeguarding, complaints, incidents] =
+    await Promise.all([
+      listCarers(), listAllCompliance(), listClients(), listAllAssessments(), coverMap(),
+      visitEventMap(serviceDate), listRegister("safeguarding"), listRegister("complaint"), listRegister("incident"),
+    ]);
+
   const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
-  const uncovered = visits.filter((v) => v.status === "gap").length;
+
+  // Uncovered calls today.
+  const gaps = visits.filter((v) => v.status === "gap");
+  const uncovered: Vital = {
+    n: gaps.length,
+    items: gaps.slice(0, VITAL_SAMPLE).map((v) => ({ label: `${v.time} · ${v.type}`, sub: `${v.su} · ${v.area}` })),
+  };
+
+  // Calls with no check-in (ECM alerts).
+  const missed: VitalItem[] = [];
+  let missedN = 0;
+  for (const v of visits) {
+    const ev = events[`${v.clientId}|${v.time}`];
+    const s = ecmState({
+      startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin,
+      unassigned: v.status === "gap", suspended: v.status === "suspended",
+      event: ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at } : null,
+    });
+    if (isEcmAlert(s)) {
+      missedN++;
+      if (missed.length < VITAL_SAMPLE) missed.push({ label: `${v.time} · ${v.type}`, sub: `${v.su} · ${v.area}` });
+    }
+  }
+  const missedVisits: Vital = { n: missedN, items: missed };
+
+  // Carers not cleared to roster (a credential is expired or unrecorded).
+  const compByCarer = new Map<string, { itemKey: string; held: boolean; expiry: string | null }[]>();
+  for (const r of allComp) {
+    if (!compByCarer.has(r.carer_id)) compByCarer.set(r.carer_id, []);
+    compByCarer.get(r.carer_id)!.push({ itemKey: r.item_key, held: true, expiry: r.expiry });
+  }
+  const blocked: VitalItem[] = [];
+  let blockedN = 0;
+  for (const c of carers) {
+    if (c.status !== "active") continue;
+    const s = summariseCompliance(compByCarer.get(c.id) ?? [], now);
+    if (s.blockedFromRoster) {
+      blockedN++;
+      const reason = s.expired ? `${s.expired} expired` : s.missing ? `${s.missing} not recorded` : "credential gap";
+      if (blocked.length < VITAL_SAMPLE) blocked.push({ label: c.name, sub: reason });
+    }
+  }
+  const carersNotCleared: Vital = { n: blockedN, items: blocked };
+
+  // Care-plan reviews / assessments overdue.
+  const assessByClient = new Map<string, { itemKey: string; reviewDue: string | null }[]>();
+  for (const r of allAssess) {
+    if (!assessByClient.has(r.client_id)) assessByClient.set(r.client_id, []);
+    assessByClient.get(r.client_id)!.push({ itemKey: r.item_key, reviewDue: r.review_due });
+  }
+  const overdue: VitalItem[] = [];
+  let overdueN = 0;
+  for (const c of clients) {
+    if (c.status !== "active" && c.status !== "review" && c.status !== "new") continue;
+    const s = summariseAssessments(assessByClient.get(c.id) ?? [], now);
+    if (s.overdue > 0) {
+      overdueN++;
+      if (overdue.length < VITAL_SAMPLE) overdue.push({ label: c.su, sub: `${c.area} · ${s.overdue} overdue` });
+    }
+  }
+  const reviewsOverdue: Vital = { n: overdueN, items: overdue };
+
+  const regVital = (rows: RegisterEntry[]): Vital => {
+    const open = rows.filter((e) => e.status === "open");
+    return { n: open.length, items: open.slice(0, VITAL_SAMPLE).map((e) => ({ label: e.ref, sub: e.summary })) };
+  };
+
   return {
     uncovered,
     missedVisits,
-    carersNotCleared: comp.blocked,
-    reviewsOverdue: assess.overdue,
-    openSafeguarding: reg.safeguarding ?? 0,
-    openComplaints: reg.complaint ?? 0,
-    openIncidents: reg.incident ?? 0,
+    carersNotCleared,
+    reviewsOverdue,
+    openSafeguarding: regVital(safeguarding),
+    openComplaints: regVital(complaints),
+    openIncidents: regVital(incidents),
   };
 }
 

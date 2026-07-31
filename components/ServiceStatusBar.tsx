@@ -1,29 +1,28 @@
 import Link from "next/link";
+import type { ServiceVitals, Vital } from "@/lib/db";
 
-export type ServiceVitals = {
-  uncovered: number;
-  missedVisits: number;
-  carersNotCleared: number;
-  reviewsOverdue: number;
-  openSafeguarding: number;
-  openComplaints: number;
-  openIncidents: number;
-};
+export type { ServiceVitals };
+
+type Row = { key: keyof ServiceVitals; noun: string; rest: string; href: string; tone: string; icon: string };
+
+const ROWS: Row[] = [
+  { key: "uncovered", noun: "uncovered call", rest: "", href: "/roster", tone: "red", icon: "event_busy" },
+  { key: "missedVisits", noun: "call", rest: "with no check-in", href: "/ecm", tone: "red", icon: "notification_important" },
+  { key: "carersNotCleared", noun: "carer", rest: "not cleared to roster", href: "/compliance", tone: "red", icon: "block" },
+  { key: "openSafeguarding", noun: "safeguarding concern", rest: "open", href: "/safeguarding", tone: "red", icon: "shield" },
+  { key: "reviewsOverdue", noun: "care-plan review", rest: "overdue", href: "/compliance", tone: "amber", icon: "event_repeat" },
+  { key: "openComplaints", noun: "complaint", rest: "open", href: "/complaints", tone: "amber", icon: "forum" },
+  { key: "openIncidents", noun: "incident", rest: "open", href: "/incidents", tone: "amber", icon: "crisis_alert" },
+];
 
 /**
  * A slim, service-wide status bar shown the same to every office login — so no
- * department misses a vital signal. Renders nothing when everything is clear.
+ * department misses a vital signal. Each chip reveals the actual items behind
+ * the figure on hover/focus (which calls, which incident), then links through.
+ * Renders nothing when everything is clear.
  */
 export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) {
-  const items: { n: number; noun: string; rest: string; href: string; tone: string; icon: string }[] = [
-    { n: vitals.uncovered, noun: "uncovered call", rest: "", href: "/roster", tone: "red", icon: "event_busy" },
-    { n: vitals.missedVisits, noun: "call", rest: "with no check-in", href: "/ecm", tone: "red", icon: "notification_important" },
-    { n: vitals.carersNotCleared, noun: "carer", rest: "not cleared to roster", href: "/compliance", tone: "red", icon: "block" },
-    { n: vitals.openSafeguarding, noun: "safeguarding concern", rest: "open", href: "/safeguarding", tone: "red", icon: "shield" },
-    { n: vitals.reviewsOverdue, noun: "care-plan review", rest: "overdue", href: "/compliance", tone: "amber", icon: "event_repeat" },
-    { n: vitals.openComplaints, noun: "complaint", rest: "open", href: "/complaints", tone: "amber", icon: "forum" },
-    { n: vitals.openIncidents, noun: "incident", rest: "open", href: "/incidents", tone: "amber", icon: "crisis_alert" },
-  ].filter((i) => i.n > 0);
+  const items = ROWS.map((r) => ({ ...r, vital: vitals[r.key] as Vital })).filter((r) => r.vital.n > 0);
 
   if (items.length === 0) return null;
 
@@ -36,12 +35,37 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
         Service status
       </span>
       <div className="svc-status-items">
-        {items.map((i) => (
-          <Link key={i.noun} href={i.href} className={`svc-chip tone-${i.tone}`}>
-            <span className="ms" style={{ fontSize: 13 }}>{i.icon}</span>
-            <strong>{i.n}</strong> {i.noun}{i.n === 1 ? "" : "s"}{i.rest ? ` ${i.rest}` : ""}
-          </Link>
-        ))}
+        {items.map((i) => {
+          const label = `${i.noun}${i.vital.n === 1 ? "" : "s"}${i.rest ? ` ${i.rest}` : ""}`;
+          const hidden = i.vital.n - i.vital.items.length;
+          return (
+            <span key={i.key} className="svc-chip-wrap">
+              <Link href={i.href} className={`svc-chip tone-${i.tone}`}>
+                <span className="ms" style={{ fontSize: 13 }}>{i.icon}</span>
+                <strong>{i.vital.n}</strong> {label}
+                <span className="ms svc-chip-caret" style={{ fontSize: 14 }}>expand_more</span>
+              </Link>
+              <div className="svc-pop" role="tooltip">
+                <div className={`svc-pop-head tone-${i.tone}`}>
+                  <span className="ms" style={{ fontSize: 15 }}>{i.icon}</span>
+                  {i.vital.n} {label}
+                </div>
+                <ul className="svc-pop-list">
+                  {i.vital.items.map((it, idx) => (
+                    <li key={idx}>
+                      <span className="svc-pop-label">{it.label}</span>
+                      {it.sub && <span className="svc-pop-sub">{it.sub}</span>}
+                    </li>
+                  ))}
+                </ul>
+                {hidden > 0 && <div className="svc-pop-more">+{hidden} more</div>}
+                <div className="svc-pop-foot">
+                  Open <span className="ms" style={{ fontSize: 13 }}>arrow_forward</span>
+                </div>
+              </div>
+            </span>
+          );
+        })}
       </div>
     </div>
   );
