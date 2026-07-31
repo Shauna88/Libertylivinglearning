@@ -23,7 +23,7 @@ import { ecmState, isEcmAlert } from "./ecm";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "27";
+const SEED_VERSION = "28";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
@@ -422,6 +422,23 @@ async function createSchema(client: PoolClient) {
       PRIMARY KEY (carer_id, item_key)
     );
 
+    -- Outbound notifications (SMS / email / in-app) to carers & clients. Status
+    -- is 'queued' until a real gateway is connected; the row is the delivery log.
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      template TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      audience TEXT NOT NULL,
+      recipient TEXT NOT NULL,
+      subject TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      ref_href TEXT,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+
     -- Structured client assessments & care-plan reviews; row present = done,
     -- review_due (ISO date) or NULL for the one-off initial assessment.
     CREATE TABLE IF NOT EXISTS client_assessments (
@@ -509,6 +526,7 @@ async function seed(client: PoolClient) {
   // Tear down in FK-safe order (children before parents) so reseeds don't
   // violate foreign keys.
   await client.query("DELETE FROM qip_actions");
+  await client.query("DELETE FROM notifications");
   await client.query("DELETE FROM client_assessments");
   await client.query("DELETE FROM visit_events");
   await client.query("DELETE FROM carer_compliance");
@@ -851,6 +869,21 @@ async function seed(client: PoolClient) {
       `INSERT INTO messages (from_name,from_role,from_dept,to_dept,subject,body,kind,meeting_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [fn, fr, fd, td, subj, bd, k, k === "meeting" ? "2026-07-18T14:00" : null]
+    );
+  }
+
+  // ---- notifications delivery log (demo) ----
+  const notifSeed: [string, string, string, string, string, string][] = [
+    // template, channel, audience, recipient, subject, body
+    ["roster_published", "sms", "carer", "All active carers", "Your roster for next week", "Hi team, your Liberty Living schedule for next week is now published. Please open the app to review your calls and confirm your availability."],
+    ["visit_reminder", "sms", "client", "SU-3182", "Your care visit", "Hello, a reminder that your carer is due to visit at 09:00 tomorrow. Please call the office if anything needs to change."],
+    ["shift_offer", "sms", "carer", "Bridget Kelly", "Shift available", "Hi Bridget, a call is available on Saturday at 09:30 in Offaly (45m). Reply YES to accept or NO to decline."],
+  ];
+  for (const [tpl, ch, aud, rec, subj, bd] of notifSeed) {
+    await client.query(
+      `INSERT INTO notifications (template,channel,audience,recipient,subject,body,status,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,'queued','Seed')`,
+      [tpl, ch, aud, rec, subj, bd]
     );
   }
 
@@ -1825,6 +1858,41 @@ export async function assessmentsDueCount(): Promise<{ overdue: number; dueSoon:
     else if (s.dueSoon > 0) dueSoon++;
   }
   return { overdue, dueSoon };
+}
+
+// ---------------- Notifications (outbound SMS / email / in-app) ----------------
+
+export type NotificationRow = {
+  id: number;
+  template: string;
+  channel: string;
+  audience: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  status: string;
+  ref_href: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+/** The outbound notification / delivery log, newest first. */
+export async function listNotifications(limit = 60): Promise<NotificationRow[]> {
+  return q<NotificationRow>("SELECT * FROM notifications ORDER BY created_at DESC LIMIT $1", [limit]);
+}
+
+export async function createNotification(input: {
+  template: string; channel: string; audience: string; recipient: string;
+  subject: string; body: string; refHref: string | null; by: string;
+}): Promise<number> {
+  // No gateway wired yet → queued (never silently dropped).
+  const rows = await q<{ id: number }>(
+    `INSERT INTO notifications (template,channel,audience,recipient,subject,body,status,ref_href,created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,'queued',$7,$8) RETURNING id`,
+    [input.template, input.channel, input.audience, input.recipient, input.subject, input.body, input.refHref, input.by]
+  );
+  await logAudit({ actorName: input.by, action: "notification.queue", target: `${input.channel}:${input.recipient}`, detail: input.template });
+  return rows[0].id;
 }
 
 // ---------------- Unified client activity timeline ----------------
