@@ -15,6 +15,7 @@ import {
 } from "@/lib/db";
 import { hubLabel, hubScopeOf } from "@/lib/roles";
 import ServiceStatusBar from "@/components/ServiceStatusBar";
+import ToastProvider from "@/components/Toast";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -65,7 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <div className={`main${hasAlerts ? " has-svc" : ""}`}>
         {vitals && <ServiceStatusBar vitals={vitals} />}
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </div>
     </div>
   );

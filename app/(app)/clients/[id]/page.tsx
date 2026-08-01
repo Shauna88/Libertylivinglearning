@@ -16,6 +16,12 @@ import {
 } from "@/lib/crm";
 import ClientProfile from "@/components/ClientProfile";
 
+/** How many of this client's care-plan reviews are past their due date. */
+function countReviewsOverdue(assessments: { reviewDue: string | null }[]): number {
+  const now = Date.now();
+  return assessments.filter((a) => a.reviewDue && Date.parse(a.reviewDue) < now).length;
+}
+
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
@@ -36,6 +42,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     carerDirectory(),
   ]);
   const assessments = assessmentRows.map((r) => ({ itemKey: r.item_key, completedOn: r.completed_on, reviewDue: r.review_due }));
+  const reviewsOverdue = countReviewsOverdue(assessments);
   const carers = carerPool(allClients);
   // Rank the carer directory for this client's area + conditions (best fit first).
   const suggestions = suggestCarers(directory, { area: client.area, conditions: client.conditions }, { limit: 5 });
@@ -98,7 +105,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} assessments={assessments} activity={activity} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} assessments={assessments} activity={activity} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} reviewsOverdue={reviewsOverdue} editable />
       </div>
     </>
   );
