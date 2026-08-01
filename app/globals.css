@@ -1782,7 +1782,7 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .todo-select{flex:1 1 150px;font-size:12.5px;padding:7px 9px;max-width:210px}
 
 /* ---------- messages: full-height, only the list scrolls ---------- */
-.msg-screen{display:flex;flex-direction:column;height:100vh;min-height:0}
+.msg-screen{display:flex;flex-direction:column;flex:1;min-height:0}
 .msg-screen > .header{position:static}
 .msg-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px 32px 18px;width:100%;max-width:1180px}
 .msg-wrap{display:flex;flex-direction:column;flex:1;min-height:0}

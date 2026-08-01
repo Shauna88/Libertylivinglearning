@@ -59,7 +59,7 @@ export default function GovernancePage() {
         </div>
 
         <div className="section-title">Key contacts & escalation</div>
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl">
             <thead>
               <tr>

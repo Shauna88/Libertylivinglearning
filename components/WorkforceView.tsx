@@ -291,7 +291,7 @@ function Register({
         </div>
 
         <div className="section-title">Vetting & compliance checks</div>
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl">
             <tbody>
               {hca.vetting.map((v) => (

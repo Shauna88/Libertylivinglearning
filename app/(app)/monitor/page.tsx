@@ -59,7 +59,7 @@ export default async function MonitorPage() {
         </div>
 
         <div className="section-title">Completion by course</div>
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl">
             <thead>
               <tr>
@@ -90,7 +90,7 @@ export default async function MonitorPage() {
         </div>
 
         <div className="section-title">Per-staff compliance</div>
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl">
             <thead>
               <tr>
