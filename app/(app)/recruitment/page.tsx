@@ -131,7 +131,7 @@ export default async function RecruitmentPage() {
           {ONBOARDING_CHECKLIST.map((g) => (
             <details key={g.group} className="card">
               <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                {g.gate && <span className="pill tone-red">gate</span>}
+                {g.gate && <span className="pill tone-teal">gate</span>}
                 {g.group}
                 <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>
                   · {g.items.length} items
@@ -144,7 +144,7 @@ export default async function RecruitmentPage() {
                 {g.items.map((it) => (
                   <li key={it.k} style={{ fontSize: 12.5 }}>
                     {it.label} <span className="code">{it.ref}</span>
-                    {it.gate && <span className="pill tone-red" style={{ marginLeft: 6 }}>gate</span>}
+                    {it.gate && <span className="pill tone-teal" style={{ marginLeft: 6 }}>gate</span>}
                   </li>
                 ))}
               </ul>

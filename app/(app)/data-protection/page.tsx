@@ -136,7 +136,7 @@ export default async function DataProtectionPage() {
                   <td className="muted">{c.area}</td>
                   <td className="muted">{c.status}</td>
                   <td style={{ textAlign: "right" }}>
-                    <a className="pill tone-blue" href={`/api/dsar/${c.id}`} download>
+                    <a className="btn" style={{ padding: "5px 11px", fontSize: 12.5 }} href={`/api/dsar/${c.id}`} download>
                       <span className="ms" style={{ fontSize: 14, marginRight: 4 }}>download</span>
                       Export data
                     </a>
