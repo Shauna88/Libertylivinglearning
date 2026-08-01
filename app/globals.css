@@ -590,13 +590,39 @@ button {
   min-width: 18px;
   text-align: center;
 }
-.sidebar-foot {
+.sidebar-bottom {
   margin-top: auto;
+}
+.sidebar-foot {
   padding-top: 16px;
   border-top: 1px solid var(--divider);
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.rail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  color: var(--sidebar-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.rail-toggle:hover {
+  background: var(--sidebar-hover);
+  color: #fff;
+}
+.rail-toggle .ms {
+  font-size: 20px;
 }
 .avatar {
   width: 34px;
@@ -1833,3 +1859,35 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
 .page-head-actions{display:flex;gap:8px;flex:none}
 @media (max-width:640px){.page-head{flex-direction:column}.page-head-actions{width:100%}}
+
+/* ---------- sidebar: collapse to an icon rail ---------- */
+.sidebar { transition: width 0.18s ease, min-width 0.18s ease; }
+.brand-mark { display: none; }
+@media (min-width: 961px) {
+  .sidebar.rail { width: 68px; min-width: 68px; padding: 18px 10px 20px; }
+  .sidebar.rail .brand-logo { display: none; }
+  .sidebar.rail .brand-mark {
+    display: grid; place-items: center; width: 44px; height: 44px; margin: 2px auto 14px;
+    border-radius: 12px; background: linear-gradient(160deg, #fff 0%, var(--brand-green) 100%);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+    font-weight: 800; font-size: 16px; letter-spacing: 0.02em; color: var(--deep);
+  }
+  .sidebar.rail .nav-label { display: none; }
+  .sidebar.rail .nav-group { margin-top: 8px; }
+  .sidebar.rail .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
+  .sidebar.rail .nav-item > span:not(.ms) { display: none; }
+  .sidebar.rail .nav-item .ms { font-size: 22px; }
+  .sidebar.rail .nav-item.active::before { left: -10px; height: 24px; }
+  /* attention badges become a dot on the icon */
+  .sidebar.rail .nav-badge {
+    position: absolute; top: 6px; right: 13px; min-width: 0; width: 9px; height: 9px;
+    padding: 0; font-size: 0; border-radius: 50%; box-shadow: 0 0 0 2px #0c2e20;
+  }
+  .sidebar.rail .rail-toggle { justify-content: center; padding: 8px 0; }
+  .sidebar.rail .sidebar-foot { justify-content: center; padding-top: 14px; }
+  .sidebar.rail .sidebar-who,
+  .sidebar.rail .sidebar-foot .signout { display: none; }
+}
+@media (max-width: 960px) {
+  .rail-toggle { display: none; }
+}
