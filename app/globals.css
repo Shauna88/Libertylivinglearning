@@ -1794,3 +1794,30 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 /* sortable table headers */
 .th-sort{cursor:pointer;user-select:none;white-space:nowrap;transition:color .12s}
 .th-sort:hover{color:var(--accent-dark)}
+
+/* ---------- client register: toolbar + filters ---------- */
+.reg-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.reg-search{position:relative;display:flex;align-items:center;flex:1 1 280px;min-width:0}
+.reg-search .ms{position:absolute;left:12px;color:var(--text-2);font-size:20px;pointer-events:none}
+.reg-search .input{padding-left:40px;width:100%}
+/* segmented view toggle — reads as one control, not two loose chips */
+.seg{display:inline-flex;background:var(--grey-bg);border:1px solid var(--border);border-radius:10px;padding:3px}
+.seg-btn{display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;color:var(--text-2);font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;transition:background .12s,color .12s,box-shadow .12s}
+.seg-btn .ms{color:var(--text-3)}
+.seg-btn:hover{color:var(--text)}
+.seg-btn.active{background:var(--card);color:var(--accent-dark);box-shadow:var(--shadow-sm)}
+.seg-btn.active .ms{color:var(--accent)}
+/* filters grouped + labelled so Area and Status read as distinct rows */
+.reg-filters{display:flex;flex-direction:column;gap:8px;padding:11px 13px;margin-bottom:18px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.reg-filter-row{display:flex;gap:12px;align-items:flex-start}
+.reg-filter-label{flex:none;width:46px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding-top:7px}
+.reg-chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+@media (max-width:560px){
+  .reg-filter-row{flex-direction:column;gap:5px}
+  .reg-filter-label{padding-top:0}
+}
+
+/* page header with right-aligned primary actions */
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.page-head-actions{display:flex;gap:8px;flex:none}
+@media (max-width:640px){.page-head{flex-direction:column}.page-head-actions{width:100%}}

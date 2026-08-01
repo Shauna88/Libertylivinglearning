@@ -100,44 +100,45 @@ export default function ClientRegister({
 
   return (
     <>
-      <div className="flex between wrap" style={{ gap: 12, marginBottom: 14 }}>
-        <div className="flex" style={{ position: "relative", flex: "1 1 300px" }}>
-          <span className="ms" style={{ position: "absolute", left: 12, top: 10, color: "var(--text-2)", fontSize: 20 }}>search</span>
-          <input className="input" style={{ paddingLeft: 40 }} placeholder="Search by ID, area or coordinator…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="reg-toolbar">
+        <div className="reg-search">
+          <span className="ms" aria-hidden="true">search</span>
+          <input className="input" placeholder="Search by ID, area or coordinator…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-          <div className="flex" style={{ gap: 6 }}>
-            {(["area", "table"] as const).map((m) => (
-              <button key={m} className={`chip${view === m ? " active" : ""}`} onClick={() => setView(m)}>
-                <span className="ms" style={{ fontSize: 14 }}>{m === "area" ? "grid_view" : "table_rows"}</span>
-                {m === "area" ? "By area" : "Table"}
-              </button>
+        <div className="seg" role="group" aria-label="View">
+          {(["area", "table"] as const).map((m) => (
+            <button key={m} className={`seg-btn${view === m ? " active" : ""}`} aria-pressed={view === m} onClick={() => setView(m)}>
+              <span className="ms" style={{ fontSize: 15 }} aria-hidden="true">{m === "area" ? "grid_view" : "table_rows"}</span>
+              {m === "area" ? "By area" : "Table"}
+            </button>
+          ))}
+        </div>
+        {revealed ? (
+          <span className="pill tone-amber"><span className="ms" style={{ fontSize: 14 }} aria-hidden="true">lock_open</span>Revealed — logged</span>
+        ) : (
+          <PiiRevealButton scope="register" size="sm" onReveal={(d) => { setNames(d.names ?? {}); toast("Client names revealed — access logged", "info"); }} />
+        )}
+      </div>
+
+      <div className="reg-filters">
+        <div className="reg-filter-row">
+          <span className="reg-filter-label">Area</span>
+          <div className="reg-chips">
+            <button className={`chip${area === "ALL" ? " active" : ""}`} onClick={() => setArea("ALL")}>All · {rows.length}</button>
+            {areas.map((a) => (
+              <button key={a.key} className={`chip${area === a.key ? " active" : ""}`} onClick={() => setArea(a.key)}>{a.key} · {a.count}</button>
             ))}
           </div>
-          {revealed ? (
-            <span className="pill tone-amber"><span className="ms" style={{ fontSize: 14 }}>lock_open</span>Revealed — logged</span>
-          ) : (
-            <PiiRevealButton scope="register" size="md" onReveal={(d) => { setNames(d.names ?? {}); toast("Client names revealed — access logged", "info"); }} />
-          )}
         </div>
-      </div>
-
-      {/* area facets */}
-      <div className="flex wrap" style={{ gap: 8, marginBottom: 8 }}>
-        <button className={`chip${area === "ALL" ? " active" : ""}`} onClick={() => setArea("ALL")}>
-          <span className="ms" style={{ fontSize: 14 }}>pin_drop</span>All areas · {rows.length}
-        </button>
-        {areas.map((a) => (
-          <button key={a.key} className={`chip${area === a.key ? " active" : ""}`} onClick={() => setArea(a.key)}>{a.key} · {a.count}</button>
-        ))}
-      </div>
-
-      {/* status facets */}
-      <div className="flex wrap" style={{ gap: 8, marginBottom: 14 }}>
-        <button className={`chip${status === "ALL" ? " active" : ""}`} onClick={() => setStatus("ALL")}>All statuses · {rows.length}</button>
-        {statuses.map((s) => (
-          <button key={s.key} className={`chip${status === s.key ? " active" : ""}`} onClick={() => setStatus(s.key)}>{s.label} · {s.count}</button>
-        ))}
+        <div className="reg-filter-row">
+          <span className="reg-filter-label">Status</span>
+          <div className="reg-chips">
+            <button className={`chip${status === "ALL" ? " active" : ""}`} onClick={() => setStatus("ALL")}>All · {rows.length}</button>
+            {statuses.map((s) => (
+              <button key={s.key} className={`chip${status === s.key ? " active" : ""}`} onClick={() => setStatus(s.key)}>{s.label} · {s.count}</button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

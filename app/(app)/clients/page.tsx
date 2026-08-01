@@ -65,23 +65,27 @@ export default async function ClientsPage() {
   return (
     <>
       <header className="header">
-        <h1>Client register</h1>
-        <p>
-          {clients.length} service users. Identifiable details are masked and revealed only with a
-          logged reason (GDPR — special-category data).
-        </p>
+        <div className="page-head">
+          <div style={{ minWidth: 0 }}>
+            <h1>Client register</h1>
+            <p>
+              {clients.length} service users. Identifiable details are masked and revealed only with a
+              logged reason (GDPR — special-category data).
+            </p>
+          </div>
+          <div className="page-head-actions">
+            <Link href="/clients/new" className="btn btn-primary">
+              <span className="ms" style={{ fontSize: 18 }}>person_add</span>
+              New referral
+            </Link>
+            <Link href="/clients/import" className="btn">
+              <span className="ms" style={{ fontSize: 18 }}>upload_file</span>
+              Bulk import
+            </Link>
+          </div>
+        </div>
       </header>
       <div className="body fade">
-        <div className="flex" style={{ gap: 10, marginBottom: 14 }}>
-          <Link href="/clients/new" className="btn btn-primary">
-            <span className="ms" style={{ fontSize: 18 }}>person_add</span>
-            New referral
-          </Link>
-          <Link href="/clients/import" className="btn">
-            <span className="ms" style={{ fontSize: 18 }}>upload_file</span>
-            Bulk import
-          </Link>
-        </div>
         <ClientRegister rows={rows} statuses={statuses} />
       </div>
     </>
