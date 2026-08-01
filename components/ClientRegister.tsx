@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import PiiRevealButton from "@/components/PiiRevealButton";
+import { useToast } from "@/components/Toast";
 
 export type RegisterRow = {
   id: string;
@@ -38,6 +39,8 @@ export default function ClientRegister({
   const [area, setArea] = useState("ALL");
   const [view, setView] = useState<"area" | "table">("area");
   const [names, setNames] = useState<Record<string, string> | null>(null);
+  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: "name", dir: 1 });
+  const toast = useToast();
 
   const revealed = names !== null;
   const nameOf = (r: RegisterRow) => (revealed ? names?.[r.id] ?? r.maskedName : r.maskedName);
@@ -59,6 +62,27 @@ export default function ClientRegister({
       return (r.id + " " + r.su + " " + r.area + " " + r.coordinator + " " + nm).toLowerCase().includes(term);
     });
   }, [q, status, area, rows, names]);
+
+  // Sorted rows for the table view (clickable column headers).
+  const sortVal = (r: RegisterRow, key: string): string | number => {
+    switch (key) {
+      case "name": return nameOf(r).toLowerCase();
+      case "area": return (r.area || "").toLowerCase();
+      case "status": return r.statusLabel.toLowerCase();
+      case "coord": return r.coordinator.toLowerCase();
+      case "hours": return parseFloat(r.hoursWk) || 0;
+      default: return "";
+    }
+  };
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const va = sortVal(a, sort.key), vb = sortVal(b, sort.key);
+      if (va < vb) return -sort.dir;
+      if (va > vb) return sort.dir;
+      return 0;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sort, names]);
 
   // Group the filtered rows by area for the card view.
   const grouped = useMemo(() => {
@@ -93,7 +117,7 @@ export default function ClientRegister({
           {revealed ? (
             <span className="pill tone-amber"><span className="ms" style={{ fontSize: 14 }}>lock_open</span>Revealed — logged</span>
           ) : (
-            <PiiRevealButton scope="register" size="md" onReveal={(d) => setNames(d.names ?? {})} />
+            <PiiRevealButton scope="register" size="md" onReveal={(d) => { setNames(d.names ?? {}); toast("Client names revealed — access logged", "info"); }} />
           )}
         </div>
       </div>
@@ -185,11 +209,22 @@ export default function ClientRegister({
           <table className="tbl">
             <thead>
               <tr>
-                <th>Client</th><th>Area</th><th>Status</th><th>Coordinator</th><th>Hours / wk</th><th>Flags</th><th></th>
+                {([["name", "Client"], ["area", "Area"], ["status", "Status"], ["coord", "Coordinator"], ["hours", "Hours / wk"]] as const).map(([k, label]) => (
+                  <th key={k} className="th-sort" aria-sort={sort.key === k ? (sort.dir === 1 ? "ascending" : "descending") : "none"}
+                    onClick={() => setSort((s) => ({ key: k, dir: s.key === k ? (s.dir === 1 ? -1 : 1) : 1 }))}>
+                    <span className="flex" style={{ gap: 4, alignItems: "center" }}>
+                      {label}
+                      <span className="ms" style={{ fontSize: 14, opacity: sort.key === k ? 0.85 : 0.28 }}>
+                        {sort.key === k ? (sort.dir === 1 ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                      </span>
+                    </span>
+                  </th>
+                ))}
+                <th>Flags</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
+              {sorted.map((r) => (
                 <tr key={r.id}>
                   <td>
                     <div className="flex" style={{ gap: 8 }}>
