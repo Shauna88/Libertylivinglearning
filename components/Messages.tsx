@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MessageRow } from "@/lib/db";
@@ -127,7 +128,7 @@ export default function Messages({
 
       <div className="msg-scroll">
       {list.length === 0 ? (
-        <div className="card muted" style={{ fontSize: 13 }}>{tab === "inbox" ? "No messages for your department." : "You haven't sent any messages."}</div>
+        <Empty icon="forum" title={tab === "inbox" ? "No messages" : "Nothing sent yet"} hint={tab === "inbox" ? "Messages for your department appear here." : "Messages you send appear here."} />
       ) : (
         <div className="grid" style={{ gap: 10 }}>
           {list.map((m) => (

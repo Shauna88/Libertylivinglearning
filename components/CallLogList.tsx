@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Empty from "@/components/Empty";
 import { useRouter } from "next/navigation";
 import { callType, causeLabel, billingLabel } from "@/lib/callevents";
 
@@ -46,7 +47,7 @@ export default function CallLogList({ events }: { events: CallEvent[] }) {
     }
   }
 
-  if (events.length === 0) return <div className="card muted">No call events logged.</div>;
+  if (events.length === 0) return <Empty icon="call" title="No call events logged" hint="Call events — sickness, no-shows, follow-ups — appear here." />;
 
   return (
     <div className="grid" style={{ gap: 10 }}>

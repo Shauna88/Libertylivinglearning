@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Empty from "@/components/Empty";
 import { auth } from "@/auth";
 import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, type Role } from "@/lib/db";
 import { deriveTodayVisits, nowParts } from "@/lib/schedule";
@@ -81,7 +82,7 @@ export default async function EcmPage() {
         </div>
 
         {rows.length === 0 ? (
-          <div className="card muted">No calls scheduled today.</div>
+          <Empty icon="event_available" title="No calls scheduled today" hint="Rostered calls appear here as the day’s plan is built." />
         ) : (
           <EcmBoard rows={rows} nowMin={nowMin} canControl={canControl} />
         )}

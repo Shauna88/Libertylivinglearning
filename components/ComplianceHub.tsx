@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 
 export type AttentionPill = { short: string; label: string; tone: string; phrase: string; priority?: boolean };
@@ -85,7 +86,7 @@ export default function ComplianceHub({
             <span className="muted" style={{ fontSize: 12 }}>{carerClear} of {carerTotal} carers fully in date</span>
           </div>
           {carersNeeding.length === 0 ? (
-            <div className="card muted">Every active carer&apos;s credentials are in date. 🎉</div>
+            <Empty icon="verified" title="All credentials in date" hint="Every active carer’s mandatory credentials are current." />
           ) : (
             <div className="card" style={{ padding: 0, overflowX: "auto" }}>
               <table className="tbl">
@@ -113,7 +114,7 @@ export default function ComplianceHub({
             <span className="muted" style={{ fontSize: 12 }}>{clientClear} of {clientTotal} clients fully up to date</span>
           </div>
           {clientsNeeding.length === 0 ? (
-            <div className="card muted">Every client&apos;s assessments and reviews are up to date. 🎉</div>
+            <Empty icon="verified" title="All reviews up to date" hint="Every client’s assessments and care-plan reviews are current." />
           ) : (
             <div className="card" style={{ padding: 0, overflowX: "auto" }}>
               <table className="tbl">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 
 export type LogRow = {
@@ -103,7 +104,7 @@ export default function MasterLog({ rows }: { rows: LogRow[] }) {
           </tbody>
         </table>
       </div>
-      {filtered.length === 0 && <p className="muted">Nothing matches.</p>}
+      {filtered.length === 0 && <Empty icon="search_off" title="Nothing matches" hint="Try clearing a filter or search term." />}
     </>
   );
 }

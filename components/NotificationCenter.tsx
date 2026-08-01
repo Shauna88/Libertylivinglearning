@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import { useRouter } from "next/navigation";
 import {
   NOTIFICATION_TEMPLATES,
@@ -128,7 +129,7 @@ export default function NotificationCenter({
 
       <div className="section-title">Delivery log</div>
       {log.length === 0 ? (
-        <div className="card muted">Nothing sent yet.</div>
+        <Empty icon="notifications_off" title="Nothing sent yet" hint="Notifications you send appear here." />
       ) : (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl">
