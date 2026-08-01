@@ -109,7 +109,7 @@ function Compliance({ kpis, readiness }: { kpis: WfKpi[]; readiness: Readiness[]
                 <div style={{ fontSize: 26, fontWeight: 800 }}>{r.count}</div>
                 <strong style={{ fontSize: 14 }}>{r.label}</strong>
               </div>
-              <span className={`pill tone-${r.tone}`}>{Math.round((r.count / total) * 100)}%</span>
+              <span className={`pill tone-${r.tone}`}>{total > 0 ? Math.round((r.count / total) * 100) : 0}%</span>
             </div>
             <p className="muted" style={{ fontSize: 12.5, margin: "8px 0 0" }}>
               {r.desc}

@@ -257,7 +257,7 @@ export default async function DashboardPage() {
     const tiles: { n: number; lbl: string; tone: string; href: string }[] = [
       { n: visits.length, lbl: `Calls today (${weekday})`, tone: "text", href: "/live-monitor" },
       { n: uncovered.length, lbl: "Uncovered now", tone: uncovered.length ? "red" : "green", href: "/roster" },
-      { n: permReqs.length, lbl: "Approvals waiting", tone: permReqs.length ? "amber" : "green", href: "/dashboard" },
+      { n: permReqs.length, lbl: "Approvals waiting", tone: permReqs.length ? "amber" : "green", href: "/dashboard#csm-approvals" },
       { n: sick.length, lbl: "Sick / no-show", tone: sick.length ? "red" : "green", href: "/call-log" },
       { n: openIssues2.length, lbl: "Complaints / incidents", tone: openIssues2.length ? "amber" : "green", href: "/improvement" },
       { n: reviewsDue.length, lbl: "Reviews due", tone: reviewsDue.length ? "amber" : "green", href: "/clients" },
