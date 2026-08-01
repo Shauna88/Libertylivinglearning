@@ -39,11 +39,13 @@ export default function WorkforceView({
 
   return (
     <div className="fade">
-      <div className="flex wrap" style={{ gap: 8, marginBottom: 20 }}>
+      <div className="seg" role="tablist" style={{ marginBottom: 20 }}>
         {TABS.map((t) => (
           <button
             key={t.key}
-            className={`chip${tab === t.key ? " active" : ""}`}
+            role="tab"
+            aria-selected={tab === t.key}
+            className={`seg-btn${tab === t.key ? " active" : ""}`}
             onClick={() => {
               setTab(t.key);
               setActiveHca(null);

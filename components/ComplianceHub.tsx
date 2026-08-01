@@ -69,11 +69,11 @@ export default function ComplianceHub({
 
   return (
     <>
-      <div className="flex" style={{ gap: 6, marginBottom: 18 }}>
-        <button className={`chip${tab === "carers" ? " active" : ""}`} onClick={() => setTab("carers")}>
+      <div className="seg" role="tablist" style={{ marginBottom: 18 }}>
+        <button role="tab" aria-selected={tab === "carers"} className={`seg-btn${tab === "carers" ? " active" : ""}`} onClick={() => setTab("carers")}>
           <span className="ms" style={{ fontSize: 15 }}>badge</span>Carer credentials
         </button>
-        <button className={`chip${tab === "clients" ? " active" : ""}`} onClick={() => setTab("clients")}>
+        <button role="tab" aria-selected={tab === "clients"} className={`seg-btn${tab === "clients" ? " active" : ""}`} onClick={() => setTab("clients")}>
           <span className="ms" style={{ fontSize: 15 }}>fact_check</span>Client assessments &amp; reviews
         </button>
       </div>
