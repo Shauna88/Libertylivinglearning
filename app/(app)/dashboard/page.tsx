@@ -28,7 +28,7 @@ import { presetsFor } from "@/lib/todopresets";
 import { buildRefGroups } from "@/lib/refs";
 import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
-import { PORTALS, portalKey, rag } from "@/lib/portals";
+import { PORTALS, portalKey } from "@/lib/portals";
 import { deriveTodayVisits, nowParts, isUnassignedCarer } from "@/lib/schedule";
 import { callType, causeLabel } from "@/lib/callevents";
 import { computeFinance, money } from "@/lib/finance";
@@ -417,7 +417,7 @@ export default async function DashboardPage() {
           <DashboardHero
             eyebrow="Your remit · today"
             actions={improveTodos}
-            stats={portal.scorecard.slice(0, 4).map((m) => ({ n: m.value, label: m.name, tone: rag(m.value, m.target, m.dir) }))}
+            stats={[]}
             note={portal.mandate}
             clearText="Nothing outstanding"
             clearSub="No open actions for your department right now."
