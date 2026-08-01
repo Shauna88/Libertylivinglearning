@@ -260,6 +260,10 @@ button {
   padding: 3px 10px;
   border-radius: 999px;
   font-weight: 600;
+  font-size: inherit;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.65);
   transition: background 0.12s, box-shadow 0.12s;
 }
@@ -271,12 +275,14 @@ button {
   transition: transform 0.14s, opacity 0.12s;
 }
 .svc-chip-wrap:hover .svc-chip,
-.svc-chip-wrap:focus-within .svc-chip {
+.svc-chip-wrap:focus-within .svc-chip,
+.svc-chip-wrap.open .svc-chip {
   background: #fff;
   box-shadow: var(--shadow-sm);
 }
 .svc-chip-wrap:hover .svc-chip-caret,
-.svc-chip-wrap:focus-within .svc-chip-caret {
+.svc-chip-wrap:focus-within .svc-chip-caret,
+.svc-chip-wrap.open .svc-chip-caret {
   opacity: 0.9;
   transform: rotate(180deg);
 }
@@ -301,7 +307,8 @@ button {
   pointer-events: none;
 }
 .svc-chip-wrap:hover .svc-pop,
-.svc-chip-wrap:focus-within .svc-pop {
+.svc-chip-wrap:focus-within .svc-pop,
+.svc-chip-wrap.open .svc-pop {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
@@ -365,9 +372,14 @@ button {
   margin-top: 3px;
   padding: 7px 9px;
   border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
   font-size: 11.5px;
   font-weight: 700;
   color: var(--accent-dark);
+  cursor: pointer;
+}
+.svc-pop-foot:hover {
+  background: var(--accent-tint);
 }
 
 .brand-logo {
