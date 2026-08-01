@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 type Item = { label: string; icon: string; href?: string; badge?: string; soon?: boolean; exact?: boolean };
 type Group = { label: string; items: Item[] };
@@ -42,6 +42,27 @@ export default function Sidebar({
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Whole-sidebar collapse to an icon rail (desktop), remembered per browser.
+  const railed = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("ll-rail", cb);
+      return () => window.removeEventListener("ll-rail", cb);
+    },
+    () => {
+      try {
+        return localStorage.getItem("ll-sidebar-rail") === "1";
+      } catch {
+        return false;
+      }
+    },
+    () => false
+  );
+  const toggleRail = () => {
+    try {
+      localStorage.setItem("ll-sidebar-rail", railed ? "0" : "1");
+    } catch {}
+    window.dispatchEvent(new Event("ll-rail"));
+  };
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -197,11 +218,12 @@ export default function Sidebar({
         </div>
       </header>
       <div className={`sidebar-overlay${navOpen ? " show" : ""}`} onClick={() => setNavOpen(false)} />
-      <aside className={`sidebar${navOpen ? " open" : ""}`} role="navigation" aria-label="Main">
+      <aside className={`sidebar${navOpen ? " open" : ""}${railed ? " rail" : ""}`} role="navigation" aria-label="Main">
         <div className="brand-logo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/liberty-living-logo.png" alt="Liberty Living Homecare" />
         </div>
+        <div className="brand-mark" aria-hidden="true">LL</div>
 
       {navGroups.map((g) => {
         const isCollapsed = collapsed.has(g.label);
@@ -213,7 +235,7 @@ export default function Sidebar({
             <span>{g.label}</span>
             <span className="ms nav-chevron" aria-hidden="true">{isCollapsed && !groupActive ? "expand_more" : "expand_less"}</span>
           </button>
-          {(!isCollapsed || groupActive) && g.items.map((it) => {
+          {(railed || !isCollapsed || groupActive) && g.items.map((it) => {
             const active =
               it.href && (it.exact ? pathname === it.href : pathname === it.href || pathname.startsWith(it.href + "/"));
             const inner = (
@@ -230,13 +252,13 @@ export default function Sidebar({
             );
             if (it.href) {
               return (
-                <Link key={it.label} href={it.href} className={`nav-item${active ? " active" : ""}`} onClick={() => setNavOpen(false)}>
+                <Link key={it.label} href={it.href} title={it.label} className={`nav-item${active ? " active" : ""}`} onClick={() => setNavOpen(false)}>
                   {inner}
                 </Link>
               );
             }
             return (
-              <div key={it.label} className="nav-item" style={{ opacity: 0.5, cursor: "default" }}>
+              <div key={it.label} title={it.label} className="nav-item" style={{ opacity: 0.5, cursor: "default" }}>
                 {inner}
               </div>
             );
@@ -245,17 +267,23 @@ export default function Sidebar({
         );
       })}
 
-      <div className="sidebar-foot">
-        <div className="avatar">{initials}</div>
-        <div style={{ minWidth: 0 }}>
-          <div className="who">{name}</div>
-          <div className="role">
-            {role} · {region}
-          </div>
-        </div>
-        <button className="signout" title="Sign out" aria-label="Sign out" onClick={() => signOut({ redirectTo: "/login" })}>
-          <span className="ms" aria-hidden="true">logout</span>
+      <div className="sidebar-bottom">
+        <button className="rail-toggle" onClick={toggleRail} aria-label={railed ? "Expand sidebar" : "Collapse sidebar"} title={railed ? "Expand sidebar" : "Collapse sidebar"}>
+          <span className="ms" aria-hidden="true">{railed ? "chevron_right" : "chevron_left"}</span>
+          {!railed && <span>Collapse</span>}
         </button>
+        <div className="sidebar-foot">
+          <div className="avatar">{initials}</div>
+          <div className="sidebar-who" style={{ minWidth: 0 }}>
+            <div className="who">{name}</div>
+            <div className="role">
+              {role} · {region}
+            </div>
+          </div>
+          <button className="signout" title="Sign out" aria-label="Sign out" onClick={() => signOut({ redirectTo: "/login" })}>
+            <span className="ms" aria-hidden="true">logout</span>
+          </button>
+        </div>
       </div>
       </aside>
     </>

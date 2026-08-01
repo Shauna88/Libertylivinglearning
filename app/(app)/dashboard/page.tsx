@@ -28,7 +28,7 @@ import { presetsFor } from "@/lib/todopresets";
 import { buildRefGroups } from "@/lib/refs";
 import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
-import { PORTALS, portalKey, rag, ragPct, trend, type Metric } from "@/lib/portals";
+import { PORTALS, portalKey, rag } from "@/lib/portals";
 import { deriveTodayVisits, nowParts, isUnassignedCarer } from "@/lib/schedule";
 import { callType, causeLabel } from "@/lib/callevents";
 import { computeFinance, money } from "@/lib/finance";
@@ -86,44 +86,6 @@ function improvementTodos(
   if (qipInProgress > 0) todos.push({ icon: "checklist", tone: "amber", text: `${qipInProgress} improvement action${qipInProgress === 1 ? "" : "s"} in progress`, href: "/audits" });
   if (pushes.length) todos.push({ icon: "school", tone: "blue", text: `${pushes.length} training push${pushes.length === 1 ? "" : "es"} out to the team`, href: "/improvement" });
   return todos;
-}
-
-function Trend({ metric }: { metric: Metric }) {
-  const t = trend(metric.value, metric.prev, metric.dir);
-  if (t === "flat") return <span className="kpi-trend flat">— held</span>;
-  const good = t === "up";
-  return (
-    <span className={`kpi-trend ${good ? "up" : "down"}`}>
-      <span className="ms" style={{ fontSize: 14 }}>{good ? "trending_up" : "trending_down"}</span>
-      from {metric.prev}
-    </span>
-  );
-}
-
-function Scorecard({ metrics }: { metrics: Metric[] }) {
-  return (
-    <div className="scorecard">
-      {metrics.map((k) => {
-        const tone = rag(k.value, k.target, k.dir);
-        return (
-          <div key={k.name} className={`kpi-tile tone-edge-${tone}`}>
-            <div className="kpi-top">
-              <span className="kpi-value" style={{ color: `var(--${tone}-fg)` }}>{k.value}</span>
-              <Trend metric={k} />
-            </div>
-            <div className="kpi-name">{k.name}</div>
-            <div className={`bar ${tone === "green" ? "" : tone}`} style={{ marginTop: 8 }}>
-              <span style={{ width: `${ragPct(k.value, k.dir)}%` }} />
-            </div>
-            <div className="kpi-foot">
-              <span className="muted">Target {k.target}</span>
-              <span className="code">{k.ref}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export default async function DashboardPage() {
@@ -424,13 +386,6 @@ export default async function DashboardPage() {
           )}
 
           {inbox}
-
-          {portal && (
-            <>
-              <div className="section-title">Service scorecard · HSE Authorisation Scheme</div>
-              <Scorecard metrics={portal.scorecard} />
-            </>
-          )}
           {quickLinks}
         </div>
       </>
@@ -474,8 +429,6 @@ export default async function DashboardPage() {
             </>
           )}
           {inbox}
-          <div className="section-title">Your scorecard · HSE Authorisation Scheme</div>
-          <Scorecard metrics={portal.scorecard} />
           {quickLinks}
         </div>
       </>
