@@ -38,7 +38,7 @@ export default async function FinancePage() {
           <div className="card metric">
             <div className="num">{fin.marginPct}%</div>
             <div className="lbl">Margin %</div>
-            <div className={`bar ${fin.marginPct >= 30 ? "" : "amber"}`} style={{ marginTop: 8 }}>
+            <div className={`bar ${fin.marginPct >= 30 ? "" : fin.marginPct < 15 ? "red" : "amber"}`} style={{ marginTop: 8 }}>
               <span style={{ width: `${Math.max(4, Math.min(100, fin.marginPct))}%` }} />
             </div>
           </div>

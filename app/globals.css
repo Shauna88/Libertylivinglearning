@@ -66,6 +66,9 @@
 
   --card: #ffffff;
   --border: #dee7df;
+  /* hairline aliases — used by inline dividers & progress tracks */
+  --line: var(--border);
+  --hair: var(--border);
 
   /* category / tone colors */
   --gov: #2f6db0;

@@ -45,7 +45,7 @@ export default async function EcmPage() {
   const alerts = states.filter(isEcmAlert).length;
 
   const tiles = [
-    { label: "Missed / late — no check-in", n: alerts, tone: "red", icon: "notification_important" },
+    { label: "Missed / late — no check-in", n: alerts, tone: alerts ? "red" : "grey", icon: "notification_important" },
     { label: "On site now", n: count((s) => s === "onsite"), tone: "green", icon: "how_to_reg" },
     { label: "Completed", n: count((s) => s === "completed"), tone: "grey", icon: "task_alt" },
     { label: "Due / upcoming", n: count((s) => s === "due" || s === "upcoming"), tone: "blue", icon: "schedule" },
