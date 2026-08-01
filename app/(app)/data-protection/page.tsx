@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Empty from "@/components/Empty";
 import { auth } from "@/auth";
 import {
   OVERSIGHT_ROLES,
@@ -181,7 +182,7 @@ export default async function DataProtectionPage() {
         {/* audit log */}
         <div className="section-title">Audit trail</div>
         {audit.length === 0 ? (
-          <div className="card muted">No audit events recorded yet.</div>
+          <Empty icon="history" title="No audit events yet" hint="Data-protection actions are recorded here as they happen." />
         ) : (
           <div className="card" style={{ padding: 0, overflowX: "auto" }}>
             <table className="tbl">

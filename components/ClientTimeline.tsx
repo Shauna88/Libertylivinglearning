@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Empty from "@/components/Empty";
 import type { ActivityEvent } from "@/lib/db";
 
 const KINDS: { key: string; label: string }[] = [
@@ -23,7 +24,7 @@ export default function ClientTimeline({ events }: { events: ActivityEvent[] }) 
   const shown = filter === "ALL" ? events : events.filter((e) => e.kind === filter);
 
   if (events.length === 0) {
-    return <div className="card muted">No activity recorded yet.</div>;
+    return <Empty icon="history" title="No activity recorded yet" hint="Visits, notes and changes appear here as they happen." />;
   }
 
   return (

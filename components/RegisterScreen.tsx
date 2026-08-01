@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import Empty from "@/components/Empty";
 import { REGISTERS, severityTone, type RegisterKind } from "@/lib/registers";
 import { listRegister, IMPROVEMENT_ROLES, OVERSIGHT_ROLES, CRM_ROLES, type Role } from "@/lib/db";
 import NewEntryForm from "@/components/NewEntryForm";
@@ -85,7 +86,7 @@ export default async function RegisterScreen({ kind }: { kind: RegisterKind }) {
         )}
 
         {entries.length === 0 ? (
-          <div className="card muted">{canSeeAll ? "No entries yet. Use the button above to log one." : "You haven't raised anything yet. Use the button above if you need to."}</div>
+          <Empty icon="inbox" title={canSeeAll ? "No entries yet" : "Nothing raised yet"} hint={canSeeAll ? "Use the button above to log the first one." : "Use the button above if you need to raise something."} />
         ) : (
           <div className="grid" style={{ gap: 12 }}>
             {entries.map((e) => (

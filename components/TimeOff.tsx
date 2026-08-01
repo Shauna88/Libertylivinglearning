@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Empty from "@/components/Empty";
 import { useRouter } from "next/navigation";
 import type { TimeOffRow } from "@/lib/db";
 
@@ -77,7 +78,7 @@ export default function TimeOff({ mine, pending, isApprover }: { mine: TimeOffRo
         <>
           <div className="section-title">Requests awaiting your decision{pending.length ? ` · ${pending.length}` : ""}</div>
           {pending.length === 0 ? (
-            <div className="card muted" style={{ fontSize: 13, marginBottom: 22 }}>No requests waiting.</div>
+            <Empty icon="event_available" title="No requests waiting" hint="Time-off requests awaiting a decision appear here." />
           ) : (
             <div className="grid" style={{ gap: 10, marginBottom: 22 }}>
               {pending.map((r) => (

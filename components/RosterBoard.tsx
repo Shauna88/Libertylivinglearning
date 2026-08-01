@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -427,7 +428,7 @@ export default function RosterBoard({
       {/* timeline */}
       <div className="section-title">Who&rsquo;s working — {day}</div>
       {visits.length === 0 ? (
-        <div className="card muted">No calls scheduled for {day}.</div>
+        <Empty icon="event_available" title={`No calls scheduled for ${day}`} hint="Pick another day, or build the schedule from the client’s plan." />
       ) : (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <div className="tl">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CarerRecord, CarerSkill, CarerArea } from "@/lib/carers";
@@ -182,7 +183,7 @@ export default function CarerAdmin({
           );
         })}
       </div>
-      {filtered.length === 0 && <p className="muted">No carers match.</p>}
+      {filtered.length === 0 && <Empty icon="search_off" title="No carers match" hint="Try clearing a filter or search term." />}
 
       {draft && (
         <div className="modal-backdrop" onClick={() => !busy && setDraft(null)}>

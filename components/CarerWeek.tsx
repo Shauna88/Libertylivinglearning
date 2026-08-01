@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Empty from "@/components/Empty";
 import { useRouter } from "next/navigation";
 import type { CarerDay, UnassignedCall } from "@/lib/schedule";
 
@@ -219,7 +220,7 @@ export default function CarerWeek({
           </div>
         </div>
       ) : totalCalls === 0 ? (
-        <div className="card muted" style={{ fontSize: 13 }}>No calls scheduled this week — available all week.</div>
+        <Empty icon="event_available" title="No calls scheduled this week" hint="This carer is available all week." />
       ) : view === "table" ? (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl sched-table">

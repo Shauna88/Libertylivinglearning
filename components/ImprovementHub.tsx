@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import { useRouter } from "next/navigation";
 
 type Issue = {
@@ -117,7 +118,7 @@ function IssuesTab({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card muted">No open issues in this department.</div>
+        <Empty icon="task_alt" title="No open issues" hint="Nothing outstanding in this department right now." />
       ) : (
         <div className="grid" style={{ gap: 12 }}>
           {filtered.map((iss) => {
@@ -442,7 +443,7 @@ function LogTab({ assignments }: { assignments: Assignment[] }) {
     }
   }
 
-  if (assignments.length === 0) return <div className="card muted">Nothing has been pushed yet.</div>;
+  if (assignments.length === 0) return <Empty icon="outbox" title="Nothing pushed yet" hint="Items you push to an audience appear here." />;
 
   return (
     <div className="grid" style={{ gap: 10 }}>

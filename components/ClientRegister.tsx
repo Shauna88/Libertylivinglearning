@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 import PiiRevealButton from "@/components/PiiRevealButton";
 import { useToast } from "@/components/Toast";
@@ -142,7 +143,7 @@ export default function ClientRegister({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="muted">No clients match.</p>
+        <Empty icon="search_off" title="No clients match" hint="Try clearing a filter or search term." />
       ) : view === "area" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {grouped.map((g) => (

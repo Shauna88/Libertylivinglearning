@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import Link from "next/link";
 
 type SopLite = { id: string; title: string; purpose: string; cat: string };
@@ -61,7 +62,7 @@ export default function SopLibrary({ sops, cats }: { sops: SopLite[]; cats: Cat[
           </Link>
         ))}
       </div>
-      {filtered.length === 0 && <p className="muted">No procedures match your search.</p>}
+      {filtered.length === 0 && <Empty icon="search_off" title="No procedures match" hint="Try a different search term or category." />}
     </>
   );
 }

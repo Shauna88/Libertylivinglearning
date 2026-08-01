@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Empty from "@/components/Empty";
 import { auth } from "@/auth";
 import { OVERSIGHT_ROLES, listPiiLog, type Role } from "@/lib/db";
 
@@ -42,7 +43,7 @@ export default async function AccessLogPage() {
 
         <div className="section-title">Access events</div>
         {log.length === 0 ? (
-          <div className="card muted">No identifiable data has been revealed yet.</div>
+          <Empty icon="shield_person" title="No identifiable data revealed yet" hint="Reveals of protected client data are logged here for audit." />
         ) : (
           <div className="card" style={{ padding: 0, overflowX: "auto" }}>
             <table className="tbl">

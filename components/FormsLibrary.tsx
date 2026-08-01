@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Empty from "@/components/Empty";
 import type { Form, FormCat } from "@/lib/modules";
 
 export default function FormsLibrary({ forms, cats }: { forms: Form[]; cats: FormCat[] }) {
@@ -101,7 +102,7 @@ export default function FormsLibrary({ forms, cats }: { forms: Form[]; cats: For
           </div>
         </section>
       ))}
-      {groups.length === 0 && <p className="muted">No forms match your search.</p>}
+      {groups.length === 0 && <Empty icon="search_off" title="No forms match" hint="Try a different search term or category." />}
     </div>
   );
 }
