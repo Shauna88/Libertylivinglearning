@@ -41,3 +41,55 @@ jobs:
           # No database is touched at build time (pages are force-dynamic).
           AUTH_SECRET: ci-build-only-placeholder-not-a-real-secret
           AUTH_TRUST_HOST: "true"
+
+  # The "login blocker": stand up a real Postgres, boot the app, and prove
+  # sign-in works end to end. Fails the build if the login path breaks — the
+  # class of regression that took the live site down (missing AUTH_SECRET etc).
+  login-smoke:
+    name: Login smoke test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: liberty
+          POSTGRES_PASSWORD: liberty
+          POSTGRES_DB: liberty
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U liberty"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://liberty:liberty@localhost:5432/liberty
+      AUTH_SECRET: ci-login-smoke-secret-deterministic
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: http://localhost:3000
+      SMOKE_BASE_URL: http://localhost:3000
+      SMOKE_EMAIL: csm@libertyhomecare.ie
+      SMOKE_PASSWORD: libertylevi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Start app and run login smoke test
+        run: |
+          npm run start > server.log 2>&1 &
+          echo "server started (pid $!)"
+          node scripts/smoke-login.mjs
+
+      - name: Server logs (on failure)
+        if: failure()
+        run: cat server.log || true

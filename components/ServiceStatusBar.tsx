@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import type { ServiceVitals, Vital } from "@/lib/db";
 
 export type { ServiceVitals };
@@ -18,18 +21,39 @@ const ROWS: Row[] = [
 /**
  * A slim, service-wide status bar shown the same to every office login — so no
  * department misses a vital signal. Each chip reveals the actual items behind
- * the figure on hover/focus (which calls, which incident), then links through.
- * Renders nothing when everything is clear.
+ * the figure (which calls, which incident); the panel opens on hover on desktop
+ * and on tap on touch devices (where there is no hover), then links through via
+ * the "Open" action. Renders nothing when everything is clear.
  */
 export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) {
   const items = ROWS.map((r) => ({ ...r, vital: vitals[r.key] as Vital })).filter((r) => r.vital.n > 0);
+
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Tap-opened panels close on an outside tap or Escape.
+  useEffect(() => {
+    if (!openKey) return;
+    const onPointer = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpenKey(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenKey(null);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openKey]);
 
   if (items.length === 0) return null;
 
   const urgent = items.some((i) => i.tone === "red");
 
   return (
-    <div className={`svc-status${urgent ? " urgent" : ""}`} role="region" aria-label="Service status">
+    <div ref={rootRef} className={`svc-status${urgent ? " urgent" : ""}`} role="region" aria-label="Service status">
       <span className="svc-status-lead">
         <span className="ms" aria-hidden="true" style={{ fontSize: 16 }}>{urgent ? "priority_high" : "info"}</span>
         Service status
@@ -38,13 +62,21 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
         {items.map((i) => {
           const label = `${i.noun}${i.vital.n === 1 ? "" : "s"}${i.rest ? ` ${i.rest}` : ""}`;
           const hidden = i.vital.n - i.vital.items.length;
+          const key = String(i.key);
+          const open = openKey === key;
           return (
-            <span key={i.key} className="svc-chip-wrap">
-              <Link href={i.href} className={`svc-chip tone-${i.tone}`}>
+            <span key={key} className={`svc-chip-wrap${open ? " open" : ""}`}>
+              <button
+                type="button"
+                className={`svc-chip tone-${i.tone}`}
+                aria-expanded={open}
+                aria-label={`${i.vital.n} ${label} — show details`}
+                onClick={() => setOpenKey(open ? null : key)}
+              >
                 <span className="ms" aria-hidden="true" style={{ fontSize: 13 }}>{i.icon}</span>
                 <strong>{i.vital.n}</strong> {label}
                 <span className="ms svc-chip-caret" aria-hidden="true" style={{ fontSize: 14 }}>expand_more</span>
-              </Link>
+              </button>
               <div className="svc-pop" role="tooltip">
                 <div className={`svc-pop-head tone-${i.tone}`}>
                   <span className="ms" aria-hidden="true" style={{ fontSize: 15 }}>{i.icon}</span>
@@ -59,9 +91,9 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
                   ))}
                 </ul>
                 {hidden > 0 && <div className="svc-pop-more">+{hidden} more</div>}
-                <div className="svc-pop-foot">
+                <Link href={i.href} className="svc-pop-foot" onClick={() => setOpenKey(null)}>
                   Open <span className="ms" aria-hidden="true" style={{ fontSize: 13 }}>arrow_forward</span>
-                </div>
+                </Link>
               </div>
             </span>
           );
