@@ -90,13 +90,13 @@ export default function Sidebar({
       items: [
         { label: "Front-line Guide", icon: "health_and_safety", href: "/frontline" },
         { label: "Staff Training Hub", icon: "school", href: "/training" },
-        { label: "SOP Library", icon: "menu_book", href: "/sops" },
+        { label: "SOP Library", icon: "checklist", href: "/sops" },
       ],
     },
     {
       label: "Risk & Safety",
       items: [
-        { label: "Complaints", icon: "forum", href: "/complaints", badge: badge("complaint") },
+        { label: "Complaints", icon: "support_agent", href: "/complaints", badge: badge("complaint") },
         { label: "Incidents", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
       ],
     },
@@ -115,7 +115,7 @@ export default function Sidebar({
       items: [
         { label: "Staff Training Hub", icon: "school", href: "/training" },
         { label: "Front-line Guide", icon: "health_and_safety", href: "/frontline" },
-        { label: "SOP Library", icon: "menu_book", href: "/sops" },
+        { label: "SOP Library", icon: "checklist", href: "/sops" },
       ],
     },
     {
@@ -130,7 +130,7 @@ export default function Sidebar({
       label: canSeeAllRegisters ? "Risk & Safety" : "Raise a concern",
       items: [
         ...(canSeeAllRegisters ? [{ label: "Master log", icon: "inventory_2", href: "/registers" }] : []),
-        { label: canSeeAllRegisters ? "Complaints" : "Raise a complaint", icon: "forum", href: "/complaints", badge: badge("complaint") },
+        { label: canSeeAllRegisters ? "Complaints" : "Raise a complaint", icon: "support_agent", href: "/complaints", badge: badge("complaint") },
         { label: canSeeAllRegisters ? "Incidents" : "Report an incident", icon: "crisis_alert", href: "/incidents", badge: badge("incident") },
         { label: "Safeguarding", icon: "shield", href: "/safeguarding", badge: badge("safeguarding") },
       ],

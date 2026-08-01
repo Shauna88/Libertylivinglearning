@@ -13,7 +13,7 @@ export default function GovernancePage() {
           {LEADERSHIP.map((l) => (
             <div key={l.name + l.role} className="card">
               <div className="flex" style={{ gap: 12 }}>
-                <div className="avatar" style={{ background: "var(--accent)" }}>
+                <div className="avatar">
                   {l.name
                     .split(" ")
                     .map((w) => w[0])
