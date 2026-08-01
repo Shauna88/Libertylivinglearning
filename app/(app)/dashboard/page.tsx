@@ -328,7 +328,7 @@ export default async function DashboardPage() {
                   <span className="pill tone-red" style={{ marginLeft: "auto" }}>To cover</span>
                 </Link>
               ))}
-              {uncovered.length > 8 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>+{uncovered.length - 8} more in rostering</div>}
+              {uncovered.length > 8 && <Link href="/roster" className="muted" style={{ fontSize: 12, marginTop: 6, display: "inline-block" }}>+{uncovered.length - 8} more in rostering →</Link>}
             </div>
           )}
 
@@ -539,7 +539,7 @@ export default async function DashboardPage() {
                   <span className="pill tone-red" style={{ marginLeft: "auto" }}>To cover</span>
                 </Link>
               ))}
-              {gaps.length > 6 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>+{gaps.length - 6} more in rostering</div>}
+              {gaps.length > 6 && <Link href="/roster" className="muted" style={{ fontSize: 12, marginTop: 6, display: "inline-block" }}>+{gaps.length - 6} more in rostering →</Link>}
             </div>
           )}
 

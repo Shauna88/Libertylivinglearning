@@ -26,14 +26,27 @@ function Tiles({ tiles }: { tiles: Tile[] }) {
 }
 
 function Pills({ items }: { items: AttentionPill[] }) {
+  // Cap the visible pills so a carer missing many credentials doesn't blow up
+  // the row height and misalign the Open button — the rest fold into "+N more".
+  const shown = items.slice(0, 3);
+  const extra = items.length - shown.length;
   return (
     <div className="flex wrap" style={{ gap: 5 }}>
-      {items.map((p, i) => (
+      {shown.map((p, i) => (
         <span key={i} className={`pill tone-${p.tone}`} style={{ fontSize: 10.5 }} title={`${p.label} — ${p.phrase}`}>
           {p.priority && <span className="ms" style={{ fontSize: 12 }}>priority_high</span>}
           {p.short} · {p.phrase}
         </span>
       ))}
+      {extra > 0 && (
+        <span
+          className="pill tone-grey"
+          style={{ fontSize: 10.5 }}
+          title={items.slice(3).map((p) => `${p.label} — ${p.phrase}`).join("\n")}
+        >
+          +{extra} more
+        </span>
+      )}
     </div>
   );
 }
