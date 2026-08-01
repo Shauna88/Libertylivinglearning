@@ -56,13 +56,13 @@ export default function ImprovementHub({
 
   return (
     <div className="fade">
-      <div className="flex wrap" style={{ gap: 8, marginBottom: 20 }}>
+      <div className="seg" role="tablist" style={{ marginBottom: 20 }}>
         {[
           { k: "issues", label: `Issues to action · ${issues.filter((i) => i.status !== "closed").length}`, icon: "rule" },
           { k: "push", label: "Push training & SOPs", icon: "model_training" },
           { k: "log", label: `Assignment log · ${assignments.length}`, icon: "history" },
         ].map((t) => (
-          <button key={t.k} className={`chip${tab === t.k ? " active" : ""}`} onClick={() => setTab(t.k as typeof tab)}>
+          <button key={t.k} role="tab" aria-selected={tab === t.k} className={`seg-btn${tab === t.k ? " active" : ""}`} onClick={() => setTab(t.k as typeof tab)}>
             <span className="ms" style={{ fontSize: 15, marginRight: 4, verticalAlign: "-3px" }}>
               {t.icon}
             </span>

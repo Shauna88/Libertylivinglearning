@@ -105,9 +105,9 @@ export default function ScheduleWeek({
         <p className="muted" style={{ fontSize: 12.5, margin: 0, maxWidth: "60ch" }}>
           Reassigning or unassigning a call changes it for <strong>this week</strong> only (reverts to the base plan). A permanent carer change needs CSM approval.
         </p>
-        <div className="flex" style={{ gap: 6 }}>
+        <div className="seg" role="group" aria-label="View">
           {(["cards", "table"] as const).map((m) => (
-            <button key={m} className={`chip${view === m ? " active" : ""}`} onClick={() => setView(m)}>{m === "cards" ? "Cards" : "Table"}</button>
+            <button key={m} aria-pressed={view === m} className={`seg-btn${view === m ? " active" : ""}`} onClick={() => setView(m)}>{m === "cards" ? "Cards" : "Table"}</button>
           ))}
         </div>
       </div>

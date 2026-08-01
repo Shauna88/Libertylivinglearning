@@ -141,9 +141,9 @@ export default function ScheduleEditor({
           {totalCalls} call{totalCalls === 1 ? "" : "s"} a week. This is the permanent plan — day-to-day cover is managed in Rostering.
         </span>
         <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-          <div className="flex" style={{ gap: 6 }}>
+          <div className="seg" role="group" aria-label="View">
             {([["grid", "Week grid"], ["list", "Day detail"]] as const).map(([m, label]) => (
-              <button key={m} className={`chip${view === m ? " active" : ""}`} onClick={() => setView(m)}>{label}</button>
+              <button key={m} aria-pressed={view === m} className={`seg-btn${view === m ? " active" : ""}`} onClick={() => setView(m)}>{label}</button>
             ))}
           </div>
           {saved && <span className="pill tone-green">Saved</span>}

@@ -124,9 +124,9 @@ export default function CarerWeek({
           <span className="pill tone-blue"><span className="ms" style={{ fontSize: 14 }}>event</span>{totalCalls} calls this week</span>
           <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>schedule</span>{hm(totalMin)} scheduled</span>
         </div>
-        <div className="flex" style={{ gap: 6 }}>
+        <div className="seg" role="group" aria-label="View">
           {([["cards", "Cards"], ["table", "Table"], ["avail", "Availability"]] as const).map(([m, label]) => (
-            <button key={m} className={`chip${view === m ? " active" : ""}`} onClick={() => setView(m)}>{label}</button>
+            <button key={m} aria-pressed={view === m} className={`seg-btn${view === m ? " active" : ""}`} onClick={() => setView(m)}>{label}</button>
           ))}
         </div>
       </div>
