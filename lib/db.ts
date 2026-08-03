@@ -23,7 +23,7 @@ import { ecmState, isEcmAlert } from "./ecm";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "28";
+const SEED_VERSION = "29";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
@@ -406,10 +406,12 @@ async function createSchema(client: PoolClient) {
       transport TEXT NOT NULL DEFAULT '',
       capacity_hours INTEGER NOT NULL DEFAULT 37,
       committed_hours INTEGER NOT NULL DEFAULT 0,
+      availability_json TEXT NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'active',
       note TEXT NOT NULL DEFAULT '',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    ALTER TABLE carers ADD COLUMN IF NOT EXISTS availability_json TEXT NOT NULL DEFAULT '{}';
 
     -- One row per credential a carer holds; row present = held, expiry (ISO
     -- date) or NULL for items that do not expire. Drives compliance alerts.
@@ -798,9 +800,9 @@ async function seed(client: PoolClient) {
   // ---- carer directory ----
   for (const c of CARER_SEED) {
     await client.query(
-      `INSERT INTO carers (id,name,home_area,covers_json,skills_json,pathway,transport,capacity_hours,committed_hours,status,note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [c.id, c.name, c.homeArea, JSON.stringify(c.covers), JSON.stringify(c.skills), c.pathway, c.transport, c.capacityHours, c.committedHours, c.status, c.note]
+      `INSERT INTO carers (id,name,home_area,covers_json,skills_json,pathway,transport,capacity_hours,committed_hours,availability_json,status,note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [c.id, c.name, c.homeArea, JSON.stringify(c.covers), JSON.stringify(c.skills), c.pathway, c.transport, c.capacityHours, c.committedHours, JSON.stringify(c.availability ?? {}), c.status, c.note]
     );
   }
 
@@ -1648,6 +1650,7 @@ type CarerDbRow = {
   transport: string;
   capacity_hours: number;
   committed_hours: number;
+  availability_json: string;
   status: string;
   note: string;
 };
@@ -1663,9 +1666,25 @@ function rowToCarer(r: CarerDbRow): CarerRecord {
     transport: r.transport,
     capacityHours: r.capacity_hours,
     committedHours: r.committed_hours,
+    availability: safeAvail(r.availability_json),
     status: r.status,
     note: r.note,
   };
+}
+
+/** Parse the stored availability JSON (weekday → ["HH:MM-HH:MM", …]) safely. */
+function safeAvail(s: string): Record<string, string[]> {
+  try {
+    const v = JSON.parse(s);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    const out: Record<string, string[]> = {};
+    for (const [day, wins] of Object.entries(v as Record<string, unknown>)) {
+      if (Array.isArray(wins)) out[day] = wins.map(String);
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 function safeArr(s: string): string[] {

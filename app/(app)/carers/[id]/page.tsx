@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, listCarerCompliance, type Role } from "@/lib/db";
-import { CARER_DIRECTORY } from "@/lib/carers";
+import { CARER_DIRECTORY, carerAvailability } from "@/lib/carers";
 import { carerWeek, unassignedCalls } from "@/lib/schedule";
 import { summariseCompliance } from "@/lib/compliance";
 import CarerWeek from "@/components/CarerWeek";
@@ -32,7 +32,11 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
   const isApprover = OVERSIGHT_ROLES.includes(session!.user.role as Role);
 
   const skillLabel = (k: string) => CARER_DIRECTORY.skills.find((s) => s.key === k)?.label ?? k;
-  const free = Math.max(0, carer.capacityHours - carer.committedHours);
+  // Committed hours are derived from the carer's actual booked calls this week
+  // (single source of truth) rather than a hand-typed figure that drifts.
+  const committedH = Math.round(week.reduce((n, d) => n + d.minutes, 0) / 60);
+  const free = Math.max(0, carer.capacityHours - committedH);
+  const availability = carerAvailability(carer);
   // Distinct clients this carer visits across the week.
   const clientsServed = [...new Map(week.flatMap((d) => d.visits).map((v) => [v.su, { su: v.su, area: v.area }])).values()];
 
@@ -62,7 +66,7 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
         <div className="grid cols-3" style={{ marginBottom: 18 }}>
           <div className="card">
             <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", fontWeight: 700 }}>Hours this week</div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{carer.committedHours}<span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> / {carer.capacityHours}h</span></div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginTop: 4 }}>{committedH}<span className="muted" style={{ fontSize: 14, fontWeight: 500 }}> / {carer.capacityHours}h</span></div>
             <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{free}h available</div>
           </div>
           <div className="card">
@@ -105,7 +109,7 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
         <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 12, maxWidth: "70ch" }}>
           {carer.name}&apos;s Schedule of Service across every client (base plan with this week&apos;s cover applied). Client names are masked.
         </p>
-        <CarerWeek week={week} assign={{ carerName: carer.name, candidates: openCalls, isApprover }} />
+        <CarerWeek week={week} availability={availability} assign={{ carerName: carer.name, candidates: openCalls, isApprover }} />
       </div>
     </>
   );
