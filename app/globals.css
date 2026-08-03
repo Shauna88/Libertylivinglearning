@@ -1743,6 +1743,8 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .plan-days{display:flex;gap:4px;margin-top:8px}
 .plan-day{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:var(--card);border:1px solid var(--border);color:var(--text-3)}
 .plan-day.on{background:rgba(28,124,63,0.14);border-color:transparent;color:var(--accent-dark)}
+.plan-day.away{background:var(--amber-bg);border-color:var(--amber-fg);color:var(--amber-fg)}
+.plan-supply.away{background:repeating-linear-gradient(45deg,var(--bg),var(--bg) 6px,color-mix(in srgb,var(--amber-fg) 12%,transparent) 6px,color-mix(in srgb,var(--amber-fg) 12%,transparent) 7px)}
 .avail-key.window{background:rgba(28,124,63,0.12)}
 .avail-key.off{background:repeating-linear-gradient(45deg,var(--bg),var(--bg) 3px,color-mix(in srgb,var(--border) 60%,transparent) 3px,color-mix(in srgb,var(--border) 60%,transparent) 4px);border:1px solid var(--border)}
 .avail-busy{position:absolute;top:0;bottom:0;background:var(--accent);color:#fff;font-size:10px;font-weight:600;

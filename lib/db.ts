@@ -23,7 +23,7 @@ import { ecmState, isEcmAlert } from "./ecm";
 
 const CARER_SEED = CARER_DIRECTORY.carers;
 
-const SEED_VERSION = "29";
+const SEED_VERSION = "30";
 const STAFF_PASSWORD = "libertylevi"; // all staff/role logins (demo accounts; see README)
 const DEMO_LOGIN_PASSWORD = "liberty"; // the shareable, read-only team-demo login only
 const SEED_LOCK_KEY = 727274; // arbitrary advisory-lock id
@@ -850,6 +850,11 @@ async function seed(client: PoolClient) {
     ["Denise Fenlon", "Healthcare Assistant", "Annual leave", "12 Aug 2026", "16 Aug 2026", "Family wedding — booking early.", "pending"],
     ["Grace Nolan", "Healthcare Assistant", "Unpaid leave", "3 Sep 2026", "3 Sep 2026", "Hospital appointment.", "pending"],
     ["Katie Phelan", "Healthcare Assistant", "Annual leave", "1 Jul 2026", "5 Jul 2026", "", "approved"],
+    // Approved absences landing in the CURRENT week (relative to seed time) so
+    // the roster planner shows a real availability shortage: a carer on leave
+    // (their calls go at-risk) and one off sick (thins the candidate pool).
+    ["Bridget Kelly", "Healthcare Assistant", "Annual leave", isoOffset(0), isoOffset(4), "Booked annual leave.", "approved"],
+    ["Grace Adeyemi", "Healthcare Assistant", "Sick leave", isoOffset(0), isoOffset(2), "Phoned in sick — medical cert to follow (HR-08).", "approved"],
   ];
   for (const [name, r, kind, from, to, note, status] of timeoffSeed) {
     await client.query(
