@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export type PlanCandidate = { name: string; freeHours: number; areaFit: "home" | "radius" };
+export type PlanRisk = { carer: string; kind: "leave" | "sick"; label: string };
 export type PlanCall = {
   key: string;
   clientId: string;
@@ -18,7 +19,9 @@ export type PlanCall = {
   durMin: number;
   startMin: number;
   type: string;
+  risk?: PlanRisk; // set when the assigned carer is off this week (cover needed)
 };
+export type PlanOff = { kind: "leave" | "sick"; label: string; days: string[] };
 export type PlanCarer = {
   id: string;
   name: string;
@@ -29,7 +32,9 @@ export type PlanCarer = {
   spareHours: number;
   workDays: string[];
   callsThisWeek: number;
+  off?: PlanOff; // approved time-off / sickness landing in this week
 };
+export type PlanShortage = { name: string; kind: "leave" | "sick"; label: string }[];
 
 function hm(mins: number) {
   const h = Math.floor(mins / 60);
@@ -43,6 +48,7 @@ export default function PlanningBoard({
   demand,
   carers,
   candidatesByCall,
+  shortage,
   isCsm,
 }: {
   area: string;
@@ -50,6 +56,7 @@ export default function PlanningBoard({
   demand: PlanCall[];
   carers: PlanCarer[];
   candidatesByCall: Record<string, PlanCandidate[]>;
+  shortage: PlanShortage;
   isCsm: boolean;
 }) {
   const router = useRouter();
@@ -58,6 +65,7 @@ export default function PlanningBoard({
   const [err, setErr] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
+  const atRiskCount = useMemo(() => demand.filter((c) => c.risk).length, [demand]);
   const byKey = useMemo(() => new Map(demand.map((c) => [c.key, c])), [demand]);
   const demandByDay = useMemo(() => {
     const m = new Map<string, PlanCall[]>();
@@ -180,6 +188,18 @@ export default function PlanningBoard({
         </span>
       </div>
 
+      {shortage.length > 0 && (
+        <div className="card" style={{ marginBottom: 12, borderColor: "var(--amber-fg)", background: "var(--amber-bg)", padding: "10px 13px" }}>
+          <div className="flex" style={{ gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
+            <span className="ms" style={{ fontSize: 18, color: "var(--amber-fg)" }}>event_busy</span>
+            <strong>{shortage.length} carer{shortage.length === 1 ? "" : "s"} off in {area} this week</strong>
+            <span className="muted">
+              — {shortage.map((s) => `${s.name} (${s.kind === "sick" ? "sick" : "leave"})`).join(", ")}.
+              {atRiskCount > 0 && ` ${atRiskCount} of their call${atRiskCount === 1 ? "" : "s"} need cover below.`}
+            </span>
+          </div>
+        </div>
+      )}
       {err && <div className="card" style={{ borderColor: "var(--red-fg)", color: "var(--red-fg)", marginBottom: 12 }}>{err}</div>}
       {okMsg && <div className="pill tone-green" style={{ marginBottom: 12 }}><span className="ms" style={{ fontSize: 14 }}>check_circle</span>{okMsg}</div>}
 
@@ -207,7 +227,15 @@ export default function PlanningBoard({
                       <button key={c.key} className={`plan-call${on ? " on" : ""}`} onClick={() => toggle(c)} aria-pressed={on}>
                         <span className="ms" style={{ fontSize: 16 }}>{on ? "check_box" : "check_box_outline_blank"}</span>
                         <span className="code" style={{ minWidth: 46 }}>{c.time}</span>
-                        <span style={{ fontWeight: 600, flex: "1 1 auto", textAlign: "left" }}>{c.type} · {c.su}</span>
+                        <span style={{ fontWeight: 600, flex: "1 1 auto", textAlign: "left", minWidth: 0 }}>
+                          {c.type} · {c.su}
+                          {c.risk && (
+                            <span className={`pill ${c.risk.kind === "sick" ? "tone-red" : "tone-amber"}`} style={{ fontSize: 10, marginLeft: 6 }}>
+                              <span className="ms" style={{ fontSize: 12 }}>{c.risk.kind === "sick" ? "sick" : "flight_takeoff"}</span>
+                              {c.risk.carer.split(" ")[0]} {c.risk.kind === "sick" ? "sick" : "on leave"}
+                            </span>
+                          )}
+                        </span>
                         <span className="muted" style={{ fontSize: 11.5 }}>{c.dur}</span>
                         <span className={`pill ${cands.length ? "tone-green" : "tone-red"}`} style={{ fontSize: 10.5 }}>
                           {cands.length ? `${cands.length} can cover` : "none free"}
@@ -273,20 +301,31 @@ export default function PlanningBoard({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {carers.map((c) => (
-                    <div key={c.id} className="plan-supply">
+                    <div key={c.id} className={`plan-supply${c.off ? " away" : ""}`}>
                       <div className="flex between" style={{ alignItems: "flex-start" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{c.name}</div>
                           <div className="muted" style={{ fontSize: 11.5 }}>{c.homeArea}{c.homeArea === area ? " (home)" : ` → ${area}`} · {c.callsThisWeek} call{c.callsThisWeek === 1 ? "" : "s"}</div>
                         </div>
-                        <span className={`pill ${c.spareHours <= 0 ? "tone-grey" : c.spareHours < 4 ? "tone-amber" : "tone-green"}`} style={{ fontSize: 10.5 }}>
-                          {c.spareHours}h spare
-                        </span>
+                        {c.off ? (
+                          <span className={`pill ${c.off.kind === "sick" ? "tone-red" : "tone-amber"}`} style={{ fontSize: 10.5 }}>
+                            <span className="ms" style={{ fontSize: 12 }}>{c.off.kind === "sick" ? "sick" : "flight_takeoff"}</span>
+                            {c.off.kind === "sick" ? "Off sick" : "On leave"}
+                          </span>
+                        ) : (
+                          <span className={`pill ${c.spareHours <= 0 ? "tone-grey" : c.spareHours < 4 ? "tone-amber" : "tone-green"}`} style={{ fontSize: 10.5 }}>
+                            {c.spareHours}h spare
+                          </span>
+                        )}
                       </div>
                       <div className="plan-days" aria-hidden="true">
-                        {WEEK.map((d) => (
-                          <span key={d} className={`plan-day${c.workDays.includes(d) ? " on" : ""}`} title={`${d}: ${c.workDays.includes(d) ? "available" : "off"}`}>{d[0]}</span>
-                        ))}
+                        {WEEK.map((d) => {
+                          const offDay = c.off?.days.includes(d);
+                          const on = c.workDays.includes(d) && !offDay;
+                          return (
+                            <span key={d} className={`plan-day${on ? " on" : ""}${offDay ? " away" : ""}`} title={`${d}: ${offDay ? c.off!.label : c.workDays.includes(d) ? "available" : "off"}`}>{d[0]}</span>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
