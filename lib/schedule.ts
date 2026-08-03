@@ -4,7 +4,7 @@
  * Pure functions (time passed in) so they're testable and Date-free here.
  */
 import { maskName, type Client } from "@/lib/crm";
-import type { CarerRecord } from "@/lib/carers";
+import { availableForSlot, type CarerRecord } from "@/lib/carers";
 
 export type VisitStatus =
   | "upcoming"
@@ -353,9 +353,20 @@ export function carerBusyMap(clients: Client[], coverMap: Record<string, string>
 
 export type FreeCarer = { name: string; freeHours: number };
 
+/** A carer's real committed minutes this week, summed from their booked calls. */
+export function committedMinutes(busy: BusyMap, name: string): number {
+  const days = busy.get(name);
+  if (!days) return 0;
+  let m = 0;
+  for (const ivs of days.values()) for (const iv of ivs) m += iv.end - iv.start;
+  return m;
+}
+
 /**
- * Carers who cover `area` and have no booked call overlapping a slot — the
- * free-and-nearby options for filling an unassigned call. Ranked by spare hours.
+ * Carers who (a) cover `area`, (b) are declared-available for the slot's window,
+ * and (c) have no booked call overlapping it — the free-and-nearby options for
+ * filling an unassigned call. Spare hours are derived from their real booked
+ * load (not a hand-typed figure), so ranking never drifts from reality.
  */
 export function freeNearbyCarers(
   carers: CarerRecord[],
@@ -369,10 +380,16 @@ export function freeNearbyCarers(
     if (c.status !== "active") continue;
     if (c.name === slot.exclude) continue;
     if (!(c.covers.includes(slot.area) || c.homeArea === slot.area)) continue;
+    // Respect the declared working pattern when one is set; a carer with no
+    // pattern at all falls back to "always considered" so nothing silently
+    // disappears from the pool.
+    const hasPattern = !!c.availability && Object.keys(c.availability).length > 0;
+    if (hasPattern && !availableForSlot(c, slot.day, start, end)) continue;
     const ivs = busy.get(c.name)?.get(slot.day) ?? [];
     const clash = ivs.some((iv) => start < iv.end && end > iv.start);
     if (clash) continue;
-    out.push({ name: c.name, freeHours: Math.max(0, c.capacityHours - c.committedHours) });
+    const committedH = Math.round(committedMinutes(busy, c.name) / 60);
+    out.push({ name: c.name, freeHours: Math.max(0, c.capacityHours - committedH) });
   }
   return out.sort((a, b) => b.freeHours - a.freeHours);
 }

@@ -24,9 +24,53 @@ export type CarerRecord = {
   transport: string;
   capacityHours: number;
   committedHours: number;
+  /**
+   * Declared working pattern: weekday name → one or more "HH:MM-HH:MM" windows
+   * the carer is available to work. A day with no entry means they don't work
+   * that day. This is the source of truth for availability — unlike the old
+   * behaviour, which inferred "free" from the absence of booked calls (so a
+   * brand-new carer looked available at every hour of every day).
+   */
+  availability?: Record<string, string[]>;
   status: string;
   note: string;
 };
+
+/** A working window as minutes since midnight. */
+export type AvailWindow = { start: number; end: number };
+
+/** Parse one "HH:MM-HH:MM" window into minutes since midnight. */
+export function parseAvailWindow(s: string): AvailWindow | null {
+  const m = /^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/.exec(String(s).trim());
+  if (!m) return null;
+  const start = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const end = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
+  return end > start ? { start, end } : null;
+}
+
+/** A carer's declared availability as parsed windows, by weekday. */
+export function carerAvailability(carer: CarerRecord): Record<string, AvailWindow[]> {
+  const out: Record<string, AvailWindow[]> = {};
+  for (const [day, wins] of Object.entries(carer.availability ?? {})) {
+    const parsed = (wins ?? []).map(parseAvailWindow).filter(Boolean) as AvailWindow[];
+    if (parsed.length) out[day] = parsed.sort((a, b) => a.start - b.start);
+  }
+  return out;
+}
+
+/** Is the carer declared-available for the whole [start, end) slot on `day`? */
+export function availableForSlot(carer: CarerRecord, day: string, start: number, end: number): boolean {
+  return (carerAvailability(carer)[day] ?? []).some((w) => start >= w.start && end <= w.end);
+}
+
+/** Total declared available hours across the week (the real capacity ceiling). */
+export function availableHours(carer: CarerRecord): number {
+  let mins = 0;
+  for (const wins of Object.values(carerAvailability(carer))) {
+    for (const w of wins) mins += w.end - w.start;
+  }
+  return Math.round(mins / 60);
+}
 
 export type CarerDirectory = {
   skills: CarerSkill[];

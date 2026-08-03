@@ -30,9 +30,16 @@ function pct(min: number) {
 }
 
 type Seg = { start: number; end: number; su?: string; type?: string };
+type AvailWindow = { start: number; end: number };
 
-/** Merge a day's calls into busy blocks, then the free gaps between them. */
-function dayAvailability(day: CarerDay): { busy: Seg[]; gaps: Seg[]; freeMin: number } {
+/**
+ * A day's availability picture: the carer's declared working windows, the calls
+ * booked into them, and the free gaps that remain (where an extra call fits).
+ * A day with no declared windows is genuinely OFF — not "free all day".
+ */
+function dayAvailability(day: CarerDay, windows: AvailWindow[]): {
+  busy: Seg[]; gaps: Seg[]; freeMin: number; windows: AvailWindow[]; availMin: number;
+} {
   const blocks = day.visits
     .map((v) => ({ start: v.startMin, end: v.startMin + durMin(v.dur), su: v.su, type: v.type }))
     .sort((a, b) => a.start - b.start);
@@ -43,22 +50,30 @@ function dayAvailability(day: CarerDay): { busy: Seg[]; gaps: Seg[]; freeMin: nu
     if (last && b.start <= last.end) last.end = Math.max(last.end, b.end);
     else busy.push({ ...b });
   }
+  // Free gaps = each declared window minus the calls booked inside it.
   const gaps: Seg[] = [];
-  let cursor = DAY_START;
-  for (const b of busy) {
-    if (b.start > cursor) gaps.push({ start: cursor, end: Math.min(b.start, DAY_END) });
-    cursor = Math.max(cursor, b.end);
+  for (const w of windows) {
+    let cursor = w.start;
+    for (const b of busy) {
+      if (b.end <= w.start || b.start >= w.end) continue; // outside this window
+      const bs = Math.max(b.start, w.start);
+      if (bs > cursor) gaps.push({ start: cursor, end: bs });
+      cursor = Math.max(cursor, Math.min(b.end, w.end));
+    }
+    if (cursor < w.end) gaps.push({ start: cursor, end: w.end });
   }
-  if (cursor < DAY_END) gaps.push({ start: cursor, end: DAY_END });
   const usable = gaps.filter((g) => g.end - g.start >= MIN_GAP);
-  return { busy, gaps: usable, freeMin: usable.reduce((n, g) => n + (g.end - g.start), 0) };
+  const availMin = windows.reduce((n, w) => n + (w.end - w.start), 0);
+  return { busy, gaps: usable, freeMin: usable.reduce((n, g) => n + (g.end - g.start), 0), windows, availMin };
 }
 
 export default function CarerWeek({
   week,
+  availability = {},
   assign,
 }: {
   week: CarerDay[];
+  availability?: Record<string, AvailWindow[]>;
   assign?: { carerName: string; candidates: UnassignedCall[]; isApprover?: boolean };
 }) {
   const router = useRouter();
@@ -73,8 +88,9 @@ export default function CarerWeek({
   const totalMin = week.reduce((n, d) => n + d.minutes, 0);
   const totalCalls = week.reduce((n, d) => n + d.visits.length, 0);
   const allTimes = [...new Set(week.flatMap((d) => d.visits.map((v) => v.time)))].sort();
-  const avail = WEEK.map((day) => ({ day, ...dayAvailability(byDay.get(day) ?? { day, visits: [], minutes: 0 }) }));
+  const avail = WEEK.map((day) => ({ day, ...dayAvailability(byDay.get(day) ?? { day, visits: [], minutes: 0 }, availability[day] ?? []) }));
   const freeTotal = avail.reduce((n, a) => n + a.freeMin, 0);
+  const hasPattern = Object.keys(availability).length > 0;
 
   // Unassigned calls that fit inside one of this carer's free gaps, by day.
   const candidatesByDay = new Map<string, UnassignedCall[]>();
@@ -135,8 +151,8 @@ export default function CarerWeek({
         <div className="card">
           <div className="flex between wrap" style={{ gap: 8, marginBottom: 10, alignItems: "center" }}>
             <p className="muted" style={{ fontSize: 12.5, margin: 0, maxWidth: "62ch" }}>
-              Free windows in the working day (07:00–22:00) where an extra call could be assigned — booked calls are solid, open gaps are highlighted.
-              {assign && fillableCount > 0 && <> Amber calls are <strong>unassigned client calls in this carer&apos;s radius</strong> that land in a gap — click one to assign it.</>}
+              This carer&apos;s <strong>declared availability</strong> (green) with booked calls solid on top — green showing through is free time an extra call could fill. Hatched means off / outside their working pattern.
+              {assign && fillableCount > 0 && <> Amber calls are <strong>unassigned client calls in this carer&apos;s radius</strong> that land in a free window — click one to assign it.</>}
             </p>
             <span className="pill tone-green"><span className="ms" style={{ fontSize: 14 }}>event_available</span>{hm(freeTotal)} open this week</span>
           </div>
@@ -187,17 +203,15 @@ export default function CarerWeek({
               <div key={a.day} className="avail-row">
                 <div className="avail-label">
                   <strong style={{ fontSize: 12.5 }}>{a.day.slice(0, 3)}</strong>
-                  <span className="muted" style={{ fontSize: 11 }}>{a.freeMin === DAY_SPAN ? "all day" : a.freeMin ? `${hm(a.freeMin)} free` : "full"}</span>
+                  <span className="muted" style={{ fontSize: 11 }}>{a.availMin === 0 ? "off" : a.freeMin ? `${hm(a.freeMin)} free` : "full"}</span>
                 </div>
                 <div className="avail-bar">
+                  {a.windows.map((w, i) => (
+                    <div key={`w${i}`} className="avail-window" style={{ left: `${pct(w.start)}%`, width: `${pct(w.end) - pct(w.start)}%` }} title={`Available ${clock(w.start)}–${clock(w.end)}`} />
+                  ))}
                   {a.busy.map((b, i) => (
                     <div key={`b${i}`} className="avail-busy" style={{ left: `${pct(b.start)}%`, width: `${pct(b.end) - pct(b.start)}%` }} title={`${clock(b.start)}–${clock(b.end)} · ${b.su}`}>
                       {pct(b.end) - pct(b.start) > 7 ? b.su : ""}
-                    </div>
-                  ))}
-                  {a.gaps.map((g, i) => (
-                    <div key={`g${i}`} className="avail-gap" style={{ left: `${pct(g.start)}%`, width: `${pct(g.end) - pct(g.start)}%` }} title={`Free ${clock(g.start)}–${clock(g.end)} (${hm(g.end - g.start)})`}>
-                      {pct(g.end) - pct(g.start) > 12 ? `${hm(g.end - g.start)} free` : ""}
                     </div>
                   ))}
                   {cands.map((c, i) => {
@@ -214,13 +228,14 @@ export default function CarerWeek({
             );
           })}
           <div className="flex wrap" style={{ gap: 14, marginTop: 12, fontSize: 11.5 }}>
+            <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key window" />Available</span>
             <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key busy" />Booked call</span>
-            <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key gap" />Open — can assign</span>
+            <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key off" />Off / unavailable</span>
             {assign && <span className="flex" style={{ gap: 5, alignItems: "center" }}><span className="avail-key open" />Unassigned call to fill{fillableCount > 0 ? ` · ${fillableCount}` : ""}</span>}
           </div>
         </div>
       ) : totalCalls === 0 ? (
-        <Empty icon="event_available" title="No calls scheduled this week" hint="This carer is available all week." />
+        <Empty icon="event_available" title="No calls scheduled this week" hint={hasPattern ? "Open the Availability view to see their working pattern and fill it." : "No working pattern set yet — set their availability to start matching calls."} />
       ) : view === "table" ? (
         <div className="card" style={{ padding: 0, overflowX: "auto" }}>
           <table className="tbl sched-table">

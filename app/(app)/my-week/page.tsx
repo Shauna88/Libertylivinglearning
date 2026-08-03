@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { listClients, coverMap } from "@/lib/db";
+import { listClients, coverMap, listCarers } from "@/lib/db";
 import { carerWeek } from "@/lib/schedule";
+import { carerAvailability } from "@/lib/carers";
 import CarerWeek from "@/components/CarerWeek";
 
 export default async function MyWeekPage() {
@@ -11,8 +12,10 @@ export default async function MyWeekPage() {
   if (role !== "Healthcare Assistant") redirect("/dashboard");
 
   const carerName = session!.user.name ?? "";
-  const [clients, cover] = await Promise.all([listClients(), coverMap()]);
+  const [clients, cover, carers] = await Promise.all([listClients(), coverMap(), listCarers()]);
   const week = carerWeek(clients, carerName, cover);
+  const me = carers.find((c) => c.name === carerName);
+  const availability = me ? carerAvailability(me) : {};
 
   return (
     <>
@@ -24,7 +27,7 @@ export default async function MyWeekPage() {
         </p>
       </header>
       <div className="body fade">
-        <CarerWeek week={week} />
+        <CarerWeek week={week} availability={availability} />
       </div>
     </>
   );
