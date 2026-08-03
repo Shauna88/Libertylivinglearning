@@ -1729,6 +1729,20 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .avail-label{display:flex;flex-direction:column;line-height:1.25}
 .avail-bar{position:relative;height:30px;background:repeating-linear-gradient(45deg,var(--bg),var(--bg) 5px,color-mix(in srgb,var(--border) 45%,transparent) 5px,color-mix(in srgb,var(--border) 45%,transparent) 6px);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .avail-window{position:absolute;top:0;bottom:0;background:rgba(28,124,63,0.12)}
+
+/* ---- coordinator planning board ---- */
+.plan-grid{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
+@media (max-width:900px){.plan-grid{grid-template-columns:1fr}}
+.plan-call{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--card);cursor:pointer;font-size:12.5px;color:var(--text);transition:border-color .12s,background .12s}
+.plan-call:hover{border-color:var(--accent)}
+.plan-call.on{border-color:var(--accent-dark);background:var(--green-bg)}
+.plan-call .ms{color:var(--text-3)}
+.plan-call.on .ms{color:var(--accent-dark)}
+.plan-cand{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+.plan-supply{padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+.plan-days{display:flex;gap:4px;margin-top:8px}
+.plan-day{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:var(--card);border:1px solid var(--border);color:var(--text-3)}
+.plan-day.on{background:rgba(28,124,63,0.14);border-color:transparent;color:var(--accent-dark)}
 .avail-key.window{background:rgba(28,124,63,0.12)}
 .avail-key.off{background:repeating-linear-gradient(45deg,var(--bg),var(--bg) 3px,color-mix(in srgb,var(--border) 60%,transparent) 3px,color-mix(in srgb,var(--border) 60%,transparent) 4px);border:1px solid var(--border)}
 .avail-busy{position:absolute;top:0;bottom:0;background:var(--accent);color:#fff;font-size:10px;font-weight:600;
