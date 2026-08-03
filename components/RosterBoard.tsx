@@ -281,7 +281,7 @@ export default function RosterBoard({
       {/* day tabs */}
       <div className="daybar">
         {week.map((d) => (
-          <Link key={d} href={`/roster?day=${d}`} className={`daytab${d === day ? " active" : ""}`}>
+          <Link key={d} href={`/roster?view=day&day=${d}`} className={`daytab${d === day ? " active" : ""}`}>
             {d.slice(0, 3)}
             {d === today && <span className="dot-today" title="Today" />}
           </Link>
