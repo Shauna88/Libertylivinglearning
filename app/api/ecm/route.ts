@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   const clientId = String(body.clientId ?? "").trim();
   const schedTime = String(body.schedTime ?? "").trim();
   const carer = String(body.carer ?? "").trim();
+  const note = String(body.note ?? "").trim();
   if (!clientId || !/^\d{1,2}:\d{2}$/.test(schedTime)) {
     return NextResponse.json({ error: "Unknown call" }, { status: 400 });
   }
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   const by = session.user.name ?? "Office";
 
   if (action === "checkin") await checkInVisit({ clientId, serviceDate, schedTime, carer, by });
-  else if (action === "checkout") await checkOutVisit({ clientId, serviceDate, schedTime, by });
+  else if (action === "checkout") await checkOutVisit({ clientId, serviceDate, schedTime, by, note });
   else if (action === "undo") await clearVisitEvent({ clientId, serviceDate, schedTime, by });
   else return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 

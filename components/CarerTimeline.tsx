@@ -6,26 +6,29 @@ import type { ActivityEvent } from "@/lib/db";
 
 const KINDS: { key: string; label: string }[] = [
   { key: "ALL", label: "All" },
-  { key: "note", label: "Care notes" },
-  { key: "call", label: "Call events" },
+  { key: "ecm", label: "Clock in / out" },
+  { key: "diary", label: "Diary notes" },
   { key: "cover", label: "Cover" },
-  { key: "assessment", label: "Assessments" },
-  { key: "ecm", label: "Check-ins" },
-  { key: "diary", label: "Visit diary" },
+  { key: "system", label: "System" },
 ];
 
 function when(iso: string) {
   return new Date(iso).toLocaleString("en-IE", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function ClientTimeline({ events }: { events: ActivityEvent[] }) {
+/**
+ * A carer's own activity feed — clock-ins / clock-outs, visit diary notes, cover
+ * they picked up and system actions — with the same faceted-filter layout as the
+ * client timeline. Client names shown here are already masked by the caller.
+ */
+export default function CarerTimeline({ events }: { events: ActivityEvent[] }) {
   const [filter, setFilter] = useState("ALL");
   const present = new Set(events.map((e) => e.kind));
   const facets = KINDS.filter((k) => k.key === "ALL" || present.has(k.key));
   const shown = filter === "ALL" ? events : events.filter((e) => e.kind === filter);
 
   if (events.length === 0) {
-    return <Empty icon="history" title="No activity recorded yet" hint="Visits, notes and changes appear here as they happen." />;
+    return <Empty icon="history" title="No activity recorded yet" hint="Clock-ins, clock-outs and visit diary notes appear here as calls are delivered." />;
   }
 
   return (
@@ -56,7 +59,7 @@ export default function ClientTimeline({ events }: { events: ActivityEvent[] }) 
                 <span className="muted" style={{ fontSize: 11.5, whiteSpace: "nowrap" }}>{when(e.at)}</span>
               </div>
               {e.detail && <p className="muted" style={{ fontSize: 12.5, margin: "3px 0 0", lineHeight: 1.5 }}>{e.detail}</p>}
-              {e.by && <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>· {e.by}</div>}
+              {e.by && <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>· recorded by {e.by}</div>}
             </div>
           </div>
         ))}

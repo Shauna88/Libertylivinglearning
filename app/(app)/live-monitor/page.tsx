@@ -1,33 +1,60 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, listClients, listCallLog, coverMap, type Role } from "@/lib/db";
+import { CRM_ROLES, listClients, listCallLog, coverMap, visitEventMap, type Role } from "@/lib/db";
 import { deriveTodayVisits, visitSummary, nowParts } from "@/lib/schedule";
+import { ecmState, ECM_META } from "@/lib/ecm";
+import CallTimeline, { type CallRow } from "@/components/CallTimeline";
 
 export const dynamic = "force-dynamic"; // always reflects "now"
+
+/** Minutes-since-midnight (Europe/Dublin) for an ISO timestamp. */
+function dublinMin(iso: string | null): number | null {
+  if (!iso) return null;
+  const s = new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Dublin", hour12: false, hour: "2-digit", minute: "2-digit" });
+  const [h, m] = s.split(":").map(Number);
+  return h * 60 + m;
+}
 
 export default async function LiveMonitorPage() {
   const session = await auth();
   if (!CRM_ROLES.includes(session!.user.role as Role)) redirect("/dashboard");
 
-  const clients = await listClients();
-  const cover = await coverMap();
   const now = new Date();
   const { weekday, nowMin } = nowParts(now);
+  const serviceDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+  const [clients, cover, events] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate)]);
   const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
   const s = visitSummary(visits);
   const callLog = await listCallLog(20);
   const todayCalls = callLog.filter((c) => new Date(c.created_at).toDateString() === now.toDateString());
+
+  // Merge each planned visit with its actual clock-in/out to see both perspectives.
+  const calls: CallRow[] = visits.map((v) => {
+    const ev = events[`${v.clientId}|${v.time}`];
+    const event = ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at } : null;
+    const unassigned = v.status === "gap";
+    const suspended = v.status === "suspended";
+    const state = ecmState({ startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin, unassigned, suspended, event });
+    return {
+      clientId: v.clientId, su: v.su, maskedName: v.maskedName, carer: v.carer, type: v.type, area: v.area,
+      time: v.time, startMin: v.startMin, durMin: v.durMin,
+      checkinMin: dublinMin(ev?.checkin_at ?? null), checkoutMin: dublinMin(ev?.checkout_at ?? null),
+      stateLabel: ECM_META[state].label, tone: ECM_META[state].tone, unassigned,
+    };
+  });
+  const onSite = calls.filter((c) => c.checkinMin != null && c.checkoutMin == null && !c.unassigned).length;
+  const noClockIn = calls.filter((c) => c.checkinMin == null && !c.unassigned && nowMin > c.startMin + c.durMin).length;
 
   const dateLabel = now.toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" });
   const timeLabel = now.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
 
   const tiles = [
     { label: "Uncovered", n: s.gap, tone: "red" },
-    { label: "In progress", n: s.inprogress, tone: "green" },
+    { label: "On site now", n: onSite, tone: "green" },
+    { label: "No clock-in", n: noClockIn, tone: noClockIn ? "red" : "grey" },
     { label: "Due / en route", n: s.enroute, tone: "blue" },
     { label: "Upcoming", n: s.upcoming, tone: "grey" },
-    { label: "Completed", n: s.done, tone: "grey" },
     { label: "Suspended", n: s.suspended, tone: "amber" },
   ];
 
@@ -75,44 +102,26 @@ export default async function LiveMonitorPage() {
           </>
         )}
 
-        <div className="section-title">Today&apos;s visits</div>
-        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th style={{ width: 70 }}>Time</th>
-                <th>Client</th>
-                <th>Visit</th>
-                <th>Carer</th>
-                <th>Area</th>
-                <th style={{ width: 150 }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visits.map((v, i) => (
-                <tr key={i}>
-                  <td>
-                    <span className="code">{v.time}</span>
-                  </td>
-                  <td>
-                    <Link href={`/clients/${v.clientId}`} style={{ fontWeight: 600 }}>
-                      {v.maskedName}
-                    </Link>
-                    <div className="code" style={{ display: "inline-block", marginLeft: 6 }}>
-                      {v.su}
-                    </div>
-                  </td>
-                  <td className="muted">{v.type}</td>
-                  <td className="muted">{v.carer}</td>
-                  <td className="muted">{v.area}</td>
-                  <td>
-                    <span className={`pill tone-${v.tone}`}>{v.statusLabel}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="section-title">Live calls · planned vs actual</div>
+        <div className="flex wrap" style={{ gap: 14, alignItems: "center", marginBottom: 10, fontSize: 11.5 }}>
+          <span className="flex" style={{ gap: 6, alignItems: "center" }}>
+            <span style={{ width: 22, height: 8, borderRadius: 4, border: "1px dashed var(--grey-fg)", display: "inline-block" }} />
+            <span className="muted">Planned window</span>
+          </span>
+          <span className="flex" style={{ gap: 6, alignItems: "center" }}>
+            <span style={{ width: 22, height: 12, borderRadius: 4, background: "var(--green-fg)", display: "inline-block" }} />
+            <span className="muted">Actual clock-in → out</span>
+          </span>
+          <span className="flex" style={{ gap: 6, alignItems: "center" }}>
+            <span style={{ width: 2, height: 14, background: "var(--red-fg)", display: "inline-block" }} />
+            <span className="muted">Now ({timeLabel})</span>
+          </span>
         </div>
+        <CallTimeline rows={calls} nowMin={nowMin} />
+        <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+          Each bar is zoomed to its own call. Actual times come from point-of-care check-in / check-out on the{" "}
+          <Link href="/ecm">call monitor</Link>. Diary notes are captured at check-out and show on the client and carer records.
+        </p>
 
         {todayCalls.length > 0 && (
           <>

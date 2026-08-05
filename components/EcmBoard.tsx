@@ -17,7 +17,7 @@ export type EcmRow = {
   endMin: number;
   unassigned: boolean;
   suspended: boolean;
-  event: { checkinAt: string | null; checkoutAt: string | null } | null;
+  event: { checkinAt: string | null; checkoutAt: string | null; note?: string } | null;
 };
 
 function fmtMin(mins: number) {
@@ -29,6 +29,7 @@ export default function EcmBoard({ rows, nowMin, canControl }: { rows: EcmRow[];
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const withState = rows.map((r) => ({
     r,
@@ -45,12 +46,13 @@ export default function EcmBoard({ rows, nowMin, canControl }: { rows: EcmRow[];
       const res = await fetch("/api/ecm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, clientId: row.clientId, schedTime: row.time, carer: row.carer }),
+        body: JSON.stringify({ action, clientId: row.clientId, schedTime: row.time, carer: row.carer, note: action === "checkout" ? (notes[key] ?? "") : undefined }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Could not save");
       }
+      if (action === "checkout") setNotes((n) => { const c = { ...n }; delete c[key]; return c; });
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save");
@@ -140,6 +142,22 @@ export default function EcmBoard({ rows, nowMin, canControl }: { rows: EcmRow[];
                     {r.event?.checkinAt ? (
                       <>in {hhmm(r.event.checkinAt)}{r.event.checkoutAt ? ` · out ${hhmm(r.event.checkoutAt)}` : ""}
                         {dm != null && <div style={{ fontSize: 11, color: "var(--green-fg)" }}>{fmtMin(dm)} delivered</div>}
+                        {state === "onsite" && canControl && (
+                          <textarea
+                            className="input"
+                            rows={2}
+                            placeholder="Visit diary note (optional) — how the visit went…"
+                            style={{ marginTop: 6, fontSize: 12, resize: "vertical", minWidth: 180 }}
+                            value={notes[`${r.clientId}|${r.time}`] ?? ""}
+                            onChange={(e) => setNotes((n) => ({ ...n, [`${r.clientId}|${r.time}`]: e.target.value }))}
+                          />
+                        )}
+                        {r.event.note && state === "completed" && (
+                          <div style={{ marginTop: 5, fontSize: 12, color: "var(--text)", display: "flex", gap: 5 }}>
+                            <span className="ms" style={{ fontSize: 14, color: "var(--blue-fg)" }} aria-hidden="true">sticky_note_2</span>
+                            <span>{r.event.note}</span>
+                          </div>
+                        )}
                       </>
                     ) : "—"}
                   </td>
