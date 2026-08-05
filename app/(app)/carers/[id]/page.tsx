@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, listCarerCompliance, listCarerDocs, carerActivity, type Role } from "@/lib/db";
+import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, listCarerCompliance, listCarerDocs, carerActivity, visitEventsForDates, type Role } from "@/lib/db";
 import { maskName } from "@/lib/crm";
 import { CARER_DIRECTORY, carerAvailability } from "@/lib/carers";
-import { carerWeek, unassignedCalls } from "@/lib/schedule";
+import { carerWeek, unassignedCalls, weekDates } from "@/lib/schedule";
 import { summariseCompliance } from "@/lib/compliance";
 import CarerWeek from "@/components/CarerWeek";
 import CarerCompliance from "@/components/CarerCompliance";
@@ -25,6 +25,17 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
   const clientLabel = Object.fromEntries(clients.map((c) => [c.id, `${maskName(c.name)} · ${c.su}`]));
   const activity = await carerActivity(carer.name, clientLabel);
   const week = carerWeek(clients, carer.name, cover);
+
+  // This carer's actual check-in/out for each call this week, keyed
+  // clientId|weekday|time, so their working-week table can show planned vs actual.
+  const wdates = weekDates(new Date());
+  const dateToWeekday = Object.fromEntries(Object.entries(wdates).map(([wd, d]) => [d, wd]));
+  const weekEvents = await visitEventsForDates(Object.values(wdates));
+  const weekActuals: Record<string, { in: string | null; out: string | null }> = {};
+  for (const ev of weekEvents) {
+    const wd = dateToWeekday[ev.service_date];
+    if (wd) weekActuals[`${ev.client_id}|${wd}|${ev.sched_time}`] = { in: ev.checkin_at, out: ev.checkout_at };
+  }
   const canEditCompliance = [...WORKFORCE_ROLES, ...OVERSIGHT_ROLES].includes(session!.user.role as Role);
   const complianceSummary = summariseCompliance(
     complianceRows.map((r) => ({ itemKey: r.item_key, held: true, expiry: r.expiry })),
@@ -122,7 +133,7 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
         <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 12, maxWidth: "70ch" }}>
           {carer.name}&apos;s Schedule of Service across every client (base plan with this week&apos;s cover applied). Client names are masked.
         </p>
-        <CarerWeek week={week} availability={availability} assign={{ carerName: carer.name, candidates: openCalls, isApprover }} />
+        <CarerWeek week={week} availability={availability} actuals={weekActuals} assign={{ carerName: carer.name, candidates: openCalls, isApprover }} />
 
         {/* activity log — clock-ins/outs, visit diary notes, cover picked up, system actions */}
         <h2 style={{ fontSize: 16, marginBottom: 4, marginTop: 24 }}>Activity log</h2>

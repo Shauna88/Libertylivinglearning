@@ -447,3 +447,20 @@ export function nowParts(d: Date): { weekday: string; nowMin: number } {
   const weekday = d.toLocaleDateString("en-IE", { weekday: "long" });
   return { weekday, nowMin: d.getHours() * 60 + d.getMinutes() };
 }
+
+/**
+ * The Europe/Dublin calendar date (YYYY-MM-DD) for each weekday of the week
+ * containing `now` (Monday-first). Lets a recurring weekly schedule be matched
+ * to the dated check-in/out records (visit_events) for the current week.
+ */
+export function weekDates(now: Date): Record<string, string> {
+  const dublinDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+  const dublinWeekday = (d: Date) => d.toLocaleDateString("en-IE", { timeZone: "Europe/Dublin", weekday: "long" });
+  const todayIdx = Math.max(0, WEEK_ORDER.indexOf(dublinWeekday(now)));
+  const out: Record<string, string> = {};
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getTime() + (i - todayIdx) * 86_400_000);
+    out[WEEK_ORDER[i]] = dublinDate(d);
+  }
+  return out;
+}

@@ -67,17 +67,36 @@ function dayAvailability(day: CarerDay, windows: AvailWindow[]): {
   return { busy, gaps: usable, freeMin: usable.reduce((n, g) => n + (g.end - g.start), 0), windows, availMin };
 }
 
+/** hh:mm (Europe/Dublin) from an ISO timestamp. */
+function hhmm(iso: string | null) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Dublin", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+/** Small planned-vs-actual line: the carer's real clock-in/out for a call. */
+function Actual({ a }: { a?: { in: string | null; out: string | null } }) {
+  if (!a || (!a.in && !a.out)) return null;
+  return (
+    <div style={{ fontSize: 10.5, color: "var(--green-fg)", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+      <span className="ms" style={{ fontSize: 12 }}>{a.out ? "logout" : "login"}</span>
+      {a.in ? `in ${hhmm(a.in)}` : "—"}{a.out ? ` · out ${hhmm(a.out)}` : a.in ? " · on site" : ""}
+    </div>
+  );
+}
+
 export default function CarerWeek({
   week,
   availability = {},
+  actuals = {},
   assign,
 }: {
   week: CarerDay[];
   availability?: Record<string, AvailWindow[]>;
+  actuals?: Record<string, { in: string | null; out: string | null }>;
   assign?: { carerName: string; candidates: UnassignedCall[]; isApprover?: boolean };
 }) {
   const router = useRouter();
-  const [view, setView] = useState<"cards" | "table" | "avail">("cards");
+  const [view, setView] = useState<"cards" | "table" | "avail">(Object.keys(actuals).length > 0 ? "table" : "cards");
   const [pending, setPending] = useState<UnassignedCall | null>(null);
   const [permOpen, setPermOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -257,6 +276,7 @@ export default function CarerWeek({
                         <div style={{ fontWeight: 600, fontSize: 11.5 }}>{v.type}</div>
                         <div style={{ fontSize: 11, color: "var(--text-2)" }}>{v.su} · {v.area}</div>
                         {v.cover && <span className="pill tone-amber" style={{ fontSize: 10, marginTop: 2 }}>cover</span>}
+                        <Actual a={actuals[`${v.clientId}|${day}|${t}`]} />
                       </td>
                     );
                   })}
@@ -292,6 +312,7 @@ export default function CarerWeek({
                           <span className="ms" style={{ fontSize: 13, verticalAlign: "middle" }}>person</span> {v.maskedName} · <span className="code">{v.su}</span> · {v.area}
                         </div>
                         {v.tasks.length > 0 && <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>{v.tasks.join(" · ")}</div>}
+                        <Actual a={actuals[`${v.clientId}|${day}|${v.time}`]} />
                       </div>
                     ))}
                   </div>

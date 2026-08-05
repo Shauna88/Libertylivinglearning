@@ -91,12 +91,13 @@ export default function CallTimeline({ rows, nowMin }: { rows: CallRow[]; nowMin
               <tr key={`${r.clientId}|${r.time}`}>
                 <td><span className="code">{r.time}</span></td>
                 <td>
-                  <Link href={`/clients/${r.clientId}`} style={{ fontWeight: 600 }}>{r.maskedName}</Link>
+                  <Link href={`/clients/${r.clientId}?tab=schedule`} style={{ fontWeight: 600 }}>{r.maskedName}</Link>
                   <div className="code" style={{ display: "inline-block", marginLeft: 6 }}>{r.su}</div>
                   <div className="muted" style={{ fontSize: 11 }}>{r.type} · {r.area}</div>
                 </td>
                 <td className="muted">{r.unassigned ? <span className="pill tone-red" style={{ fontSize: 10.5 }}>Unassigned</span> : r.carer}</td>
                 <td>
+                  <Link href={`/clients/${r.clientId}?tab=schedule`} title="Open this client's weekly roster with actual clock-ins" style={{ display: "block", color: "inherit" }}>
                   <div className="ctl-track">
                     <div className="ctl-plan" style={{ left: `${pct(pStart)}%`, width: `${Math.max(2, pct(pEnd) - pct(pStart))}%` }} />
                     {aIn != null && aOut != null && (
@@ -115,6 +116,7 @@ export default function CallTimeline({ rows, nowMin }: { rows: CallRow[]; nowMin
                         : "No clock-in yet"}
                     </span>
                   </div>
+                  </Link>
                 </td>
                 <td><span className={`pill tone-${v.tone}`} style={{ fontSize: 11 }}>{v.text}</span></td>
                 <td><span className={`pill tone-${r.tone}`}>{r.stateLabel}</span></td>
