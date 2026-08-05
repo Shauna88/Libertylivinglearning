@@ -16,6 +16,23 @@ function isUn(c: string) {
   return !c || /unassigned|to be allocated|^tbc$/i.test(c.trim());
 }
 
+/** hh:mm (Europe/Dublin) from an ISO timestamp. */
+function hhmm(iso: string | null) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Dublin", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+/** Small planned-vs-actual line: the real clock-in/out for a scheduled call. */
+function Actual({ a }: { a?: { in: string | null; out: string | null } }) {
+  if (!a || (!a.in && !a.out)) return null;
+  return (
+    <div style={{ fontSize: 10.5, color: "var(--green-fg)", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+      <span className="ms" style={{ fontSize: 12 }}>{a.out ? "logout" : "login"}</span>
+      {a.in ? `in ${hhmm(a.in)}` : "—"}{a.out ? ` · out ${hhmm(a.out)}` : a.in ? " · on site" : ""}
+    </div>
+  );
+}
+
 export default function ScheduleWeek({
   clientId,
   schedule,
@@ -26,6 +43,7 @@ export default function ScheduleWeek({
   isApprover,
   suggestions = [],
   slotSuggest = {},
+  actuals = {},
 }: {
   clientId: string;
   schedule: ScheduleDay[];
@@ -36,9 +54,11 @@ export default function ScheduleWeek({
   isApprover: boolean;
   suggestions?: CarerMatch[];
   slotSuggest?: Record<string, FreeCarer[]>;
+  actuals?: Record<string, { in: string | null; out: string | null }>;
 }) {
   const router = useRouter();
-  const [view, setView] = useState<"cards" | "table">("cards");
+  // Default to the table when there are actual clock-ins to show this week.
+  const [view, setView] = useState<"cards" | "table">(Object.keys(actuals).length > 0 ? "table" : "cards");
   const [showMatch, setShowMatch] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -171,6 +191,7 @@ export default function ScheduleWeek({
                         <div style={{ fontSize: 11, color: st.unassigned ? "var(--red-fg)" : "var(--text-2)" }}>
                           {st.unassigned ? "Unassigned" : st.effective}{st.overridden && !st.unassigned ? " (cover)" : ""}
                         </div>
+                        <Actual a={actuals[`${day}|${t}`]} />
                       </td>
                     );
                   })}
@@ -208,6 +229,7 @@ export default function ScheduleWeek({
                           {st.overridden && !st.unassigned && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>This week only · base {st.base}</div>}
                           {st.unassigned && st.reason && <div style={{ fontSize: 11.5, color: "var(--red-fg)", marginTop: 2 }}><span className="ms" style={{ fontSize: 13, verticalAlign: "middle" }}>info</span> {st.reason}</div>}
                           {v.tasks.length > 0 && <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>{v.tasks.join(" · ")}</div>}
+                          <Actual a={actuals[`${day}|${v.time}`]} />
 
                           {/* free & nearby carers to fill an unassigned call */}
                           {st.unassigned && !st.pend && (slotSuggest[st.key]?.length ?? 0) > 0 && (

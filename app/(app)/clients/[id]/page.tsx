@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClientAssessments, clientActivity, listClients, listPermReqs, coverMap, coverReasons, carerDirectory, type Role } from "@/lib/db";
-import { carerPool, carerBusyMap, freeNearbyCarers, type FreeCarer } from "@/lib/schedule";
+import { CRM_ROLES, OVERSIGHT_ROLES, getClient, listCareNotes, listClientDocs, listClientAssessments, clientActivity, listClients, listPermReqs, coverMap, coverReasons, carerDirectory, visitEventsForDates, type Role } from "@/lib/db";
+import { carerPool, carerBusyMap, freeNearbyCarers, weekDates, type FreeCarer } from "@/lib/schedule";
 import { suggestCarers } from "@/lib/carers";
 import { isUnassignedCarer } from "@/lib/schedule";
 import {
@@ -70,6 +70,18 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     }
   }
 
+  // Actual check-in/out for this client's calls this week, keyed weekday|time,
+  // so the Schedule table can show planned-vs-actual against the recurring plan.
+  const wdates = weekDates(new Date());
+  const dateToWeekday = Object.fromEntries(Object.entries(wdates).map(([wd, d]) => [d, wd]));
+  const weekEvents = await visitEventsForDates(Object.values(wdates));
+  const scheduleActuals: Record<string, { in: string | null; out: string | null }> = {};
+  for (const ev of weekEvents) {
+    if (ev.client_id !== id) continue;
+    const wd = dateToWeekday[ev.service_date];
+    if (wd) scheduleActuals[`${wd}|${ev.sched_time}`] = { in: ev.checkin_at, out: ev.checkout_at };
+  }
+
   // Mask every identifiable field before it reaches the browser; the PII gate
   // reveals the real values through /api/pii/reveal (which logs the access).
   const masked: Client = {
@@ -105,7 +117,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </p>
       </header>
       <div className="body">
-        <ClientProfile client={masked} notes={notes} docs={docs} assessments={assessments} activity={activity} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} reviewsOverdue={reviewsOverdue} editable />
+        <ClientProfile client={masked} notes={notes} docs={docs} assessments={assessments} activity={activity} carers={carers} pending={pending} cover={clientCover} reasons={clientReasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} reviewsOverdue={reviewsOverdue} scheduleActuals={scheduleActuals} editable />
       </div>
     </>
   );

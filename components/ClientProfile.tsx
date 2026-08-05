@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import PiiRevealButton from "@/components/PiiRevealButton";
 import ScheduleEditor from "@/components/ScheduleEditor";
 import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
@@ -56,6 +56,7 @@ export default function ClientProfile({
   suggestions = [],
   slotSuggest = {},
   reviewsOverdue = 0,
+  scheduleActuals = {},
 }: {
   client: Client;
   notes?: CareNote[];
@@ -71,6 +72,7 @@ export default function ClientProfile({
   suggestions?: CarerMatch[];
   slotSuggest?: Record<string, FreeCarer[]>;
   reviewsOverdue?: number;
+  scheduleActuals?: Record<string, { in: string | null; out: string | null }>;
 }) {
   // `client` arrives with identifiers masked. Revealing swaps in the real values.
   const [identity, setIdentity] = useState<RevealedIdentity | null>(null);
@@ -79,7 +81,10 @@ export default function ClientProfile({
 
   const router = useRouter();
   const toast = useToast();
-  const [tab, setTab] = useState<TabKey>("overview");
+  const searchParams = useSearchParams();
+  const TAB_KEYS: TabKey[] = ["overview", "careplan", "schedule", "assessments", "notes", "documents", "activity"];
+  const requestedTab = searchParams.get("tab") as TabKey | null;
+  const [tab, setTab] = useState<TabKey>(requestedTab && TAB_KEYS.includes(requestedTab) ? requestedTab : "overview");
   const [busy, setBusy] = useState(false);
   const [taskDraft, setTaskDraft] = useState<Record<string, string>>({});
   const [noteCat, setNoteCat] = useState(CARE_NOTE_CATEGORIES[0].key);
@@ -436,7 +441,7 @@ export default function ClientProfile({
                   No Schedule of Service set up yet. A CSM needs to enter this client&apos;s original weekly schedule before calls can be rostered.
                 </div>
               )}
-              <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} />
+              <ScheduleWeek clientId={client.id} schedule={client.schedule} carers={carers} pending={pending} cover={cover} reasons={reasons} isApprover={isApprover} suggestions={suggestions} slotSuggest={slotSuggest} actuals={scheduleActuals} />
               {isApprover && (
                 <details className="card" style={{ marginTop: 12 }} open={scheduleIsNew}>
                   <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>

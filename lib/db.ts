@@ -2058,6 +2058,12 @@ export async function visitEventMap(serviceDate: string): Promise<Record<string,
   return m;
 }
 
+/** All check-in/out records across a set of service dates (e.g. one week). */
+export async function visitEventsForDates(dates: string[]): Promise<VisitEventRow[]> {
+  if (dates.length === 0) return [];
+  return q<VisitEventRow>("SELECT * FROM visit_events WHERE service_date = ANY($1)", [dates]);
+}
+
 /** Record a point-of-care check-in for a call (idempotent per call/date). */
 export async function checkInVisit(input: {
   clientId: string; serviceDate: string; schedTime: string; carer: string; by: string;
