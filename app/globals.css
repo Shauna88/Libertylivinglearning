@@ -1912,3 +1912,10 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 @media (max-width: 960px) {
   .rail-toggle { display: none; }
 }
+
+/* ---- AI care-plan reader ---- */
+.cp-open{margin-bottom:16px}
+.cp-review{display:flex;flex-direction:column;gap:10px}
+.cp-block{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+.cp-block-t{font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--text-2);margin-bottom:6px}
+.cp-kv{display:flex;flex-direction:column;gap:2px;font-size:12.5px}
