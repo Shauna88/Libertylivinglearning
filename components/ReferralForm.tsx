@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CarePlanReader from "@/components/CarePlanReader";
+import type { CarePlanExtract } from "@/lib/careplan";
 
 const FUNDING = ["HSE HSAS", "HSE Home Support", "Private", "Other"];
 const SEX = ["", "Female", "Male", "Other / prefer not to say"];
@@ -39,6 +41,44 @@ export default function ReferralForm({ areas, coordinators }: { areas: string[];
   const [f, setF] = useState<F>({ funding: "HSE HSAS" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [aiMsg, setAiMsg] = useState("");
+
+  // Pre-fill the form from an AI-read care-delivery form. Only overwrite a field
+  // when the reader found a value, so it never clears something already typed.
+  function applyExtract(x: CarePlanExtract) {
+    const p = x.profile;
+    setF((s) => ({
+      ...s,
+      firstName: p.firstName || s.firstName,
+      surname: p.surname || s.surname,
+      pref: p.pref || s.pref,
+      dob: p.dob || s.dob,
+      sex: p.sex || s.sex,
+      phone: p.phone || s.phone,
+      mobile: p.mobile || s.mobile,
+      eircode: p.eircode || s.eircode,
+      addr: p.addr || s.addr,
+      area: p.area || s.area,
+      conditions: x.clinical.conditions.length ? x.clinical.conditions.join(", ") : s.conditions,
+      mobility: x.clinical.mobility || s.mobility,
+      allergies: x.clinical.allergies || s.allergies,
+      gpName: x.gp.name || s.gpName,
+      gpPractice: x.gp.practice || s.gpPractice,
+      gpPhone: x.gp.phone || s.gpPhone,
+      nokName: x.nok[0]?.name || s.nokName,
+      nokRel: x.nok[0]?.rel || s.nokRel,
+      nokPhone: x.nok[0]?.phone || s.nokPhone,
+      keysafe: x.access.keysafe || s.keysafe,
+      access: x.access.access || s.access,
+    }));
+    const sched = x.schedule.reduce((n, d) => n + d.visits.length, 0);
+    setAiMsg(
+      `Form filled from the care plan. Review every field before saving.` +
+        (sched > 0 || x.carePlan.length > 0
+          ? ` The ${x.carePlan.length} care domain(s) and ${sched} visit(s) it found are built into the Schedule of Service on the client's record after you create the referral.`
+          : "")
+    );
+  }
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setF((s) => ({ ...s, [k]: e.target.value }));
   const tf = (label: string, k: string, opts: { type?: string; req?: boolean; list?: string; placeholder?: string } = {}) => (
@@ -71,6 +111,14 @@ export default function ReferralForm({ areas, coordinators }: { areas: string[];
   return (
     <form className="fade" onSubmit={submit}>
       {err && <div className="card" style={{ borderColor: "var(--red-fg)", color: "var(--red-fg)", marginBottom: 12 }}>{err}</div>}
+
+      <CarePlanReader onApply={applyExtract} applyLabel="Fill the form" context="new referral" />
+      {aiMsg && (
+        <div className="card" style={{ borderColor: "var(--accent)", background: "var(--accent-bg, var(--bg-2))", marginBottom: 12, fontSize: 12.5, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <span className="ms" style={{ color: "var(--accent)" }} aria-hidden="true">auto_awesome</span>
+          <span>{aiMsg}</span>
+        </div>
+      )}
 
       <datalist id="areas">{areas.map((a) => <option key={a} value={a} />)}</datalist>
       <datalist id="coordinators">{coordinators.map((c) => <option key={c} value={c} />)}</datalist>

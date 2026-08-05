@@ -468,6 +468,8 @@ async function createSchema(client: PoolClient) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (client_id, service_date, sched_time)
     );
+    -- Diary note the carer logs at check-out ("how the visit went").
+    ALTER TABLE visit_events ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS time_off_requests (
       id SERIAL PRIMARY KEY,
@@ -1952,8 +1954,8 @@ export async function clientActivity(clientId: string, limit = 60): Promise<Acti
       "SELECT name,status,added_by,created_at FROM client_documents WHERE client_id=$1 ORDER BY created_at DESC LIMIT 20", [clientId]),
     q<{ item_key: string; review_due: string | null; updated_by: string; updated_at: string }>(
       "SELECT item_key,review_due,updated_by,updated_at FROM client_assessments WHERE client_id=$1 AND updated_by <> 'Seed' ORDER BY updated_at DESC LIMIT 20", [clientId]),
-    q<{ sched_time: string; carer: string; checkin_at: string | null; checkout_at: string | null; by_name: string }>(
-      "SELECT sched_time,carer,checkin_at,checkout_at,by_name FROM visit_events WHERE client_id=$1 ORDER BY updated_at DESC LIMIT 20", [clientId]),
+    q<{ sched_time: string; carer: string; checkin_at: string | null; checkout_at: string | null; note: string; by_name: string }>(
+      "SELECT sched_time,carer,checkin_at,checkout_at,note,by_name FROM visit_events WHERE client_id=$1 ORDER BY updated_at DESC LIMIT 20", [clientId]),
     q<{ user_name: string; scope: string; reason: string; created_at: string }>(
       "SELECT user_name,scope,reason,created_at FROM pii_access_log WHERE client_id=$1 ORDER BY created_at DESC LIMIT 15", [clientId]),
   ]);
@@ -1968,8 +1970,46 @@ export async function clientActivity(clientId: string, limit = 60): Promise<Acti
   for (const v of visits) {
     if (v.checkout_at) out.push({ at: iso(v.checkout_at), kind: "ecm", icon: "task_alt", tone: "green", title: `Checked out · ${v.sched_time}`, detail: `${v.carer || "Carer"} completed the call`, by: v.by_name });
     else if (v.checkin_at) out.push({ at: iso(v.checkin_at), kind: "ecm", icon: "how_to_reg", tone: "green", title: `Checked in · ${v.sched_time}`, detail: `${v.carer || "Carer"} on site`, by: v.by_name });
+    if (v.note) out.push({ at: iso(v.checkout_at ?? v.checkin_at), kind: "diary", icon: "sticky_note_2", tone: "blue", title: `Visit diary · ${v.sched_time}`, detail: v.note, by: v.carer || "Carer" });
   }
   for (const r of reveals) out.push({ at: iso(r.created_at), kind: "pii", icon: "lock_open", tone: "amber", title: "Identifiable details revealed", detail: r.reason, by: r.user_name });
+
+  out.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  return out.slice(0, limit);
+}
+
+/**
+ * One chronological feed of a carer's own activity — their call clock-ins and
+ * clock-outs, the visit diary notes they log, cover they pick up, and any actions
+ * the system attributes to them — newest first. `clientLabel` maps a client id to
+ * a display label (masked) so the feed never exposes identifiable client names.
+ */
+export async function carerActivity(
+  carerName: string,
+  clientLabel: Record<string, string> = {},
+  limit = 80
+): Promise<ActivityEvent[]> {
+  const name = carerName.trim();
+  if (!name) return [];
+  const like = `%${name}%`;
+  const [visits, covers, audits] = await Promise.all([
+    q<{ client_id: string; sched_time: string; checkin_at: string | null; checkout_at: string | null; note: string; by_name: string; updated_at: string }>(
+      "SELECT client_id,sched_time,checkin_at,checkout_at,note,by_name,updated_at FROM visit_events WHERE carer ILIKE $1 ORDER BY updated_at DESC LIMIT 60", [like]),
+    q<{ client_id: string; day: string; time: string; carer: string; reason: string | null; assigned_by: string; created_at: string }>(
+      "SELECT client_id,day,time,carer,reason,assigned_by,created_at FROM cover_assignments WHERE carer ILIKE $1 ORDER BY created_at DESC LIMIT 30", [like]),
+    q<{ action: string; target: string; detail: string; created_at: string }>(
+      "SELECT action,target,detail,created_at FROM audit_log WHERE actor_name=$1 ORDER BY created_at DESC LIMIT 30", [name]),
+  ]);
+  const label = (id: string) => clientLabel[id] || id;
+
+  const out: ActivityEvent[] = [];
+  for (const v of visits) {
+    if (v.checkin_at) out.push({ at: iso(v.checkin_at), kind: "ecm", icon: "login", tone: "green", title: `Clocked in · ${v.sched_time}`, detail: `${label(v.client_id)}`, by: v.by_name });
+    if (v.checkout_at) out.push({ at: iso(v.checkout_at), kind: "ecm", icon: "logout", tone: "grey", title: `Clocked out · ${v.sched_time}`, detail: `${label(v.client_id)} — call completed`, by: v.by_name });
+    if (v.note) out.push({ at: iso(v.checkout_at ?? v.checkin_at ?? v.updated_at), kind: "diary", icon: "sticky_note_2", tone: "blue", title: `Visit diary · ${v.sched_time}`, detail: v.note, by: name });
+  }
+  for (const c of covers) out.push({ at: iso(c.created_at), kind: "cover", icon: "published_with_changes", tone: "blue", title: `Picked up cover · ${c.day} ${c.time}`, detail: `${label(c.client_id)}${c.reason ? ` — ${c.reason}` : ""}`, by: c.assigned_by });
+  for (const a of audits) out.push({ at: iso(a.created_at), kind: "system", icon: a.action === "auth.login" ? "vpn_key" : "history", tone: "grey", title: a.action === "auth.login" ? "Signed in" : a.action.replace(/[._]/g, " "), detail: a.action === "auth.login" ? "Signed in to the app" : (a.detail || a.target), by: name });
 
   out.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   return out.slice(0, limit);
@@ -1984,6 +2024,7 @@ export type VisitEventRow = {
   carer: string;
   checkin_at: string | null;
   checkout_at: string | null;
+  note: string;
   by_name: string;
   updated_at: string;
 };
@@ -2010,18 +2051,20 @@ export async function checkInVisit(input: {
   await logAudit({ actorName: input.by, action: "ecm.checkin", target: `${input.clientId}@${input.schedTime}`, detail: input.serviceDate });
 }
 
-/** Record check-out (completes the call). */
+/** Record check-out (completes the call), with an optional visit diary note. */
 export async function checkOutVisit(input: {
-  clientId: string; serviceDate: string; schedTime: string; by: string;
+  clientId: string; serviceDate: string; schedTime: string; by: string; note?: string;
 }): Promise<void> {
+  const note = (input.note ?? "").trim().slice(0, 2000);
   await q(
-    `INSERT INTO visit_events (client_id,service_date,sched_time,checkin_at,checkout_at,by_name,updated_at)
-     VALUES ($1,$2,$3,now(),now(),$4,now())
+    `INSERT INTO visit_events (client_id,service_date,sched_time,checkin_at,checkout_at,note,by_name,updated_at)
+     VALUES ($1,$2,$3,now(),now(),$5,$4,now())
      ON CONFLICT (client_id,service_date,sched_time)
-       DO UPDATE SET checkin_at=COALESCE(visit_events.checkin_at, now()), checkout_at=now(), by_name=excluded.by_name, updated_at=now()`,
-    [input.clientId, input.serviceDate, input.schedTime, input.by]
+       DO UPDATE SET checkin_at=COALESCE(visit_events.checkin_at, now()), checkout_at=now(),
+         note=CASE WHEN $5 <> '' THEN $5 ELSE visit_events.note END, by_name=excluded.by_name, updated_at=now()`,
+    [input.clientId, input.serviceDate, input.schedTime, input.by, note]
   );
-  await logAudit({ actorName: input.by, action: "ecm.checkout", target: `${input.clientId}@${input.schedTime}`, detail: input.serviceDate });
+  await logAudit({ actorName: input.by, action: "ecm.checkout", target: `${input.clientId}@${input.schedTime}`, detail: note ? `${input.serviceDate} · diary note recorded` : input.serviceDate });
 }
 
 /** Clear a check-in/out record (undo). */

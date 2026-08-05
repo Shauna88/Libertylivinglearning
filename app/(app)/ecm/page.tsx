@@ -35,7 +35,7 @@ export default async function EcmPage() {
       endMin: v.startMin + v.durMin,
       unassigned: v.status === "gap",
       suspended: v.status === "suspended",
-      event: ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at } : null,
+      event: ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at, note: ev.note } : null,
     };
   });
 
