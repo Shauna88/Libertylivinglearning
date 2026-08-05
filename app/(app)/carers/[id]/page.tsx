@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, listCarerCompliance, carerActivity, type Role } from "@/lib/db";
+import { CRM_ROLES, WORKFORCE_ROLES, OVERSIGHT_ROLES, getCarer, listClients, coverMap, listCarerCompliance, listCarerDocs, carerActivity, type Role } from "@/lib/db";
 import { maskName } from "@/lib/crm";
 import { CARER_DIRECTORY, carerAvailability } from "@/lib/carers";
 import { carerWeek, unassignedCalls } from "@/lib/schedule";
 import { summariseCompliance } from "@/lib/compliance";
 import CarerWeek from "@/components/CarerWeek";
 import CarerCompliance from "@/components/CarerCompliance";
+import CarerDocuments from "@/components/CarerDocuments";
 import CarerTimeline from "@/components/CarerTimeline";
 
 const CAN_VIEW: Role[] = [...new Set([...CRM_ROLES, ...WORKFORCE_ROLES])] as Role[];
@@ -20,7 +21,7 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
   const carer = await getCarer(id);
   if (!carer) notFound();
 
-  const [clients, cover, complianceRows] = await Promise.all([listClients(), coverMap(), listCarerCompliance(id)]);
+  const [clients, cover, complianceRows, carerDocs] = await Promise.all([listClients(), coverMap(), listCarerCompliance(id), listCarerDocs(id)]);
   const clientLabel = Object.fromEntries(clients.map((c) => [c.id, `${maskName(c.name)} · ${c.su}`]));
   const activity = await carerActivity(carer.name, clientLabel);
   const week = carerWeek(clients, carer.name, cover);
@@ -107,6 +108,14 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
           records={complianceRows.map((r) => ({ itemKey: r.item_key, expiry: r.expiry }))}
           canEdit={canEditCompliance}
         />
+
+        {/* documents — PDFs on the carer's file (contracts, vetting, certs, references) */}
+        <h2 style={{ fontSize: 16, marginBottom: 4, marginTop: 24 }}>Documents</h2>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 12, maxWidth: "70ch" }}>
+          PDFs on {carer.name}&apos;s file — contracts, Garda vetting, training certificates and references.
+        </p>
+        <CarerDocuments carerId={carer.id} docs={carerDocs} editable />
+
 
         {/* their working week */}
         <h2 style={{ fontSize: 16, marginBottom: 4 }}>Working week</h2>

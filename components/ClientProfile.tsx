@@ -15,7 +15,12 @@ import { isUnassignedCarer, type FreeCarer } from "@/lib/schedule";
 import { CARE_NOTE_CATEGORIES, DOC_STATUS, statusMeta, type Client, type NextOfKin, type RevealedIdentity } from "@/lib/crm";
 
 export type CareNote = { id: number; category: string; tone: string; note: string; author: string; created_at: string };
-export type ClientDoc = { id: number; name: string; status: string; expiry: string | null; added_by: string };
+export type ClientDoc = { id: number; name: string; status: string; expiry: string | null; added_by: string; has_file?: boolean; orig_name?: string | null; size_bytes?: number | null };
+
+function fmtSize(n?: number | null) {
+  if (!n) return "";
+  return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1000))} KB`;
+}
 
 type TabKey = "overview" | "careplan" | "schedule" | "assessments" | "notes" | "documents" | "activity";
 
@@ -82,6 +87,35 @@ export default function ClientProfile({
   const [docName, setDocName] = useState("");
   const [docStatus, setDocStatus] = useState("on_file");
   const [docExpiry, setDocExpiry] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [fileKey, setFileKey] = useState(0);
+
+  async function saveDoc() {
+    if (docFile) {
+      setUploading(true);
+      try {
+        const fd = new FormData();
+        fd.append("file", docFile);
+        fd.append("name", docName.trim() || docFile.name.replace(/\.pdf$/i, ""));
+        fd.append("status", docStatus);
+        if (docExpiry) fd.append("expiry", docExpiry);
+        const res = await fetch(`/api/clients/${client.id}/documents`, { method: "POST", body: fd });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) { toast(j.error || "Upload failed", "error"); return; }
+        toast("Document uploaded");
+        setDocName(""); setDocExpiry(""); setDocFile(null); setFileKey((k) => k + 1);
+        router.refresh();
+      } catch {
+        toast("Upload failed — please try again", "error");
+      } finally {
+        setUploading(false);
+      }
+    } else {
+      act({ action: "add_doc", name: docName.trim(), status: docStatus, expiry: docExpiry || null }, "Document added");
+      setDocName(""); setDocExpiry("");
+    }
+  }
 
   async function act(body: Record<string, unknown>, msg?: string) {
     setBusy(true);
@@ -522,15 +556,34 @@ export default function ClientProfile({
                 <input className="input" type="date" style={{ maxWidth: 160 }} value={docExpiry} onChange={(e) => setDocExpiry(e.target.value)} title="Expiry (optional)" />
                 <button
                   className="mini primary"
-                  disabled={busy || docName.trim().length < 2}
-                  onClick={() => {
-                    act({ action: "add_doc", name: docName.trim(), status: docStatus, expiry: docExpiry || null }, "Document added");
-                    setDocName("");
-                    setDocExpiry("");
-                  }}
+                  disabled={busy || uploading || (docName.trim().length < 2 && !docFile)}
+                  onClick={saveDoc}
                 >
-                  Add document
+                  {uploading ? "Uploading…" : docFile ? "Upload PDF" : "Add document"}
                 </button>
+              </div>
+              <div className="flex" style={{ gap: 10, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <label className="mini" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span className="ms" style={{ fontSize: 16 }}>attach_file</span>
+                  {docFile ? "Change PDF" : "Attach a PDF"}
+                  <input
+                    key={fileKey}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {docFile ? (
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {docFile.name} · {fmtSize(docFile.size)}
+                    <button className="task-x" title="Remove file" style={{ marginLeft: 6, verticalAlign: "-3px" }} onClick={() => { setDocFile(null); setFileKey((k) => k + 1); }}>
+                      <span className="ms" style={{ fontSize: 14 }}>close</span>
+                    </button>
+                  </span>
+                ) : (
+                  <span className="muted" style={{ fontSize: 11.5 }}>PDF up to 4 MB. Leave the file empty to record a document reference only.</span>
+                )}
               </div>
             </div>
           )}
@@ -551,7 +604,14 @@ export default function ClientProfile({
                     const dm = DOC_STATUS[d.status] ?? { label: d.status, tone: "grey" };
                     return (
                       <tr key={d.id}>
-                        <td style={{ fontWeight: 600 }}>{d.name}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          {d.has_file ? (
+                            <a href={`/api/clients/${client.id}/documents/${d.id}`} target="_blank" rel="noopener" className="flex" style={{ gap: 5, alignItems: "center", color: "var(--accent)" }}>
+                              <span className="ms" style={{ fontSize: 16 }}>picture_as_pdf</span>{d.name}
+                              <span className="muted" style={{ fontWeight: 400, fontSize: 11 }}>{fmtSize(d.size_bytes)}</span>
+                            </a>
+                          ) : d.name}
+                        </td>
                         <td><span className={`pill tone-${dm.tone}`}>{dm.label}</span></td>
                         <td className="muted">{d.expiry ?? "—"}</td>
                         <td className="muted" style={{ fontSize: 12 }}>{d.added_by}</td>
