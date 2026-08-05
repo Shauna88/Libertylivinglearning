@@ -370,6 +370,27 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_client_docs_client ON client_documents(client_id);
+    -- Optional attached file (PDF), stored in-row. Legacy metadata-only rows keep NULLs.
+    ALTER TABLE client_documents ADD COLUMN IF NOT EXISTS file_data BYTEA;
+    ALTER TABLE client_documents ADD COLUMN IF NOT EXISTS mime TEXT;
+    ALTER TABLE client_documents ADD COLUMN IF NOT EXISTS size_bytes INTEGER;
+    ALTER TABLE client_documents ADD COLUMN IF NOT EXISTS orig_name TEXT;
+
+    -- Carer (HCA) documents — same shape as client_documents, with optional attached file.
+    CREATE TABLE IF NOT EXISTS carer_documents (
+      id SERIAL PRIMARY KEY,
+      carer_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'on_file',
+      expiry TEXT,
+      added_by TEXT NOT NULL,
+      file_data BYTEA,
+      mime TEXT,
+      size_bytes INTEGER,
+      orig_name TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_carer_docs_carer ON carer_documents(carer_id);
 
     CREATE TABLE IF NOT EXISTS permanent_change_requests (
       id SERIAL PRIMARY KEY,
@@ -2635,11 +2656,22 @@ export type ClientDocRow = {
   expiry: string | null;
   added_by: string;
   created_at: string;
+  mime: string | null;
+  size_bytes: number | null;
+  orig_name: string | null;
+  has_file: boolean;
 };
+
+// A stored document file for download. `file_data` is the raw bytes.
+export type DocFile = { name: string; mime: string; orig_name: string | null; file_data: Buffer };
+
+// Explicit columns (never SELECT * — that would drag the file bytea into list views).
+const CLIENT_DOC_COLS =
+  "id,client_id,name,status,expiry,added_by,created_at,mime,size_bytes,orig_name,(file_data IS NOT NULL) AS has_file";
 
 export async function listClientDocs(clientId: string): Promise<ClientDocRow[]> {
   return q<ClientDocRow>(
-    "SELECT * FROM client_documents WHERE client_id=$1 ORDER BY created_at DESC, id DESC",
+    `SELECT ${CLIENT_DOC_COLS} FROM client_documents WHERE client_id=$1 ORDER BY created_at DESC, id DESC`,
     [clientId]
   );
 }
@@ -2650,18 +2682,88 @@ export async function addClientDoc(input: {
   status: string;
   expiry: string | null;
   addedBy: string;
+  file?: { data: Buffer; mime: string; size: number; origName: string };
 }): Promise<ClientDocRow> {
+  const f = input.file;
   const rows = await q<ClientDocRow>(
-    "INSERT INTO client_documents (client_id,name,status,expiry,added_by) VALUES ($1,$2,$3,$4,$5) RETURNING *",
-    [input.clientId, input.name, input.status, input.expiry, input.addedBy]
+    `INSERT INTO client_documents (client_id,name,status,expiry,added_by,file_data,mime,size_bytes,orig_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${CLIENT_DOC_COLS}`,
+    [input.clientId, input.name, input.status, input.expiry, input.addedBy,
+     f?.data ?? null, f?.mime ?? null, f?.size ?? null, f?.origName ?? null]
   );
-  await logAudit({ actorName: input.addedBy, action: "clientdoc.add", target: input.clientId, detail: input.name });
+  await logAudit({ actorName: input.addedBy, action: "clientdoc.add", target: input.clientId, detail: f ? `${input.name} (file)` : input.name });
   return rows[0];
+}
+
+export async function getClientDocFile(id: number, clientId: string): Promise<DocFile | null> {
+  const rows = await q<DocFile>(
+    "SELECT name,mime,orig_name,file_data FROM client_documents WHERE id=$1 AND client_id=$2 AND file_data IS NOT NULL",
+    [id, clientId]
+  );
+  return rows[0] ?? null;
 }
 
 export async function deleteClientDoc(id: number, by: string): Promise<void> {
   await q("DELETE FROM client_documents WHERE id=$1", [id]);
   await logAudit({ actorName: by, action: "clientdoc.delete", target: `doc#${id}` });
+}
+
+// ---------------- Carer (HCA) documents ----------------
+
+export type CarerDocRow = {
+  id: number;
+  carer_id: string;
+  name: string;
+  status: string;
+  expiry: string | null;
+  added_by: string;
+  created_at: string;
+  mime: string | null;
+  size_bytes: number | null;
+  orig_name: string | null;
+  has_file: boolean;
+};
+
+const CARER_DOC_COLS =
+  "id,carer_id,name,status,expiry,added_by,created_at,mime,size_bytes,orig_name,(file_data IS NOT NULL) AS has_file";
+
+export async function listCarerDocs(carerId: string): Promise<CarerDocRow[]> {
+  return q<CarerDocRow>(
+    `SELECT ${CARER_DOC_COLS} FROM carer_documents WHERE carer_id=$1 ORDER BY created_at DESC, id DESC`,
+    [carerId]
+  );
+}
+
+export async function addCarerDoc(input: {
+  carerId: string;
+  name: string;
+  status: string;
+  expiry: string | null;
+  addedBy: string;
+  file?: { data: Buffer; mime: string; size: number; origName: string };
+}): Promise<CarerDocRow> {
+  const f = input.file;
+  const rows = await q<CarerDocRow>(
+    `INSERT INTO carer_documents (carer_id,name,status,expiry,added_by,file_data,mime,size_bytes,orig_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${CARER_DOC_COLS}`,
+    [input.carerId, input.name, input.status, input.expiry, input.addedBy,
+     f?.data ?? null, f?.mime ?? null, f?.size ?? null, f?.origName ?? null]
+  );
+  await logAudit({ actorName: input.addedBy, action: "carerdoc.add", target: input.carerId, detail: f ? `${input.name} (file)` : input.name });
+  return rows[0];
+}
+
+export async function getCarerDocFile(id: number, carerId: string): Promise<DocFile | null> {
+  const rows = await q<DocFile>(
+    "SELECT name,mime,orig_name,file_data FROM carer_documents WHERE id=$1 AND carer_id=$2 AND file_data IS NOT NULL",
+    [id, carerId]
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteCarerDoc(id: number, by: string): Promise<void> {
+  await q("DELETE FROM carer_documents WHERE id=$1", [id]);
+  await logAudit({ actorName: by, action: "carerdoc.delete", target: `doc#${id}` });
 }
 
 /**
