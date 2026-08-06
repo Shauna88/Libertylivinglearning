@@ -290,19 +290,21 @@ button {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  padding: 8px 20px;
-  background: var(--amber-bg);
-  border-bottom: 1px solid color-mix(in srgb, var(--amber-fg) 25%, transparent);
+  padding: 10px 20px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--amber-bg) 70%, #fff), var(--amber-bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--amber-fg) 30%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--amber-fg) 12%, transparent), 0 2px 8px rgba(12, 46, 32, 0.05);
   font-size: 12.5px;
 }
 .svc-status.urgent {
-  background: var(--red-bg);
-  border-bottom-color: color-mix(in srgb, var(--red-fg) 25%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--red-bg) 70%, #fff), var(--red-bg));
+  border-bottom-color: color-mix(in srgb, var(--red-fg) 30%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--red-fg) 14%, transparent), 0 2px 8px rgba(178, 58, 34, 0.06);
 }
 .svc-status-lead {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -310,6 +312,28 @@ button {
   color: var(--text);
   white-space: nowrap;
 }
+.svc-status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--amber-fg);
+}
+.svc-status-dot.tone-red { background: var(--red-fg); animation: svcpulse 1.8s ease-in-out infinite; }
+@keyframes svcpulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--red-fg) 45%, transparent); } 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--red-fg) 0%, transparent); } }
+.svc-status-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; margin-left: 2px;
+  border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff;
+  background: var(--text);
+}
+.svc-status.urgent .svc-status-count { background: var(--red-fg); }
+.svc-chip-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; line-height: 1;
+}
+.svc-chip-n.tone-red { background: var(--red-fg); }
+.svc-chip-n.tone-amber { background: var(--amber-fg); }
+.svc-chip.tone-red .svc-chip-ic { color: var(--red-fg); }
+.svc-chip.tone-amber .svc-chip-ic { color: var(--amber-fg); }
 .svc-status-items {
   display: flex;
   gap: 8px;
@@ -323,18 +347,18 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px;
+  padding: 4px 10px 4px 4px;
   border-radius: 999px;
   font-weight: 600;
   font-size: inherit;
   font-family: inherit;
-  border: none;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.65);
-  transition: background 0.12s, box-shadow 0.12s;
+  background: rgba(255, 255, 255, 0.8);
+  transition: background 0.12s, box-shadow 0.12s, transform 0.1s;
 }
-.svc-chip.tone-red { color: var(--red-fg); }
-.svc-chip.tone-amber { color: var(--amber-fg); }
+.svc-chip.tone-red { color: var(--red-fg); border: 1px solid color-mix(in srgb, var(--red-fg) 28%, transparent); }
+.svc-chip.tone-amber { color: var(--amber-fg); border: 1px solid color-mix(in srgb, var(--amber-fg) 28%, transparent); }
+.svc-chip:active { transform: translateY(1px); }
 .svc-chip-caret {
   opacity: 0.5;
   margin-left: -1px;
