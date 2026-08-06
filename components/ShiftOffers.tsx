@@ -1,7 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { fireShiftNotifications, type AlertOffer } from "@/components/ShiftAlerts";
+
+// Read the browser's notification permission reactively (updates when we ask).
+function permSubscribe(cb: () => void) {
+  window.addEventListener("ll-perm", cb);
+  return () => window.removeEventListener("ll-perm", cb);
+}
+function permSnapshot(): "unsupported" | NotificationPermission {
+  return "Notification" in window ? Notification.permission : "unsupported";
+}
 
 export type Offer = {
   id: number;
@@ -23,6 +33,17 @@ export default function ShiftOffers({ offers }: { offers: Offer[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<number | null>(null);
   const [err, setErr] = useState("");
+  // "unknown" on the server / first paint, then the real permission on the client.
+  const perm = useSyncExternalStore(permSubscribe, permSnapshot, () => "unknown" as const);
+
+  const alertOffers: AlertOffer[] = offers.map((o) => ({ id: o.id, day: o.day, time: o.time, type: o.type, kind: o.kind, note: o.note }));
+
+  async function enableAlerts() {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    const res = await Notification.requestPermission();
+    window.dispatchEvent(new Event("ll-perm")); // re-read permission everywhere
+    if (res === "granted") fireShiftNotifications(alertOffers, true);
+  }
 
   if (offers.length === 0) return null;
 
@@ -47,12 +68,25 @@ export default function ShiftOffers({ offers }: { offers: Offer[] }) {
 
   return (
     <div className="card offer-card" style={{ marginBottom: 16 }}>
-      <div className="flex" style={{ gap: 8, alignItems: "center", marginBottom: 10 }}>
-        <span className="ms" style={{ fontSize: 20, color: "var(--amber-fg)" }}>notifications_active</span>
-        <strong style={{ fontSize: 15 }}>
-          {offers.length} shift{offers.length > 1 ? "s" : ""} offered to you
-        </strong>
-        <span className="muted" style={{ fontSize: 12 }}>Accept to add it to your week, or decline to send it back.</span>
+      <div className="flex between wrap" style={{ gap: 8, alignItems: "center", marginBottom: 10 }}>
+        <div className="flex" style={{ gap: 8, alignItems: "center" }}>
+          <span className="ms" style={{ fontSize: 20, color: "var(--amber-fg)" }}>notifications_active</span>
+          <strong style={{ fontSize: 15 }}>
+            {offers.length} shift{offers.length > 1 ? "s" : ""} offered to you
+          </strong>
+          <span className="muted" style={{ fontSize: 12 }}>Accept to add it to your week, or decline to send it back.</span>
+        </div>
+        {perm === "default" && (
+          <button className="mini primary" onClick={enableAlerts}>
+            <span className="ms" style={{ fontSize: 15, marginRight: 3 }}>notifications</span>Turn on shift alerts
+          </button>
+        )}
+        {perm === "granted" && (
+          <span className="pill tone-green" style={{ fontSize: 11 }}><span className="ms" style={{ fontSize: 13 }}>notifications_active</span>Alerts on</span>
+        )}
+        {perm === "denied" && (
+          <span className="muted" style={{ fontSize: 11 }} title="Turn on notifications for this site in your browser settings">Alerts blocked in browser</span>
+        )}
       </div>
       {err && <div className="card" style={{ borderColor: "var(--red-fg)", color: "var(--red-fg)", marginBottom: 10 }}>{err}</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

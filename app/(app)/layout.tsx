@@ -11,11 +11,13 @@ import {
   PORTAL_ROLE,
   registerOpenCounts,
   serviceVitals,
+  listShiftOffersForCarer,
   type Role,
 } from "@/lib/db";
 import { hubLabel, hubScopeOf } from "@/lib/roles";
 import ServiceStatusBar from "@/components/ServiceStatusBar";
 import ToastProvider from "@/components/Toast";
+import ShiftAlerts, { type AlertOffer } from "@/components/ShiftAlerts";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -37,6 +39,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // the registers read-only, so it does get the counts.
   const canSeeRegisters = isOversight || isImprovement || isCrm || isDemo;
   const openCounts = canSeeRegisters ? await registerOpenCounts() : {};
+
+  // Front-line carers get alerted about shifts pushed to them: a badge on their
+  // week (persistent) and a device pop-up (via ShiftAlerts, when they allow it).
+  const isHca = role === "Healthcare Assistant";
+  const shiftOfferRows = isHca ? await listShiftOffersForCarer(name ?? "") : [];
+  const alertOffers: AlertOffer[] = shiftOfferRows.map((o) => ({
+    id: o.id, day: o.day, time: o.time, type: o.type, kind: o.kind, note: o.note,
+  }));
 
   // Shared service-status bar: the same vital signals for every office/department
   // login (front-line, portal and the read-only demo get their own focused views).
@@ -63,9 +73,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         canSeeAllRegisters={canSeeRegisters}
         hubLabel={hubLabel(role)}
         openCounts={openCounts}
+        shiftOffers={alertOffers.length}
       />
       <div className={`main${hasAlerts ? " has-svc" : ""}`}>
         {vitals && <ServiceStatusBar vitals={vitals} />}
+        {isHca && <ShiftAlerts offers={alertOffers} />}
         <ToastProvider>{children}</ToastProvider>
       </div>
     </div>

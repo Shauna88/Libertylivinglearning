@@ -23,6 +23,7 @@ export default function Sidebar({
   canSeeAllRegisters = true,
   hubLabel = "Improvement & Training",
   openCounts = {},
+  shiftOffers = 0,
 }: {
   name: string;
   role: string;
@@ -38,6 +39,7 @@ export default function Sidebar({
   canSeeAllRegisters?: boolean;
   hubLabel?: string;
   openCounts?: Record<string, number>;
+  shiftOffers?: number;
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
@@ -103,7 +105,7 @@ export default function Sidebar({
   ];
 
   const overviewItems: Item[] = [{ label: "Dashboard", icon: "space_dashboard", href: "/dashboard" }];
-  if (role === "Healthcare Assistant") overviewItems.push({ label: "My working week", icon: "calendar_month", href: "/my-week" });
+  if (role === "Healthcare Assistant") overviewItems.push({ label: "My working week", icon: "calendar_month", href: "/my-week", badge: shiftOffers ? String(shiftOffers) : undefined });
   overviewItems.push({ label: "Messages", icon: "forum", href: "/messages" });
   if (isCrm || isOversight || isWorkforce) overviewItems.push({ label: "Notifications", icon: "notifications_active", href: "/notifications" });
   overviewItems.push({ label: "Time off", icon: "beach_access", href: "/time-off" });

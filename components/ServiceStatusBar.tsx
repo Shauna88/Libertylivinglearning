@@ -56,7 +56,6 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
     <div ref={rootRef} className={`svc-status${urgent ? " urgent" : ""}`} role="region" aria-label="Service status">
       <span className="svc-status-lead">
         <span className={`svc-status-dot tone-${urgent ? "red" : "amber"}`} aria-hidden="true" />
-        <span className="ms" aria-hidden="true" style={{ fontSize: 16 }}>{urgent ? "priority_high" : "info"}</span>
         Service status
         <span className="svc-status-count">{items.reduce((n, i) => n + i.vital.n, 0)}</span>
       </span>
