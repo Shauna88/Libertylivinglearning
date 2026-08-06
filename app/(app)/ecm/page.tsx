@@ -1,14 +1,29 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import Empty from "@/components/Empty";
 import { auth } from "@/auth";
 import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, type Role } from "@/lib/db";
 import { deriveTodayVisits, nowParts } from "@/lib/schedule";
-import { ecmState, isEcmAlert } from "@/lib/ecm";
-import EcmBoard, { type EcmRow } from "@/components/EcmBoard";
+import { ecmState, isEcmAlert, ECM_META, type EcmState } from "@/lib/ecm";
+import EcmDispatch, { type DispatchCall, type Lane } from "@/components/EcmDispatch";
 
 export const dynamic = "force-dynamic"; // always reflects "now"
 
 const CAN_VIEW: Role[] = [...new Set([...CRM_ROLES, ...OVERSIGHT_ROLES])] as Role[];
+const isUn = (c: string) => !c || /unassigned|to be allocated|^tbc$/i.test(c.trim());
+
+/** Minutes-since-midnight (Europe/Dublin) for an ISO timestamp. */
+function dublinMin(iso: string | null): number | null {
+  if (!iso) return null;
+  const s = new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Dublin", hour12: false, hour: "2-digit", minute: "2-digit" });
+  const [h, m] = s.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Colour a call by live state — planned vs on-site vs completed vs alert. */
+function dispatchTone(state: EcmState): string {
+  return ({ onsite: "green", completed: "teal", due: "blue", late: "amber", missed: "red", unassigned: "red", suspended: "grey", upcoming: "grey" } as Record<EcmState, string>)[state];
+}
 
 export default async function EcmPage() {
   const session = await auth();
@@ -21,26 +36,36 @@ export default async function EcmPage() {
   const [clients, cover, events] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate)]);
   const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
 
-  const rows: EcmRow[] = visits.map((v) => {
+  const calls: DispatchCall[] = visits.map((v) => {
     const ev = events[`${v.clientId}|${v.time}`];
+    const event = ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at } : null;
+    const unassigned = v.status === "gap";
+    const state = ecmState({ startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin, unassigned, suspended: v.status === "suspended", event });
     return {
-      clientId: v.clientId,
-      su: v.su,
-      maskedName: v.maskedName,
-      area: v.area,
-      time: v.time,
-      type: v.type,
-      carer: v.carer,
-      startMin: v.startMin,
-      endMin: v.startMin + v.durMin,
-      unassigned: v.status === "gap",
-      suspended: v.status === "suspended",
-      event: ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at, note: ev.note } : null,
+      clientId: v.clientId, su: v.su, maskedName: v.maskedName, type: v.type, carer: v.carer,
+      time: v.time, startMin: v.startMin, durMin: v.durMin,
+      checkinMin: dublinMin(ev?.checkin_at ?? null), checkoutMin: dublinMin(ev?.checkout_at ?? null),
+      state, stateLabel: ECM_META[state].label, tone: dispatchTone(state),
     };
   });
 
-  const states = rows.map((r) =>
-    ecmState({ startMin: r.startMin, endMin: r.endMin, nowMin, unassigned: r.unassigned, suspended: r.suspended, event: r.event })
+  // Unassigned calls (drag onto a carer); everything else grouped into carer lanes.
+  const unassigned = calls.filter((_, i) => visits[i].status === "gap");
+  const laneMap = new Map<string, DispatchCall[]>();
+  visits.forEach((v, i) => {
+    if (v.status === "gap") return;
+    for (const one of String(v.carer).split("+").map((s) => s.trim())) {
+      if (!one || isUn(one)) continue;
+      if (!laneMap.has(one)) laneMap.set(one, []);
+      laneMap.get(one)!.push(calls[i]);
+    }
+  });
+  const lanes: Lane[] = [...laneMap.entries()]
+    .map(([carer, cs]) => ({ carer, calls: cs.slice().sort((a, b) => a.startMin - b.startMin) }))
+    .sort((a, b) => a.carer.localeCompare(b.carer));
+
+  const states = visits.map((v) =>
+    ecmState({ startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin, unassigned: v.status === "gap", suspended: v.status === "suspended", event: events[`${v.clientId}|${v.time}`] ? { checkinAt: events[`${v.clientId}|${v.time}`].checkin_at, checkoutAt: events[`${v.clientId}|${v.time}`].checkout_at } : null })
   );
   const count = (fn: (s: string) => boolean) => states.filter(fn).length;
   const alerts = states.filter(isEcmAlert).length;
@@ -54,18 +79,17 @@ export default async function EcmPage() {
 
   const dateLabel = now.toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "long" });
   const timeLabel = now.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit" });
-  const canControl = CAN_VIEW.includes(role);
 
   return (
     <>
       <header className="header">
         <div className="flex" style={{ gap: 8, marginBottom: 6 }}>
-          <span className="pill tone-teal"><span className="ms" style={{ fontSize: 14 }}>sensors</span>Electronic Call Monitoring</span>
+          <span className="pill tone-teal"><span className="ms" style={{ fontSize: 14 }}>sensors</span>Live dispatch board</span>
         </div>
-        <h1>Live calls · check-in monitor</h1>
+        <h1>Live calls</h1>
         <p>
-          {dateLabel} · {timeLabel} — {rows.length} calls today. Actual point-of-care check-in and check-out
-          against the plan; a call with no check-in past its start time raises a missed-visit alert.
+          {dateLabel} · {timeLabel} — {calls.length} calls today. Carers down the side with each call plotted on the day;
+          check calls in and out, and drag an unassigned call onto a carer to allocate it.
         </p>
       </header>
       <div className="body fade">
@@ -81,10 +105,17 @@ export default async function EcmPage() {
           ))}
         </div>
 
-        {rows.length === 0 ? (
+        {calls.length === 0 ? (
           <Empty icon="event_available" title="No calls scheduled today" hint="Rostered calls appear here as the day’s plan is built." />
         ) : (
-          <EcmBoard rows={rows} nowMin={nowMin} canControl={canControl} />
+          <>
+            <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture />
+            <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+              Carers down the side; each call is a bar that turns green when they check in and teal when completed.
+              Unassigned calls sit on top — drag one onto a carer to allocate it for today.
+              Need to log a whole missed call? <Link href="/call-log">Open the call log</Link>.
+            </p>
+          </>
         )}
       </div>
     </>

@@ -1953,6 +1953,52 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .ctl-now::before{content:"";position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:var(--red-fg);box-shadow:0 0 0 3px rgba(178,58,34,.18);animation:ctlpulse 1.8s ease-in-out infinite}
 @keyframes ctlpulse{0%,100%{opacity:1}50%{opacity:.35}}
 
+/* ECM dispatch board (carer swimlanes + drag-to-assign) */
+.disp{display:flex;flex-direction:column}
+.disp-row{display:grid;grid-template-columns:180px 1fr;align-items:stretch;border-top:1px solid var(--line);min-height:46px}
+.disp-row:first-child{border-top:none}
+.disp-axis{min-height:30px;position:sticky;top:0;background:var(--card);z-index:2}
+.disp-label{padding:6px 12px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line);min-width:0}
+.disp-axis-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--text-2)}
+.disp-track{position:relative;margin:0 8px}
+.disp-unassigned{background:color-mix(in srgb,var(--red-bg) 40%,transparent)}
+.disp-over{background:var(--accent-tint);outline:2px dashed var(--accent);outline-offset:-2px}
+.disp-block{position:absolute;top:50%;transform:translateY(-50%);height:22px;border-radius:6px;display:flex;align-items:center;gap:5px;padding:0 7px;font-size:10.5px;font-weight:700;overflow:hidden;white-space:nowrap;box-shadow:0 1px 2px rgba(12,46,32,.2)}
+.disp-block-a{opacity:.85;font-weight:500}
+.disp-gap{background:var(--red-bg);color:var(--red-fg);border:1px dashed var(--red-fg);cursor:grab}
+.disp-gap:active{cursor:grabbing}
+.disp-key{width:18px;height:10px;border-radius:3px;display:inline-block}
+.disp-panel{border-top:1px solid var(--line);padding:12px 14px;background:var(--accent-tint)}
+.tone-bg-grey{background:var(--grey-fg);color:#fff}
+.tone-bg-blue{background:var(--blue-fg);color:#fff}
+.tone-bg-green{background:var(--green-fg);color:#fff}
+.tone-bg-teal{background:var(--teal-fg);color:#fff}
+.tone-bg-red{background:var(--red-fg);color:#fff}
+.tone-bg-amber{background:var(--amber-fg);color:#fff}
+
+/* ECM day timeline (Gantt) */
+.tl{display:flex;flex-direction:column}
+.tl-row{display:grid;grid-template-columns:230px 1fr 150px;align-items:center;border-top:1px solid var(--line);min-height:44px}
+.tl-row:first-child{border-top:none}
+.tl-axis{min-height:30px;position:sticky;top:0;background:var(--card);z-index:1}
+.tl-label{padding:6px 12px;min-width:0}
+.tl-axis-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--text-2)}
+.tl-track{position:relative;height:100%;min-height:30px;margin:0 6px}
+.tl-tick{position:absolute;top:8px;transform:translateX(-50%);font-size:10px;color:var(--text-2);font-family:var(--font-mono)}
+.tl-grid{position:absolute;top:0;bottom:0;width:1px;background:var(--line);transform:translateX(-50%)}
+.tl-plan{position:absolute;top:50%;transform:translateY(-50%);height:10px;border-radius:5px;border:1px dashed var(--grey-fg);background:var(--grey-bg);opacity:.6;box-sizing:border-box}
+.tl-actual{position:absolute;top:50%;transform:translateY(-50%);height:16px;border-radius:6px;opacity:.95;box-shadow:0 1px 2px rgba(12,46,32,.18)}
+.tl-actual.onsite{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0),rgba(255,255,255,0) 5px,rgba(255,255,255,.45) 5px,rgba(255,255,255,.45) 10px)}
+.tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--red-fg);z-index:2}
+.tl-state{position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:10px;z-index:3;opacity:.96}
+.tl-cap{padding:6px 10px;display:flex;justify-content:flex-end}
+
+/* ECM card board */
+.ecm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.ecm-card{border-left-width:4px;border-left-style:solid;padding:12px 14px}
+.ecm-card-time{font-size:18px;font-weight:800;font-family:var(--font-mono)}
+.ecm-card-times{display:flex;flex-direction:column;gap:2px;font-size:11.5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+
 /* Reports hub */
 .rep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;align-items:start}
 .rep-card{padding:0;overflow:hidden}
