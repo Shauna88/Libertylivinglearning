@@ -138,7 +138,7 @@ export default function ScheduleEditor({
     <div>
       <div className="flex between wrap" style={{ gap: 8, marginBottom: 10, alignItems: "center" }}>
         <span className="muted" style={{ fontSize: 12.5 }}>
-          {totalCalls} call{totalCalls === 1 ? "" : "s"} a week. This is the permanent plan — day-to-day cover is managed in Rostering.
+          {totalCalls} call{totalCalls === 1 ? "" : "s"} a week. This is the permanent plan — day-to-day cover is managed on the Day board.
         </span>
         <div className="flex" style={{ gap: 8, alignItems: "center" }}>
           <div className="seg" role="group" aria-label="View">

@@ -38,7 +38,7 @@ export const dynamic = "force-dynamic";
 
 const AREA_LINKS: { cap: Capability; href: string; icon: string; label: string }[] = [
   { cap: "crm", href: "/clients", icon: "contacts", label: "Client register" },
-  { cap: "crm", href: "/roster", icon: "edit_calendar", label: "Rostering" },
+  { cap: "crm", href: "/roster", icon: "edit_calendar", label: "Day board" },
   { cap: "crm", href: "/call-log", icon: "phone_missed", label: "Call log" },
   { cap: "improvement", href: "/improvement", icon: "model_training", label: "Improvement & Training" },
   { cap: "oversight", href: "/analytics", icon: "query_stats", label: "Analytics" },
