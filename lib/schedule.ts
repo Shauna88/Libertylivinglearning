@@ -20,13 +20,15 @@ export type TodayVisit = {
   area: string;
   maskedName: string;
   day: string;
-  time: string;
+  time: string; // effective start time (temporary time tweak applied)
+  baseTime: string; // scheduled time on the plan — the stable identity/key
   startMin: number;
   durMin: number;
   type: string;
   carer: string; // effective carer (cover override applied)
   baseCarer: string; // carer on the base Schedule of Service
   overridden: boolean; // a cover override is in effect for this visit
+  timeAdjusted: boolean; // a temporary time tweak is in effect for this visit
   tasks: string[];
   status: VisitStatus;
   statusLabel: string;
@@ -75,18 +77,24 @@ export function deriveTodayVisits(
   clients: Client[],
   weekday: string,
   nowMin: number,
-  coverMap: Record<string, string> = {}
+  coverMap: Record<string, string> = {},
+  timeOverrides: Record<string, string> = {}
 ): TodayVisit[] {
   const out: TodayVisit[] = [];
   for (const c of clients) {
     const day = c.schedule.find((d) => d.day === weekday);
     if (!day) continue;
     for (const v of day.visits) {
-      const key = visitKey(c.id, weekday, v.time);
+      const baseTime = v.time;
+      const key = visitKey(c.id, weekday, baseTime);
       const baseCarer = v.carer;
       const overridden = Object.prototype.hasOwnProperty.call(coverMap, key);
       const carer = overridden ? coverMap[key] : baseCarer;
-      const startMin = parseTime(v.time);
+      // A temporary time tweak moves the start time for today only; the base
+      // time stays the identity key so cover / events / offers still line up.
+      const timeAdjusted = Object.prototype.hasOwnProperty.call(timeOverrides, key);
+      const effTime = timeAdjusted ? timeOverrides[key] : baseTime;
+      const startMin = parseTime(effTime);
       const durMin = parseDur(v.dur);
       const end = startMin + durMin;
       let status: VisitStatus;
@@ -103,13 +111,15 @@ export function deriveTodayVisits(
         area: c.area,
         maskedName: maskName(c.name),
         day: weekday,
-        time: v.time,
+        time: effTime,
+        baseTime,
         startMin,
         durMin,
         type: v.type,
         carer,
         baseCarer,
         overridden,
+        timeAdjusted,
         tasks: v.tasks,
         status,
         statusLabel: meta.label,
@@ -147,6 +157,7 @@ export type CarerVisit = {
   type: string;
   tasks: string[];
   cover: boolean; // this visit is theirs only via a cover override (this week)
+  timeAdjusted?: boolean; // a temporary time tweak moved this visit's start time
 };
 export type CarerDay = { day: string; visits: CarerVisit[]; minutes: number };
 
@@ -217,7 +228,8 @@ function carerMatches(carer: string, name: string): boolean {
 export function carerWeek(
   clients: Client[],
   carerName: string,
-  coverMap: Record<string, string> = {}
+  coverMap: Record<string, string> = {},
+  timeOverrides: Record<string, string> = {}
 ): CarerDay[] {
   const byDay = new Map<string, CarerVisit[]>(WEEK_ORDER.map((d) => [d, []]));
   for (const c of clients) {
@@ -229,18 +241,21 @@ export function carerWeek(
         if (!carerMatches(effective, carerName)) continue;
         const list = byDay.get(day.day);
         if (!list) continue;
+        const timeAdjusted = Object.prototype.hasOwnProperty.call(timeOverrides, key);
+        const effTime = timeAdjusted ? timeOverrides[key] : v.time;
         list.push({
           clientId: c.id,
           su: c.su,
           area: c.area,
           maskedName: maskName(c.name),
           day: day.day,
-          time: v.time,
-          startMin: parseTime(v.time),
+          time: effTime,
+          startMin: parseTime(effTime),
           dur: v.dur,
           type: v.type,
           tasks: v.tasks,
           cover: overridden,
+          timeAdjusted,
         });
       }
     }

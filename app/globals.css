@@ -1708,6 +1708,7 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 
 .move-bar{border-left:4px solid var(--accent);background:var(--accent-tint);border-color:var(--accent-tint);margin-bottom:6px}
 .move-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.move-time{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--accent)}
 
 .avail{text-align:left;font-family:inherit;width:100%;display:block;cursor:default;transition:border-color .12s,box-shadow .12s}
 .avail-target{cursor:pointer;border-color:var(--accent)}

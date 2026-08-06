@@ -321,7 +321,7 @@ export default async function DashboardPage() {
             <div className="card muted" style={{ fontSize: 13 }}>Every call today is covered. <Link href="/roster" style={{ color: "var(--accent-dark)", fontWeight: 700 }}>Open the Day board →</Link></div>
           ) : (
             <DashCover
-              calls={uncovered.map((v) => ({ clientId: v.clientId, su: v.su, area: v.area, day: v.day, time: v.time, type: v.type }))}
+              calls={uncovered.map((v) => ({ clientId: v.clientId, su: v.su, area: v.area, day: v.day, time: v.time, baseTime: v.baseTime, type: v.type }))}
               carers={carerPool(clients)}
             />
           )}

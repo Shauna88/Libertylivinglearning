@@ -9,6 +9,8 @@ export type Offer = {
   day: string;
   time: string;
   type: string;
+  kind: string;
+  note: string;
   offeredBy: string;
 };
 
@@ -57,11 +59,13 @@ export default function ShiftOffers({ offers }: { offers: Offer[] }) {
         {offers.map((o) => (
           <div key={o.id} className="offer-row">
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5 }}>
-                {o.day} · {o.time} — {o.type || "Visit"}
+              <div className="flex" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 600, fontSize: 13.5 }}>{o.day} · {o.time} — {o.type || "Visit"}</span>
+                {o.kind === "time" && <span className="pill tone-blue" style={{ fontSize: 10 }}><span className="ms" style={{ fontSize: 12 }}>update</span>Time change</span>}
               </div>
               <div className="muted" style={{ fontSize: 12 }}>
                 <span className="code">{o.su}</span>
+                {o.note ? ` · ${o.note}` : ""}
                 {o.offeredBy ? ` · offered by ${o.offeredBy}` : ""}
               </div>
             </div>

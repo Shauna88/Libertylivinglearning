@@ -11,7 +11,9 @@ export type DispatchCall = {
   su: string;
   maskedName: string;
   carer: string;
-  time: string;
+  time: string; // effective (adjusted) start time — for display
+  baseTime: string; // scheduled time — the identity key for API calls
+  timeAdjusted: boolean;
   startMin: number;
   durMin: number;
   type: string;
@@ -69,21 +71,38 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
   const [sel, setSel] = useState<DispatchCall | null>(null);
   const [reCarer, setReCarer] = useState("");
   const [reReason, setReReason] = useState("");
+  const [reTime, setReTime] = useState("");
   const nowShown = nowMin >= DAY_START && nowMin <= DAY_END;
-  const offerFor = (c: DispatchCall) => offers[`${c.clientId}|${weekday}|${c.time}`];
+  const offerFor = (c: DispatchCall) => offers[`${c.clientId}|${weekday}|${c.baseTime}`];
 
   // Assign / reassign / unassign — a last-minute change pushes the shift to the
   // HCA to accept and posts a notice to the family portal (push: true).
   async function change(call: DispatchCall, carer: string, reason?: string) {
     setBusy(true);
     try {
-      const res = await fetch("/api/cover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set", clientId: call.clientId, day: weekday, time: call.time, carer, reason, push: true }) });
+      const res = await fetch("/api/cover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set", clientId: call.clientId, day: weekday, time: call.baseTime, carer, reason, push: true }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { toast(j.error ?? "Could not update", "error"); return; }
       toast(/^unassigned$/i.test(carer) ? `${call.time} ${call.su} unassigned` : `${call.time} ${call.su} → ${carer}${j.offered ? " · shift offered" : ""}`);
-      setSel(null); setReCarer(""); setReReason("");
+      setSel(null); setReCarer(""); setReReason(""); setReTime("");
       router.refresh();
     } finally { setBusy(false); setDrag(null); setOverCarer(null); }
+  }
+
+  // Temporary time tweak (that day only) — pushes to the carer + family portal.
+  async function moveTime(call: DispatchCall, newTime: string, clear = false) {
+    setBusy(true);
+    try {
+      const body = clear
+        ? { action: "clear", clientId: call.clientId, day: weekday, time: call.baseTime, push: true }
+        : { action: "set", clientId: call.clientId, day: weekday, time: call.baseTime, newTime, push: true };
+      const res = await fetch("/api/time-override", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(j.error ?? "Could not move the time", "error"); return; }
+      toast(clear ? `${call.su} time reset` : `${call.su} moved to ${newTime}${j.offered ? " · shift offered" : ""}`);
+      setSel(null); setReTime("");
+      router.refresh();
+    } finally { setBusy(false); }
   }
 
   function onDrop(carer: string) {
@@ -98,7 +117,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
     const om = offer ? OFFER_META[offer.status] : undefined;
     return (
       <button type="button" className={`disp-block tone-bg-${c.tone}`} style={{ left: `${left}%`, width: `${width}%`, cursor: "pointer" }}
-        onClick={() => setSel(c)}
+        onClick={() => { setReCarer(""); setReReason(""); setReTime(""); setSel(c); }}
         title={`${c.time} ${c.type} · ${c.su} · ${c.stateLabel}${actual ? ` · actual ${actual}` : ""}${om ? ` · ${om.label}` : ""} — click to check in / out`}>
         <span className="disp-block-t">{c.su}</span>
         {om && <span className={`disp-offer-dot tone-bg-${om.tone}`} aria-hidden="true" />}
@@ -185,8 +204,8 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
               </div>
             </div>
             <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-              {canCapture ? <CallCapture clientId={sel.clientId} time={sel.time} carer={sel.carer} state={sel.state} /> : <span className="muted" style={{ fontSize: 12 }}>View only</span>}
-              <button className="mini" onClick={() => { setSel(null); setReCarer(""); setReReason(""); }}>Close</button>
+              {canCapture ? <CallCapture clientId={sel.clientId} time={sel.baseTime} carer={sel.carer} state={sel.state} /> : <span className="muted" style={{ fontSize: 12 }}>View only</span>}
+              <button className="mini" onClick={() => { setSel(null); setReCarer(""); setReReason(""); setReTime(""); }}>Close</button>
             </div>
           </div>
 
@@ -217,6 +236,15 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
                 <button className="mini" disabled={busy || reReason.trim().length < 3} onClick={() => change(sel, "Unassigned", reReason.trim())}>
                   <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>person_remove</span>Unassign
                 </button>
+              </div>
+              <div className="flex wrap" style={{ gap: 8, alignItems: "center", marginTop: 8 }}>
+                <span className="muted" style={{ fontSize: 11.5, display: "flex", alignItems: "center", gap: 3 }}>
+                  <span className="ms" style={{ fontSize: 14 }}>schedule</span>
+                  {sel.timeAdjusted ? <>Moved to {sel.time} (usual {sel.baseTime})</> : <>Nudge time (scheduled {sel.baseTime})</>}
+                </span>
+                <input className="input" type="time" style={{ fontSize: 12.5, padding: "6px 9px" }} value={reTime || sel.time} onChange={(e) => setReTime(e.target.value)} />
+                <button className="mini primary" disabled={busy || (reTime || sel.time) === sel.baseTime} onClick={() => moveTime(sel, reTime || sel.time)}>Move time</button>
+                {sel.timeAdjusted && <button className="mini" disabled={busy} onClick={() => moveTime(sel, "", true)}>Reset</button>}
               </div>
             </div>
           )}

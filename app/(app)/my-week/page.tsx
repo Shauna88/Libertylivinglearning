@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { listClients, coverMap, listCarers, listShiftOffersForCarer } from "@/lib/db";
+import { listClients, coverMap, listCarers, listShiftOffersForCarer, timeOverrideMap } from "@/lib/db";
 import { carerWeek } from "@/lib/schedule";
 import { carerAvailability } from "@/lib/carers";
 import CarerWeek from "@/components/CarerWeek";
@@ -15,13 +15,14 @@ export default async function MyWeekPage() {
   if (role !== "Healthcare Assistant") redirect("/dashboard");
 
   const carerName = session!.user.name ?? "";
-  const [clients, cover, carers, offerRows] = await Promise.all([
+  const [clients, cover, carers, offerRows, timeOv] = await Promise.all([
     listClients(),
     coverMap(),
     listCarers(),
     listShiftOffersForCarer(carerName),
+    timeOverrideMap(),
   ]);
-  const week = carerWeek(clients, carerName, cover);
+  const week = carerWeek(clients, carerName, cover, timeOv);
   const me = carers.find((c) => c.name === carerName);
   const availability = me ? carerAvailability(me) : {};
   const offers: Offer[] = offerRows.map((o) => ({
@@ -30,6 +31,8 @@ export default async function MyWeekPage() {
     day: o.day,
     time: o.time,
     type: o.type,
+    kind: o.kind,
+    note: o.note,
     offeredBy: o.offered_by,
   }));
 

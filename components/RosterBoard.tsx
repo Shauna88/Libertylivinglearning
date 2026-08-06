@@ -12,7 +12,9 @@ export type RosterVisit = {
   area: string;
   maskedName: string;
   day: string;
-  time: string;
+  time: string; // effective (adjusted) start time — for display
+  baseTime: string; // scheduled time — the identity key for API calls
+  timeAdjusted: boolean;
   startMin: number;
   durMin: number;
   type: string;
@@ -95,6 +97,7 @@ export default function RosterBoard({
   const [unassignFor, setUnassignFor] = useState<string | null>(null);
   const [unReason, setUnReason] = useState(UNASSIGN_REASONS[0]);
   const [unNote, setUnNote] = useState("");
+  const [timeVal, setTimeVal] = useState("");
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -134,16 +137,21 @@ export default function RosterBoard({
       setUnNote("");
       return;
     }
-    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer, push: true });
+    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.baseTime, carer, push: true });
   };
   const confirmUnassign = (v: RosterVisit) => {
     const reason = unReason === "Other" ? unNote.trim() : unNote.trim() ? `${unReason} — ${unNote.trim()}` : unReason;
-    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer: UNASSIGNED, reason, push: true });
+    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.baseTime, carer: UNASSIGNED, reason, push: true });
   };
   const revert = (v: RosterVisit) =>
-    act(v.key, "/api/cover", { action: "clear", clientId: v.clientId, day: v.day, time: v.time });
+    act(v.key, "/api/cover", { action: "clear", clientId: v.clientId, day: v.day, time: v.baseTime });
   const requestPerm = (v: RosterVisit) =>
-    act(v.key, "/api/perm-req", { action: "create", clientId: v.clientId, day: v.day, time: v.time, carer: v.carer, note });
+    act(v.key, "/api/perm-req", { action: "create", clientId: v.clientId, day: v.day, time: v.baseTime, carer: v.carer, note });
+  // Temporary time tweak (that day only) — pushes to the carer + family portal.
+  const tweakTime = (v: RosterVisit, newTime: string) =>
+    act(v.key, "/api/time-override", { action: "set", clientId: v.clientId, day: v.day, time: v.baseTime, newTime, push: true });
+  const resetTime = (v: RosterVisit) =>
+    act(v.key, "/api/time-override", { action: "clear", clientId: v.clientId, day: v.day, time: v.baseTime, push: true });
   const decide = (id: number, approve: boolean) => act(`req-${id}`, "/api/perm-req", { action: "decide", id, approve });
 
   const gaps = visits.filter((v) => v.unassigned);
@@ -224,7 +232,7 @@ export default function RosterBoard({
 
   const selVisit = visits.find((v) => v.key === selected) ?? null;
   const unVisit = visits.find((v) => v.key === unassignFor) ?? null;
-  const offerFor = (v: RosterVisit) => offers[`${v.clientId}|${v.day}|${v.time}`];
+  const offerFor = (v: RosterVisit) => offers[`${v.clientId}|${v.day}|${v.baseTime}`];
 
   const summary = [
     { icon: "event", label: "Calls today", value: visits.length, tone: "blue" },
@@ -237,12 +245,12 @@ export default function RosterBoard({
     return (
       <button
         type="button"
-        onClick={() => setSelected((s) => (s === v.key ? null : v.key))}
+        onClick={() => { setTimeVal(""); setSelected((s) => (s === v.key ? null : v.key)); }}
         className={`tl-block tl-${v.unassigned ? "red" : v.tone}${selected === v.key ? " tl-sel" : ""}`}
         style={{ left: `${pct(v.startMin)}%`, width: `${Math.max(3, (v.durMin / span) * 100)}%` }}
-        title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su}${v.unassignReason ? ` — unassigned: ${v.unassignReason}` : ""} — click to move`}
+        title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su}${v.timeAdjusted ? ` — moved from ${v.baseTime}` : ""}${v.unassignReason ? ` — unassigned: ${v.unassignReason}` : ""} — click to move`}
       >
-        <div className="tl-time">{v.time}</div>
+        <div className="tl-time">{v.time}{v.timeAdjusted && <span className="ms" style={{ fontSize: 11, marginLeft: 2, verticalAlign: "middle" }} title={`Moved from ${v.baseTime}`}>update</span>}</div>
         <div className="tl-sub">{showCarer ? v.carer : v.su}</div>
       </button>
     );
@@ -399,7 +407,7 @@ export default function RosterBoard({
                 </div>
               ) : null; })()}
             </div>
-            <button className="mini" onClick={() => setSelected(null)}>Close</button>
+            <button className="mini" onClick={() => { setSelected(null); setTimeVal(""); }}>Close</button>
           </div>
           <div className="move-actions">
             {!selVisit.unassigned && (
@@ -430,9 +438,38 @@ export default function RosterBoard({
               <button className="mini" disabled={busy === selVisit.key} onClick={() => revert(selVisit)}>Revert to base ({selVisit.baseCarer})</button>
             )}
           </div>
+
+          {/* temporary time tweak (that day only) */}
+          <div className="move-time">
+            <span className="ms" style={{ fontSize: 15, color: "var(--accent)" }}>schedule</span>
+            <span style={{ fontSize: 12.5 }}>
+              {selVisit.timeAdjusted
+                ? <>Moved to <strong>{selVisit.time}</strong> (usual {selVisit.baseTime})</>
+                : <>Nudge the time — scheduled <strong>{selVisit.baseTime}</strong></>}
+            </span>
+            <input
+              className="rv-select"
+              type="time"
+              style={{ padding: "5px 8px" }}
+              value={timeVal || selVisit.time}
+              disabled={busy === selVisit.key}
+              onChange={(e) => setTimeVal(e.target.value)}
+            />
+            <button
+              className="mini primary"
+              disabled={busy === selVisit.key || !(timeVal || selVisit.time) || (timeVal || selVisit.time) === selVisit.baseTime}
+              onClick={() => tweakTime(selVisit, timeVal || selVisit.time)}
+            >
+              Move time &amp; push
+            </button>
+            {selVisit.timeAdjusted && (
+              <button className="mini" disabled={busy === selVisit.key} onClick={() => resetTime(selVisit)}>Reset time</button>
+            )}
+          </div>
+
           <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
             <span className="ms" style={{ fontSize: 13, verticalAlign: "middle", marginRight: 3 }}>bolt</span>
-            Reassigning or unassigning here is for <strong>{selVisit.day} only</strong> — the carer is asked to accept the shift in their app and the family portal is updated automatically.
+            Reassigning, unassigning or moving the time here is for <strong>{selVisit.day} only</strong> — the carer is asked to accept in their app and the family portal is updated automatically.
           </div>
         </div>
       )}

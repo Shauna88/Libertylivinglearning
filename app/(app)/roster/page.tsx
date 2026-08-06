@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, listCarers, listTimeOff, shiftOfferMap, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, listCarers, listTimeOff, shiftOfferMap, timeOverrideMap, type Role } from "@/lib/db";
 import {
   deriveTodayVisits,
   carerPool,
@@ -178,17 +178,19 @@ export default async function RosterPage({
   const day = WEEK.includes(sp.day ?? "") ? (sp.day as string) : today;
   const isToday = day === today;
 
-  const [reasons, pending, offers] = await Promise.all([coverReasons(), listPermReqs("pending"), shiftOfferMap()]);
-  const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover);
+  const [reasons, pending, offers, timeOv] = await Promise.all([coverReasons(), listPermReqs("pending"), shiftOfferMap(), timeOverrideMap()]);
+  const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover, timeOv);
 
   const visits: RosterVisit[] = visitsRaw.map((v) => ({
-    key: `${v.clientId}|${v.day}|${v.time}`,
+    key: `${v.clientId}|${v.day}|${v.baseTime}`,
     clientId: v.clientId,
     su: v.su,
     area: v.area,
     maskedName: v.maskedName,
     day: v.day,
     time: v.time,
+    baseTime: v.baseTime,
+    timeAdjusted: v.timeAdjusted,
     startMin: v.startMin,
     durMin: v.durMin,
     type: v.type,
@@ -196,7 +198,7 @@ export default async function RosterPage({
     baseCarer: v.baseCarer,
     overridden: v.overridden,
     unassigned: isUnassignedCarer(v.carer),
-    unassignReason: reasons[`${v.clientId}|${v.day}|${v.time}`] ?? null,
+    unassignReason: reasons[`${v.clientId}|${v.day}|${v.baseTime}`] ?? null,
     statusLabel: isToday ? v.statusLabel : "Scheduled",
     tone: isToday ? v.tone : "grey",
   }));

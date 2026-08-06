@@ -349,6 +349,18 @@ async function createSchema(client: PoolClient) {
     );
     ALTER TABLE cover_assignments ADD COLUMN IF NOT EXISTS reason TEXT;
 
+    -- Temporary (that-day-only) tweak to a visit's start time. The base schedule
+    -- time stays the identity key; new_time is the moved start for today.
+    CREATE TABLE IF NOT EXISTS time_overrides (
+      client_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      time TEXT NOT NULL,
+      new_time TEXT NOT NULL,
+      assigned_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (client_id, day, time)
+    );
+
     CREATE TABLE IF NOT EXISTS care_notes (
       id SERIAL PRIMARY KEY,
       client_id TEXT NOT NULL,
@@ -640,6 +652,7 @@ async function seed(client: PoolClient) {
   await client.query("DELETE FROM portal_notices");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
+  await client.query("DELETE FROM time_overrides");
   await client.query("DELETE FROM care_notes");
   await client.query("DELETE FROM client_documents");
   await client.query("DELETE FROM audit_log");
@@ -2563,6 +2576,67 @@ export async function clearCover(input: {
   await logAudit({
     actorName: input.by,
     action: "cover.clear",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+  });
+}
+
+// ---------------- Temporary time tweaks ----------------
+
+export type TimeOverrideRow = {
+  client_id: string;
+  day: string;
+  time: string;
+  new_time: string;
+  assigned_by: string;
+  created_at: string;
+};
+
+/** All temporary time tweaks as a `clientId|day|time → newTime` map. */
+export async function timeOverrideMap(): Promise<Record<string, string>> {
+  const rows = await q<TimeOverrideRow>("SELECT * FROM time_overrides");
+  const m: Record<string, string> = {};
+  for (const r of rows) m[`${r.client_id}|${r.day}|${r.time}`] = r.new_time;
+  return m;
+}
+
+/** Move a visit's start time for that day only (base time stays the key). */
+export async function setTimeOverride(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  newTime: string;
+  by: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO time_overrides (client_id,day,time,new_time,assigned_by)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (client_id,day,time)
+     DO UPDATE SET new_time=excluded.new_time, assigned_by=excluded.assigned_by, created_at=now()`,
+    [input.clientId, input.day, input.time, input.newTime, input.by]
+  );
+  await logAudit({
+    actorName: input.by,
+    action: "time.set",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+    detail: `→ ${input.newTime}`,
+  });
+}
+
+/** Clear a temporary time tweak (revert to the scheduled time). */
+export async function clearTimeOverride(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  by: string;
+}): Promise<void> {
+  await q("DELETE FROM time_overrides WHERE client_id=$1 AND day=$2 AND time=$3", [
+    input.clientId,
+    input.day,
+    input.time,
+  ]);
+  await logAudit({
+    actorName: input.by,
+    action: "time.clear",
     target: `${input.clientId}|${input.day}|${input.time}`,
   });
 }

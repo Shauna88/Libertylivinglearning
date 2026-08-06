@@ -11,6 +11,7 @@ export type DashCall = {
   area: string;
   day: string;
   time: string;
+  baseTime: string;
   type: string;
 };
 
@@ -31,7 +32,7 @@ export default function DashCover({ calls, carers, max = 8 }: { calls: DashCall[
       const res = await fetch("/api/cover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "set", clientId: c.clientId, day: c.day, time: c.time, carer, push: true }),
+        body: JSON.stringify({ action: "set", clientId: c.clientId, day: c.day, time: c.baseTime, carer, push: true }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { toast(j.error ?? "Could not assign", "error"); return; }
