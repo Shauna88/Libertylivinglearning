@@ -392,6 +392,50 @@ async function createSchema(client: PoolClient) {
     );
     CREATE INDEX IF NOT EXISTS idx_carer_docs_carer ON carer_documents(carer_id);
 
+    -- eMAR: a client's medications and the administration record for each dose.
+    CREATE TABLE IF NOT EXISTS client_medications (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      dose TEXT NOT NULL DEFAULT '',
+      route TEXT NOT NULL DEFAULT '',
+      freq TEXT NOT NULL DEFAULT '',
+      times TEXT NOT NULL DEFAULT '',
+      instructions TEXT NOT NULL DEFAULT '',
+      prn BOOLEAN NOT NULL DEFAULT false,
+      active BOOLEAN NOT NULL DEFAULT true,
+      added_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_client_meds_client ON client_medications(client_id);
+    CREATE TABLE IF NOT EXISTS med_administrations (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      medication_id INTEGER NOT NULL,
+      service_date TEXT NOT NULL,
+      sched_time TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      by_name TEXT NOT NULL DEFAULT '',
+      recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (medication_id, service_date, sched_time)
+    );
+    CREATE INDEX IF NOT EXISTS idx_med_admin_client_date ON med_administrations(client_id, service_date);
+
+    -- Respite / short-term care register: a client is away or on a temporary hold.
+    CREATE TABLE IF NOT EXISTS respite_bookings (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      date_from TEXT NOT NULL,
+      date_to TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'Respite',
+      location TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      added_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_respite_client ON respite_bookings(client_id);
+
     CREATE TABLE IF NOT EXISTS permanent_change_requests (
       id SERIAL PRIMARY KEY,
       client_id TEXT NOT NULL,
@@ -2770,6 +2814,130 @@ export async function getCarerDocFile(id: number, carerId: string): Promise<DocF
 export async function deleteCarerDoc(id: number, by: string): Promise<void> {
   await q("DELETE FROM carer_documents WHERE id=$1", [id]);
   await logAudit({ actorName: by, action: "carerdoc.delete", target: `doc#${id}` });
+}
+
+// ---------------- eMAR: medications + administration record ----------------
+
+export type MedRow = {
+  id: number;
+  client_id: string;
+  name: string;
+  dose: string;
+  route: string;
+  freq: string;
+  times: string; // comma-separated HH:MM
+  instructions: string;
+  prn: boolean;
+  active: boolean;
+  added_by: string;
+  created_at: string;
+};
+
+export type MedAdminRow = {
+  id: number;
+  client_id: string;
+  medication_id: number;
+  service_date: string;
+  sched_time: string;
+  status: string;
+  reason: string;
+  by_name: string;
+  recorded_at: string;
+};
+
+export async function listClientMeds(clientId: string): Promise<MedRow[]> {
+  return q<MedRow>("SELECT * FROM client_medications WHERE client_id=$1 ORDER BY active DESC, name ASC", [clientId]);
+}
+
+export async function addClientMed(input: {
+  clientId: string; name: string; dose: string; route: string; freq: string; times: string; instructions: string; prn: boolean; addedBy: string;
+}): Promise<MedRow> {
+  const rows = await q<MedRow>(
+    `INSERT INTO client_medications (client_id,name,dose,route,freq,times,instructions,prn,added_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [input.clientId, input.name, input.dose, input.route, input.freq, input.times, input.instructions, input.prn, input.addedBy]
+  );
+  await logAudit({ actorName: input.addedBy, action: "med.add", target: input.clientId, detail: `${input.name} ${input.dose}`.trim() });
+  return rows[0];
+}
+
+export async function setMedActive(id: number, clientId: string, active: boolean, by: string): Promise<void> {
+  await q("UPDATE client_medications SET active=$1 WHERE id=$2 AND client_id=$3", [active, id, clientId]);
+  await logAudit({ actorName: by, action: active ? "med.resume" : "med.stop", target: `med#${id}` });
+}
+
+/** Administration records for one client on one service date, keyed medId|schedTime. */
+export async function medAdminsForDate(clientId: string, serviceDate: string): Promise<Record<string, MedAdminRow>> {
+  const rows = await q<MedAdminRow>("SELECT * FROM med_administrations WHERE client_id=$1 AND service_date=$2", [clientId, serviceDate]);
+  const m: Record<string, MedAdminRow> = {};
+  for (const r of rows) m[`${r.medication_id}|${r.sched_time}`] = r;
+  return m;
+}
+
+/** Record (or update) one dose's outcome. Idempotent per med/date/time. */
+export async function recordMedAdmin(input: {
+  clientId: string; medicationId: number; serviceDate: string; schedTime: string; status: string; reason: string; by: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO med_administrations (client_id,medication_id,service_date,sched_time,status,reason,by_name,recorded_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,now())
+     ON CONFLICT (medication_id,service_date,sched_time)
+       DO UPDATE SET status=excluded.status, reason=excluded.reason, by_name=excluded.by_name, recorded_at=now()`,
+    [input.clientId, input.medicationId, input.serviceDate, input.schedTime, input.status, input.reason, input.by]
+  );
+  await logAudit({ actorName: input.by, action: "med.record", target: `${input.clientId} med#${input.medicationId}@${input.schedTime}`, detail: `${input.serviceDate} · ${input.status}${input.reason ? ` (${input.reason})` : ""}` });
+}
+
+/** Medication administration report rows over a date range (optionally one client). */
+export async function medAdminReport(from: string, to: string, clientId?: string): Promise<(MedAdminRow & { med_name: string; dose: string; su: string })[]> {
+  const params: unknown[] = [from, to];
+  let where = "a.service_date >= $1 AND a.service_date <= $2";
+  if (clientId) { params.push(clientId); where += ` AND a.client_id = $${params.length}`; }
+  return q(
+    `SELECT a.*, m.name AS med_name, m.dose AS dose, c.su AS su
+       FROM med_administrations a
+       JOIN client_medications m ON m.id = a.medication_id
+       LEFT JOIN clients c ON c.id = a.client_id
+      WHERE ${where}
+      ORDER BY a.service_date DESC, a.sched_time ASC`,
+    params
+  );
+}
+
+// ---------------- Respite / short-term care register ----------------
+
+export type RespiteRow = {
+  id: number;
+  client_id: string;
+  date_from: string;
+  date_to: string;
+  kind: string;
+  location: string;
+  notes: string;
+  added_by: string;
+  created_at: string;
+};
+
+export async function listRespite(clientId?: string): Promise<(RespiteRow & { su?: string })[]> {
+  if (clientId) return q<RespiteRow>("SELECT * FROM respite_bookings WHERE client_id=$1 ORDER BY date_from DESC", [clientId]);
+  return q("SELECT r.*, c.su AS su FROM respite_bookings r LEFT JOIN clients c ON c.id=r.client_id ORDER BY r.date_from DESC");
+}
+
+export async function addRespite(input: {
+  clientId: string; dateFrom: string; dateTo: string; kind: string; location: string; notes: string; addedBy: string;
+}): Promise<RespiteRow> {
+  const rows = await q<RespiteRow>(
+    `INSERT INTO respite_bookings (client_id,date_from,date_to,kind,location,notes,added_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [input.clientId, input.dateFrom, input.dateTo, input.kind, input.location, input.notes, input.addedBy]
+  );
+  await logAudit({ actorName: input.addedBy, action: "respite.add", target: input.clientId, detail: `${input.kind} ${input.dateFrom}–${input.dateTo}` });
+  return rows[0];
+}
+
+export async function deleteRespite(id: number, by: string): Promise<void> {
+  await q("DELETE FROM respite_bookings WHERE id=$1", [id]);
+  await logAudit({ actorName: by, action: "respite.delete", target: `respite#${id}` });
 }
 
 /**
