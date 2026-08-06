@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, listCarers, listTimeOff, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, listCarers, listTimeOff, shiftOfferMap, type Role } from "@/lib/db";
 import {
   deriveTodayVisits,
   carerPool,
@@ -178,7 +178,7 @@ export default async function RosterPage({
   const day = WEEK.includes(sp.day ?? "") ? (sp.day as string) : today;
   const isToday = day === today;
 
-  const [reasons, pending] = await Promise.all([coverReasons(), listPermReqs("pending")]);
+  const [reasons, pending, offers] = await Promise.all([coverReasons(), listPermReqs("pending"), shiftOfferMap()]);
   const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover);
 
   const visits: RosterVisit[] = visitsRaw.map((v) => ({
@@ -235,6 +235,7 @@ export default async function RosterPage({
         carerPool={pool}
         pending={pendingReqs}
         isCsm={isCsm}
+        offers={offers}
       />
     </>
   );

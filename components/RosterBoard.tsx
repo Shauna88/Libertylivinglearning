@@ -45,6 +45,14 @@ export type PendingReq = {
   requestedBy: string;
 };
 
+export type OfferInfo = { carer: string; status: string };
+
+const OFFER_META: Record<string, { label: string; tone: string; icon: string }> = {
+  pending: { label: "Awaiting HCA acceptance", tone: "amber", icon: "hourglass_top" },
+  accepted: { label: "Accepted by HCA", tone: "green", icon: "check_circle" },
+  declined: { label: "Declined — re-cover", tone: "red", icon: "cancel" },
+};
+
 const UNASSIGNED = "Unassigned";
 
 function fmtHours(mins: number) {
@@ -66,6 +74,7 @@ export default function RosterBoard({
   carerPool,
   pending,
   isCsm,
+  offers = {},
 }: {
   day: string;
   today: string;
@@ -75,6 +84,7 @@ export default function RosterBoard({
   carerPool: string[];
   pending: PendingReq[];
   isCsm: boolean;
+  offers?: Record<string, OfferInfo>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -124,11 +134,11 @@ export default function RosterBoard({
       setUnNote("");
       return;
     }
-    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer });
+    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer, push: true });
   };
   const confirmUnassign = (v: RosterVisit) => {
     const reason = unReason === "Other" ? unNote.trim() : unNote.trim() ? `${unReason} — ${unNote.trim()}` : unReason;
-    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer: UNASSIGNED, reason });
+    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.time, carer: UNASSIGNED, reason, push: true });
   };
   const revert = (v: RosterVisit) =>
     act(v.key, "/api/cover", { action: "clear", clientId: v.clientId, day: v.day, time: v.time });
@@ -214,6 +224,7 @@ export default function RosterBoard({
 
   const selVisit = visits.find((v) => v.key === selected) ?? null;
   const unVisit = visits.find((v) => v.key === unassignFor) ?? null;
+  const offerFor = (v: RosterVisit) => offers[`${v.clientId}|${v.day}|${v.time}`];
 
   const summary = [
     { icon: "event", label: "Calls today", value: visits.length, tone: "blue" },
@@ -381,6 +392,12 @@ export default function RosterBoard({
                   <span className="ms" style={{ fontSize: 14, verticalAlign: "middle" }}>info</span> Reason: {selVisit.unassignReason}
                 </div>
               )}
+              {(() => { const om = OFFER_META[offerFor(selVisit)?.status ?? ""]; return om ? (
+                <div className="flex" style={{ gap: 6, alignItems: "center", marginTop: 6 }}>
+                  <span className={`pill tone-${om.tone}`} style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>{om.icon}</span>{om.label}</span>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{offerFor(selVisit)!.carer}</span>
+                </div>
+              ) : null; })()}
             </div>
             <button className="mini" onClick={() => setSelected(null)}>Close</button>
           </div>
@@ -414,7 +431,8 @@ export default function RosterBoard({
             )}
           </div>
           <div className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
-            Tip: pick a carer below in <strong>Staff availability</strong> — anyone with capacity can take this call.
+            <span className="ms" style={{ fontSize: 13, verticalAlign: "middle", marginRight: 3 }}>bolt</span>
+            Reassigning or unassigning here is for <strong>{selVisit.day} only</strong> — the carer is asked to accept the shift in their app and the family portal is updated automatically.
           </div>
         </div>
       )}

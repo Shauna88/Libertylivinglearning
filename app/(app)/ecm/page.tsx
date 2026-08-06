@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Empty from "@/components/Empty";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, type Role } from "@/lib/db";
-import { deriveTodayVisits, nowParts } from "@/lib/schedule";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, shiftOfferMap, type Role } from "@/lib/db";
+import { deriveTodayVisits, nowParts, carerPool } from "@/lib/schedule";
 import { ecmState, isEcmAlert, ECM_META, type EcmState } from "@/lib/ecm";
 import EcmDispatch, { type DispatchCall, type Lane } from "@/components/EcmDispatch";
 
@@ -33,7 +33,7 @@ export default async function EcmPage() {
   const now = new Date();
   const { weekday, nowMin } = nowParts(now);
   const serviceDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
-  const [clients, cover, events] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate)]);
+  const [clients, cover, events, offers] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate), shiftOfferMap()]);
   const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
 
   const calls: DispatchCall[] = visits.map((v) => {
@@ -135,7 +135,7 @@ export default async function EcmPage() {
                 </div>
               );
             })()}
-            <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture />
+            <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture carers={carerPool(clients)} offers={offers} />
             <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
               Carers down the side; each call is a bar that turns green when they check in and teal when completed.
               Unassigned calls sit on top — drag one onto a carer to allocate it for today.

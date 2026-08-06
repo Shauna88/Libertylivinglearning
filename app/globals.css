@@ -1982,6 +1982,15 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .tone-bg-teal{background:var(--teal-fg);color:#fff}
 .tone-bg-red{background:var(--red-fg);color:#fff}
 .tone-bg-amber{background:var(--amber-fg);color:#fff}
+/* offer status dot on a call block + inline last-minute reassign controls */
+.disp-offer-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}
+.disp-reassign{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+
+/* HCA shift offers (my-week) + family portal update notices */
+.offer-card{border-left:4px solid var(--amber-fg)}
+.offer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.portal-updates{border-left:4px solid var(--accent)}
+.portal-update{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 
 /* ECM day timeline (Gantt) */
 .tl{display:flex;flex-direction:column}

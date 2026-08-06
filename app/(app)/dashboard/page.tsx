@@ -29,7 +29,8 @@ import { buildRefGroups } from "@/lib/refs";
 import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
 import { PORTALS, portalKey } from "@/lib/portals";
-import { deriveTodayVisits, nowParts, isUnassignedCarer } from "@/lib/schedule";
+import { deriveTodayVisits, nowParts, isUnassignedCarer, carerPool } from "@/lib/schedule";
+import DashCover from "@/components/DashCover";
 import { callType, causeLabel } from "@/lib/callevents";
 import { computeFinance, money } from "@/lib/finance";
 import { statusMeta } from "@/lib/crm";
@@ -314,22 +315,15 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          {/* uncovered today */}
+          {/* uncovered today — assign right here (last-minute change, pushes to HCA + family) */}
           <div className="section-title">Uncovered calls today ({weekday})</div>
           {uncovered.length === 0 ? (
-            <div className="card muted" style={{ fontSize: 13 }}>Every call today is covered. <Link href="/roster" style={{ color: "var(--accent-dark)", fontWeight: 700 }}>Open rostering →</Link></div>
+            <div className="card muted" style={{ fontSize: 13 }}>Every call today is covered. <Link href="/roster" style={{ color: "var(--accent-dark)", fontWeight: 700 }}>Open the Day board →</Link></div>
           ) : (
-            <div className="card" style={{ borderLeft: "4px solid var(--red-fg)" }}>
-              {uncovered.slice(0, 8).map((v) => (
-                <Link key={`${v.clientId}-${v.time}`} href="/roster" className="dash-row">
-                  <span className="code">{v.time}</span>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{v.type}</span>
-                  <span className="muted" style={{ fontSize: 12 }}>{v.su} · {v.area}</span>
-                  <span className="pill tone-red" style={{ marginLeft: "auto" }}>To cover</span>
-                </Link>
-              ))}
-              {uncovered.length > 8 && <Link href="/roster" className="muted" style={{ fontSize: 12, marginTop: 6, display: "inline-block" }}>+{uncovered.length - 8} more in rostering →</Link>}
-            </div>
+            <DashCover
+              calls={uncovered.map((v) => ({ clientId: v.clientId, su: v.su, area: v.area, day: v.day, time: v.time, type: v.type }))}
+              carers={carerPool(clients)}
+            />
           )}
 
           <div className="grid cols-2" style={{ marginTop: 8 }}>

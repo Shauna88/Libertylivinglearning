@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { listClients, coverMap, listCarers } from "@/lib/db";
+import { listClients, coverMap, listCarers, listShiftOffersForCarer } from "@/lib/db";
 import { carerWeek } from "@/lib/schedule";
 import { carerAvailability } from "@/lib/carers";
 import CarerWeek from "@/components/CarerWeek";
+import ShiftOffers, { type Offer } from "@/components/ShiftOffers";
+
+export const dynamic = "force-dynamic";
 
 export default async function MyWeekPage() {
   const session = await auth();
@@ -12,10 +15,23 @@ export default async function MyWeekPage() {
   if (role !== "Healthcare Assistant") redirect("/dashboard");
 
   const carerName = session!.user.name ?? "";
-  const [clients, cover, carers] = await Promise.all([listClients(), coverMap(), listCarers()]);
+  const [clients, cover, carers, offerRows] = await Promise.all([
+    listClients(),
+    coverMap(),
+    listCarers(),
+    listShiftOffersForCarer(carerName),
+  ]);
   const week = carerWeek(clients, carerName, cover);
   const me = carers.find((c) => c.name === carerName);
   const availability = me ? carerAvailability(me) : {};
+  const offers: Offer[] = offerRows.map((o) => ({
+    id: o.id,
+    su: o.su,
+    day: o.day,
+    time: o.time,
+    type: o.type,
+    offeredBy: o.offered_by,
+  }));
 
   return (
     <>
@@ -27,6 +43,7 @@ export default async function MyWeekPage() {
         </p>
       </header>
       <div className="body fade">
+        <ShiftOffers offers={offers} />
         <CarerWeek week={week} availability={availability} />
       </div>
     </>
