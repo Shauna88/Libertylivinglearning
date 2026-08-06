@@ -9,6 +9,7 @@ import {
   addPortalNotice,
   type Role,
 } from "@/lib/db";
+import { sendShiftOfferPush } from "@/lib/push";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
         offeredBy: by,
       });
       offered = !!offer;
+      await sendShiftOfferPush(carer, { day, time, type: info.type, kind: "cover" });
       await addPortalNotice({
         clientId,
         kind: "change",

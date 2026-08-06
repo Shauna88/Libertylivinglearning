@@ -10,6 +10,7 @@ import {
   addPortalNotice,
   type Role,
 } from "@/lib/db";
+import { sendShiftOfferPush } from "@/lib/push";
 import { isUnassignedCarer } from "@/lib/schedule";
 
 export const runtime = "nodejs";
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
           offeredBy: by,
         });
         offered = !!offer;
+        await sendShiftOfferPush(info.carer, { day, time, type: info.type, kind: "time", note: `New time ${newTime} (was ${time})` });
       }
       await addPortalNotice({
         clientId,
