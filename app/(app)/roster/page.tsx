@@ -14,6 +14,7 @@ import {
 } from "@/lib/schedule";
 import { CARER_DIRECTORY, carerAvailability } from "@/lib/carers";
 import { weekDates, absencesFromTimeOff, offByCarerForWeek, isOffOnDay } from "@/lib/absence";
+import { weekDates as weekdayDateMap } from "@/lib/schedule";
 import RosterBoard, { type RosterVisit, type PendingReq } from "@/components/RosterBoard";
 import PlanningBoard, { type PlanCall, type PlanCarer, type PlanCandidate } from "@/components/PlanningBoard";
 
@@ -33,7 +34,9 @@ export default async function RosterPage({
   const now = new Date();
   const { weekday: today, nowMin } = nowParts(now);
   const sp = await searchParams;
-  const view = sp.view === "day" ? "day" : "planner";
+  // Default to the day board (used most); the week planner is a click away.
+  const view = sp.view === "planner" ? "planner" : "day";
+  const dateFor = weekdayDateMap(now);
 
   const [clients, cover] = await Promise.all([listClients(), coverMap()]);
 
@@ -163,7 +166,7 @@ export default async function RosterPage({
       <>
         <header className="header">
           {toggle}
-          <h1>Rostering — week planner</h1>
+          <h1>Week planner</h1>
           <p>Match this week&apos;s uncovered calls to carers who cover the area, are available, and have spare hours. Calls whose carer is on leave or off sick are flagged for cover. Drive the uncovered count to zero.</p>
         </header>
         <PlanningBoard area={area} areas={areaKeys} demand={demand} carers={supply} candidatesByCall={candidatesByCall} shortage={shortage} isCsm={isCsm} />
@@ -216,9 +219,10 @@ export default async function RosterPage({
     <>
       <header className="header">
         {toggle}
-        <h1>Rostering — day board</h1>
+        <h1>Day board</h1>
         <p>
-          Allocate, reassign and cover visits. {isToday ? `Today — ${dateLabel}. ` : `${day}. `}
+          Flick through the week and allocate, reassign or cover visits — changes here are for that day only.
+          {isToday ? ` Today — ${dateLabel}. ` : ` ${day}. `}
           {gaps > 0 ? `${gaps} visit${gaps > 1 ? "s" : ""} to cover.` : "All visits covered."}
         </p>
       </header>
@@ -226,6 +230,7 @@ export default async function RosterPage({
         day={day}
         today={today}
         week={WEEK}
+        dateFor={dateFor}
         visits={visits}
         carerPool={pool}
         pending={pendingReqs}

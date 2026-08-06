@@ -61,6 +61,7 @@ export default function RosterBoard({
   day,
   today,
   week,
+  dateFor = {},
   visits,
   carerPool,
   pending,
@@ -69,6 +70,7 @@ export default function RosterBoard({
   day: string;
   today: string;
   week: string[];
+  dateFor?: Record<string, string>;
   visits: RosterVisit[];
   carerPool: string[];
   pending: PendingReq[];
@@ -278,14 +280,18 @@ export default function RosterBoard({
     <div className="body fade">
       {error && <div className="card" style={{ borderColor: "var(--red-fg)", color: "var(--red-fg)" }}>{error}</div>}
 
-      {/* day tabs */}
+      {/* day tabs — flick through the week; today is marked */}
       <div className="daybar">
-        {week.map((d) => (
-          <Link key={d} href={`/roster?view=day&day=${d}`} className={`daytab${d === day ? " active" : ""}`}>
-            {d.slice(0, 3)}
-            {d === today && <span className="dot-today" title="Today" />}
-          </Link>
-        ))}
+        {week.map((d) => {
+          const iso = dateFor[d];
+          const dnum = iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-IE", { day: "numeric", month: "short" }) : "";
+          return (
+            <Link key={d} href={`/roster?view=day&day=${d}`} className={`daytab${d === day ? " active" : ""}`}>
+              <span className="daytab-wd">{d.slice(0, 3)}{d === today && <span className="dot-today" title="Today" />}</span>
+              {dnum && <span className="daytab-date">{dnum}</span>}
+            </Link>
+          );
+        })}
       </div>
 
       {/* CSM approvals */}
