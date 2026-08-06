@@ -172,8 +172,7 @@ export default function Sidebar({
     groups.splice(1, 0, {
       label: "Client Management · CRM",
       items: [
-        { label: "Live monitor", icon: "sensors", href: "/live-monitor" },
-        { label: "Live calls · ECM", icon: "how_to_reg", href: "/ecm" },
+        { label: "Live calls", icon: "sensors", href: "/ecm" },
         { label: "Attendance", icon: "punch_clock", href: "/attendance" },
         { label: "Client register", icon: "contacts", href: "/clients" },
         { label: "Rostering", icon: "edit_calendar", href: "/roster" },

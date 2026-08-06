@@ -4,12 +4,13 @@ import Empty from "@/components/Empty";
 import { auth } from "@/auth";
 import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, type Role } from "@/lib/db";
 import { deriveTodayVisits, nowParts } from "@/lib/schedule";
-import { ecmState, isEcmAlert, ECM_META } from "@/lib/ecm";
-import CallTimeline, { type CallRow } from "@/components/CallTimeline";
+import { ecmState, isEcmAlert, ECM_META, type EcmState } from "@/lib/ecm";
+import EcmDispatch, { type DispatchCall, type Lane } from "@/components/EcmDispatch";
 
 export const dynamic = "force-dynamic"; // always reflects "now"
 
 const CAN_VIEW: Role[] = [...new Set([...CRM_ROLES, ...OVERSIGHT_ROLES])] as Role[];
+const isUn = (c: string) => !c || /unassigned|to be allocated|^tbc$/i.test(c.trim());
 
 /** Minutes-since-midnight (Europe/Dublin) for an ISO timestamp. */
 function dublinMin(iso: string | null): number | null {
@@ -17,6 +18,11 @@ function dublinMin(iso: string | null): number | null {
   const s = new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Dublin", hour12: false, hour: "2-digit", minute: "2-digit" });
   const [h, m] = s.split(":").map(Number);
   return h * 60 + m;
+}
+
+/** Colour a call by live state — planned vs on-site vs completed vs alert. */
+function dispatchTone(state: EcmState): string {
+  return ({ onsite: "green", completed: "teal", due: "blue", late: "amber", missed: "red", unassigned: "red", suspended: "grey", upcoming: "grey" } as Record<EcmState, string>)[state];
 }
 
 export default async function EcmPage() {
@@ -30,19 +36,33 @@ export default async function EcmPage() {
   const [clients, cover, events] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate)]);
   const visits = deriveTodayVisits(clients, weekday, nowMin, cover);
 
-  const calls: CallRow[] = visits.map((v) => {
+  const calls: DispatchCall[] = visits.map((v) => {
     const ev = events[`${v.clientId}|${v.time}`];
     const event = ev ? { checkinAt: ev.checkin_at, checkoutAt: ev.checkout_at } : null;
     const unassigned = v.status === "gap";
-    const suspended = v.status === "suspended";
-    const state = ecmState({ startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin, unassigned, suspended, event });
+    const state = ecmState({ startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin, unassigned, suspended: v.status === "suspended", event });
     return {
-      clientId: v.clientId, su: v.su, maskedName: v.maskedName, carer: v.carer, type: v.type, area: v.area,
+      clientId: v.clientId, su: v.su, maskedName: v.maskedName, type: v.type, carer: v.carer,
       time: v.time, startMin: v.startMin, durMin: v.durMin,
       checkinMin: dublinMin(ev?.checkin_at ?? null), checkoutMin: dublinMin(ev?.checkout_at ?? null),
-      state, stateLabel: ECM_META[state].label, tone: ECM_META[state].tone, unassigned,
+      state, stateLabel: ECM_META[state].label, tone: dispatchTone(state),
     };
   });
+
+  // Unassigned calls (drag onto a carer); everything else grouped into carer lanes.
+  const unassigned = calls.filter((_, i) => visits[i].status === "gap");
+  const laneMap = new Map<string, DispatchCall[]>();
+  visits.forEach((v, i) => {
+    if (v.status === "gap") return;
+    for (const one of String(v.carer).split("+").map((s) => s.trim())) {
+      if (!one || isUn(one)) continue;
+      if (!laneMap.has(one)) laneMap.set(one, []);
+      laneMap.get(one)!.push(calls[i]);
+    }
+  });
+  const lanes: Lane[] = [...laneMap.entries()]
+    .map(([carer, cs]) => ({ carer, calls: cs.slice().sort((a, b) => a.startMin - b.startMin) }))
+    .sort((a, b) => a.carer.localeCompare(b.carer));
 
   const states = visits.map((v) =>
     ecmState({ startMin: v.startMin, endMin: v.startMin + v.durMin, nowMin, unassigned: v.status === "gap", suspended: v.status === "suspended", event: events[`${v.clientId}|${v.time}`] ? { checkinAt: events[`${v.clientId}|${v.time}`].checkin_at, checkoutAt: events[`${v.clientId}|${v.time}`].checkout_at } : null })
@@ -64,12 +84,12 @@ export default async function EcmPage() {
     <>
       <header className="header">
         <div className="flex" style={{ gap: 8, marginBottom: 6 }}>
-          <span className="pill tone-teal"><span className="ms" style={{ fontSize: 14 }}>sensors</span>Electronic Call Monitoring</span>
+          <span className="pill tone-teal"><span className="ms" style={{ fontSize: 14 }}>sensors</span>Live dispatch board</span>
         </div>
-        <h1>Live calls · check-in monitor</h1>
+        <h1>Live calls</h1>
         <p>
-          {dateLabel} · {timeLabel} — {calls.length} calls today. Actual point-of-care check-in and check-out
-          against the plan; a call with no check-in past its start time raises a missed-visit alert.
+          {dateLabel} · {timeLabel} — {calls.length} calls today. Carers down the side with each call plotted on the day;
+          check calls in and out, and drag an unassigned call onto a carer to allocate it.
         </p>
       </header>
       <div className="body fade">
@@ -89,24 +109,10 @@ export default async function EcmPage() {
           <Empty icon="event_available" title="No calls scheduled today" hint="Rostered calls appear here as the day’s plan is built." />
         ) : (
           <>
-            <div className="flex wrap" style={{ gap: 14, alignItems: "center", marginBottom: 10, fontSize: 11.5 }}>
-              <span className="flex" style={{ gap: 6, alignItems: "center" }}>
-                <span style={{ width: 22, height: 8, borderRadius: 4, border: "1px dashed var(--grey-fg)", display: "inline-block" }} />
-                <span className="muted">Planned window</span>
-              </span>
-              <span className="flex" style={{ gap: 6, alignItems: "center" }}>
-                <span style={{ width: 22, height: 12, borderRadius: 4, background: "var(--green-fg)", display: "inline-block" }} />
-                <span className="muted">Actual check-in → out</span>
-              </span>
-              <span className="flex" style={{ gap: 6, alignItems: "center" }}>
-                <span style={{ width: 2, height: 14, background: "var(--red-fg)", display: "inline-block" }} />
-                <span className="muted">Now ({timeLabel})</span>
-              </span>
-            </div>
-            <CallTimeline rows={calls} nowMin={nowMin} canCapture />
+            <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture />
             <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
-              Check calls in and out as they happen — a visit note can be added at check-out and shows on the client and carer records.
-              A call raises a missed-visit alert once it is 15 minutes past its planned start with no check-in.
+              Carers down the side; each call is a bar that turns green when they check in and teal when completed.
+              Unassigned calls sit on top — drag one onto a carer to allocate it for today.
               Need to log a whole missed call? <Link href="/call-log">Open the call log</Link>.
             </p>
           </>

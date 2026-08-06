@@ -255,7 +255,7 @@ export default async function DashboardPage() {
     const reviewsDue = clients.filter((c) => c.status === "active" && (c.reviewTone === "red" || (c.flags ?? []).some((f) => /review/i.test(f))));
 
     const tiles: { n: number; lbl: string; tone: string; href: string }[] = [
-      { n: visits.length, lbl: `Calls today (${weekday})`, tone: "text", href: "/live-monitor" },
+      { n: visits.length, lbl: `Calls today (${weekday})`, tone: "text", href: "/ecm" },
       { n: uncovered.length, lbl: "Uncovered now", tone: uncovered.length ? "red" : "green", href: "/roster" },
       { n: permReqs.length, lbl: "Approvals waiting", tone: permReqs.length ? "amber" : "green", href: "/dashboard#csm-approvals" },
       { n: sick.length, lbl: "Sick / no-show", tone: sick.length ? "red" : "green", href: "/call-log" },
@@ -504,7 +504,7 @@ export default async function DashboardPage() {
     if (gaps.length) opsTodos.push({ icon: "event_busy", tone: "red", text: `${gaps.length} uncovered call${gaps.length === 1 ? "" : "s"} today need a carer`, href: "/roster" });
     if (sick.length) opsTodos.push({ icon: "sick", tone: "red", text: `${sick.length} carer sick / no-show call${sick.length === 1 ? "" : "s"} to re-cover`, href: "/call-log" });
     if (followUps.length) opsTodos.push({ icon: "call", tone: "amber", text: `${followUps.length} call event${followUps.length === 1 ? "" : "s"} to follow up`, href: "/call-log" });
-    if (isOnCall && paused.length) opsTodos.push({ icon: "pause_circle", tone: "blue", text: `${paused.length} client${paused.length === 1 ? "" : "s"} paused (hospital / hold) — check for resume`, href: "/live-monitor" });
+    if (isOnCall && paused.length) opsTodos.push({ icon: "pause_circle", tone: "blue", text: `${paused.length} client${paused.length === 1 ? "" : "s"} paused (hospital / hold) — check for resume`, href: "/ecm" });
 
     return (
       <>
@@ -514,10 +514,10 @@ export default async function DashboardPage() {
             eyebrow={`${isOnCall ? "Out of hours" : "Today"} · ${weekday}`}
             actions={opsTodos}
             stats={[
-              { n: visits.length, label: `Visits today (${weekday})`, href: "/live-monitor" },
+              { n: visits.length, label: `Visits today (${weekday})`, href: "/ecm" },
               { n: gaps.length, label: isOnCall ? "Uncovered now" : "Gaps to cover", tone: gaps.length ? "red" : "green", href: "/roster" },
               { n: followUps.length, label: "Calls to follow up", tone: followUps.length ? "amber" : "green", href: "/call-log" },
-              { n: isOnCall ? paused.length : active, label: isOnCall ? "Paused (hosp / hold)" : "Active clients", tone: isOnCall && paused.length ? "blue" : undefined, href: "/live-monitor" },
+              { n: isOnCall ? paused.length : active, label: isOnCall ? "Paused (hosp / hold)" : "Active clients", tone: isOnCall && paused.length ? "blue" : undefined, href: "/ecm" },
             ]}
             clearText={isOnCall ? "Quiet on call" : "You're all clear"}
             clearSub={isOnCall ? "Nothing live out-of-hours right now." : "Every visit today is covered and nothing's waiting."}
