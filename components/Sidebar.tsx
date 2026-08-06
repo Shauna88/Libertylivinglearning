@@ -180,6 +180,7 @@ export default function Sidebar({
         { label: "Carer directory", icon: "badge", href: "/carers" },
         { label: "Compliance & reviews", icon: "verified_user", href: "/compliance" },
         { label: "Call log", icon: "phone_missed", href: "/call-log" },
+        { label: "Respite register", icon: "hotel", href: "/respite" },
         { label: "Reports", icon: "summarize", href: "/reports" },
         { label: "Bulk import", icon: "upload_file", href: "/clients/import" },
       ],

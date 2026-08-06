@@ -49,7 +49,8 @@ export default function ReportsHub({ caps }: { caps: { finance: boolean; oversig
       { label: "Unassigned appointments", href: "/api/reports/unassigned", kind: "csv", sub: "Every call with no carer allocated" },
       { label: "Client diary", href: "/clients", kind: "open", sub: "Care notes & visit diary per client" },
       { label: "Care plans", href: "/clients", kind: "open" },
-      { label: "Medication administration (eMAR)", href: "#", kind: "soon" },
+      { label: "Medication administration (eMAR)", href: "/api/reports/medication", kind: "csv", sub: "Last 7 days — record on each client's Medication tab" },
+      { label: "Respite register", href: "/respite", kind: "open", sub: "Clients away, in hospital or on hold" },
     ],
   };
   const finance: Group = {
