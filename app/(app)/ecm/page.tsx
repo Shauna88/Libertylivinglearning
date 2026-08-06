@@ -109,6 +109,32 @@ export default async function EcmPage() {
           <Empty icon="event_available" title="No calls scheduled today" hint="Rostered calls appear here as the day’s plan is built." />
         ) : (
           <>
+            {(() => {
+              const missed = calls.filter((c) => c.state === "late" || c.state === "missed").sort((a, b) => a.startMin - b.startMin);
+              if (missed.length === 0) return null;
+              return (
+                <div className="card" style={{ marginBottom: 16, borderLeft: "4px solid var(--red-fg)" }}>
+                  <div className="flex" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <span className="ms" style={{ color: "var(--red-fg)" }}>notification_important</span>
+                    <strong style={{ fontSize: 13.5 }}>Started with no check-in</strong>
+                    <span className="pill tone-red">{missed.length}</span>
+                    <span className="muted" style={{ fontSize: 12 }}>— chase the carer or check them in on the board below</span>
+                  </div>
+                  <div className="grid cols-3" style={{ gap: 8 }}>
+                    {missed.map((c) => (
+                      <Link key={`${c.clientId}|${c.time}`} href={`/clients/${c.clientId}?tab=schedule`} className="sched-visit" style={{ display: "block", borderLeft: `3px solid var(--${c.tone}-fg)` }}>
+                        <div className="flex between" style={{ alignItems: "center" }}>
+                          <span className="code">{c.time}</span>
+                          <span className="pill tone-red" style={{ fontSize: 10 }}>{nowMin - c.startMin} min overdue</span>
+                        </div>
+                        <div style={{ fontWeight: 600, fontSize: 12.5, marginTop: 3 }}>{c.type}</div>
+                        <div className="muted" style={{ fontSize: 11.5 }}>{c.maskedName} · {c.su} · {c.carer || "Unassigned"}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture />
             <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
               Carers down the side; each call is a bar that turns green when they check in and teal when completed.

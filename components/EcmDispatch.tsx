@@ -98,27 +98,30 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
           </div>
         </div>
 
-        {/* unassigned lane */}
-        {unassigned.length > 0 && (
-          <div className="disp-row disp-unassigned">
-            <div className="disp-label"><span className="pill tone-red" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>drag_indicator</span>Unassigned · {unassigned.length}</span><div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{canAssign ? "Drag onto a carer" : "View only"}</div></div>
-            <div className="disp-track">
-              {HOURS.map((h) => <span key={h} className="tl-grid" style={{ left: `${pct(h)}%` }} />)}
-              {unassigned.map((c) => {
-                const left = pct(c.startMin);
-                const width = Math.max(1.4, pct(c.startMin + c.durMin) - left);
-                return (
-                  <div key={`${c.clientId}|${c.time}`} className="disp-block disp-gap" draggable={canAssign}
-                    onDragStart={() => setDrag(c)} onDragEnd={() => { setDrag(null); setOverCarer(null); }}
-                    style={{ left: `${left}%`, width: `${width}%` }} title={`${c.time} ${c.type} · ${c.su} — drag onto a carer`}>
-                    <span className="disp-block-t">{c.su}</span>
-                  </div>
-                );
-              })}
-              {nowShown && <div className="tl-now" style={{ left: `${pct(nowMin)}%` }} />}
-            </div>
+        {/* unassigned lane — always shown so the drag target is clear */}
+        <div className={`disp-row disp-unassigned${unassigned.length === 0 ? " disp-unassigned-empty" : ""}`}>
+          <div className="disp-label">
+            {unassigned.length > 0
+              ? <><span className="pill tone-red" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>drag_indicator</span>Unassigned · {unassigned.length}</span><div className="muted" style={{ fontSize: 10, marginTop: 2 }}>{canAssign ? "Drag onto a carer" : "View only"}</div></>
+              : <><span className="pill tone-green" style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>check</span>Unassigned · 0</span><div className="muted" style={{ fontSize: 10, marginTop: 2 }}>All calls allocated</div></>}
           </div>
-        )}
+          <div className="disp-track">
+            {HOURS.map((h) => <span key={h} className="tl-grid" style={{ left: `${pct(h)}%` }} />)}
+            {unassigned.map((c) => {
+              const left = pct(c.startMin);
+              const width = Math.max(1.4, pct(c.startMin + c.durMin) - left);
+              return (
+                <div key={`${c.clientId}|${c.time}`} className="disp-block disp-gap" draggable={canAssign}
+                  onDragStart={() => setDrag(c)} onDragEnd={() => { setDrag(null); setOverCarer(null); }}
+                  style={{ left: `${left}%`, width: `${width}%` }} title={`${c.time} ${c.type} · ${c.su} — drag onto a carer`}>
+                  <span className="disp-block-t">{c.su}</span>
+                </div>
+              );
+            })}
+            {unassigned.length === 0 && <span className="muted" style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: 11 }}>No unassigned calls right now — reassigned or new gaps appear here to drag onto a carer.</span>}
+            {nowShown && <div className="tl-now" style={{ left: `${pct(nowMin)}%` }} />}
+          </div>
+        </div>
 
         {/* carer lanes */}
         {lanes.map((ln) => {
