@@ -55,8 +55,10 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
   return (
     <div ref={rootRef} className={`svc-status${urgent ? " urgent" : ""}`} role="region" aria-label="Service status">
       <span className="svc-status-lead">
+        <span className={`svc-status-dot tone-${urgent ? "red" : "amber"}`} aria-hidden="true" />
         <span className="ms" aria-hidden="true" style={{ fontSize: 16 }}>{urgent ? "priority_high" : "info"}</span>
         Service status
+        <span className="svc-status-count">{items.reduce((n, i) => n + i.vital.n, 0)}</span>
       </span>
       <div className="svc-status-items">
         {items.map((i) => {
@@ -73,8 +75,9 @@ export default function ServiceStatusBar({ vitals }: { vitals: ServiceVitals }) 
                 aria-label={`${i.vital.n} ${label} — show details`}
                 onClick={() => setOpenKey(open ? null : key)}
               >
-                <span className="ms" aria-hidden="true" style={{ fontSize: 13 }}>{i.icon}</span>
-                <strong>{i.vital.n}</strong> {label}
+                <span className={`svc-chip-n tone-${i.tone}`} aria-hidden="true">{i.vital.n}</span>
+                <span className="ms svc-chip-ic" aria-hidden="true" style={{ fontSize: 14 }}>{i.icon}</span>
+                {label}
                 <span className="ms svc-chip-caret" aria-hidden="true" style={{ fontSize: 14 }}>expand_more</span>
               </button>
               <div className="svc-pop" role="tooltip">

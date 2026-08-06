@@ -40,7 +40,7 @@ export default async function LiveMonitorPage() {
       clientId: v.clientId, su: v.su, maskedName: v.maskedName, carer: v.carer, type: v.type, area: v.area,
       time: v.time, startMin: v.startMin, durMin: v.durMin,
       checkinMin: dublinMin(ev?.checkin_at ?? null), checkoutMin: dublinMin(ev?.checkout_at ?? null),
-      stateLabel: ECM_META[state].label, tone: ECM_META[state].tone, unassigned,
+      state, stateLabel: ECM_META[state].label, tone: ECM_META[state].tone, unassigned,
     };
   });
   const onSite = calls.filter((c) => c.checkinMin != null && c.checkoutMin == null && !c.unassigned).length;
@@ -117,7 +117,7 @@ export default async function LiveMonitorPage() {
             <span className="muted">Now ({timeLabel})</span>
           </span>
         </div>
-        <CallTimeline rows={calls} nowMin={nowMin} />
+        <CallTimeline rows={calls} nowMin={nowMin} canCapture />
         <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
           Each bar is zoomed to its own call. Actual times come from point-of-care check-in / check-out on the{" "}
           <Link href="/ecm">call monitor</Link>. Diary notes are captured at check-out and show on the client and carer records.

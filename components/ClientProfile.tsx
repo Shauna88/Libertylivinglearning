@@ -7,6 +7,7 @@ import ScheduleEditor from "@/components/ScheduleEditor";
 import ScheduleWeek, { type PendingReq } from "@/components/ScheduleWeek";
 import ClientAssessments from "@/components/ClientAssessments";
 import ClientTimeline from "@/components/ClientTimeline";
+import AttendanceLog from "@/components/AttendanceLog";
 import Empty from "@/components/Empty";
 import { useToast } from "@/components/Toast";
 import type { CarerMatch } from "@/lib/carers";
@@ -22,7 +23,7 @@ function fmtSize(n?: number | null) {
   return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1000))} KB`;
 }
 
-type TabKey = "overview" | "careplan" | "schedule" | "assessments" | "notes" | "documents" | "activity";
+type TabKey = "overview" | "careplan" | "schedule" | "attendance" | "assessments" | "notes" | "documents" | "activity";
 
 function fmtWhen(s: string) {
   return new Date(s).toLocaleString("en-IE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -82,7 +83,7 @@ export default function ClientProfile({
   const router = useRouter();
   const toast = useToast();
   const searchParams = useSearchParams();
-  const TAB_KEYS: TabKey[] = ["overview", "careplan", "schedule", "assessments", "notes", "documents", "activity"];
+  const TAB_KEYS: TabKey[] = ["overview", "careplan", "schedule", "attendance", "assessments", "notes", "documents", "activity"];
   const requestedTab = searchParams.get("tab") as TabKey | null;
   const [tab, setTab] = useState<TabKey>(requestedTab && TAB_KEYS.includes(requestedTab) ? requestedTab : "overview");
   const [busy, setBusy] = useState(false);
@@ -156,6 +157,7 @@ export default function ClientProfile({
     { key: "overview", label: "Overview", icon: "badge" },
     { key: "careplan", label: "Care plan", icon: "assignment" },
     { key: "schedule", label: "Schedule", icon: "calendar_month", badge: unassignedCount || undefined, badgeTone: "red" },
+    { key: "attendance", label: "Attendance", icon: "punch_clock" },
     { key: "assessments", label: "Assessments", icon: "fact_check", badge: reviewsOverdue || undefined, badgeTone: "red" },
     { key: "notes", label: "Notes", icon: "sticky_note_2", badge: notes.length || undefined, badgeTone: "grey" },
     { key: "documents", label: "Documents", icon: "description", badge: flaggedDocs || undefined, badgeTone: "amber" },
@@ -478,6 +480,13 @@ export default function ClientProfile({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ================= ATTENDANCE ================= */}
+      {tab === "attendance" && (
+        <div className="cp-panel">
+          <AttendanceLog scope="client" id={client.id} />
         </div>
       )}
 
