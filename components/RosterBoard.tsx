@@ -242,11 +242,12 @@ export default function RosterBoard({
   ];
 
   function Block({ v, showCarer }: { v: RosterVisit; showCarer?: boolean }) {
+    const offer = offerFor(v);
     return (
       <button
         type="button"
         onClick={() => { setTimeVal(""); setSelected((s) => (s === v.key ? null : v.key)); }}
-        className={`tl-block tl-${v.unassigned ? "red" : v.tone}${selected === v.key ? " tl-sel" : ""}`}
+        className={`tl-block tl-${v.unassigned ? "red" : v.tone}${selected === v.key ? " tl-sel" : ""}${offer ? ` disp-offer-${offer.status}` : ""}`}
         style={{ left: `${pct(v.startMin)}%`, width: `${Math.max(3, (v.durMin / span) * 100)}%` }}
         title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su}${v.timeAdjusted ? ` — moved from ${v.baseTime}` : ""}${v.unassignReason ? ` — unassigned: ${v.unassignReason}` : ""} — click to move`}
       >

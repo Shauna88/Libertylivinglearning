@@ -1985,6 +1985,10 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .tone-bg-amber{background:var(--amber-fg);color:#fff}
 /* offer status dot on a call block + inline last-minute reassign controls */
 .disp-offer-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}
+/* a ring round a call block shows its shift-offer status at a glance (not clipped) */
+.disp-offer-pending{outline:2px solid var(--amber-fg);outline-offset:1.5px}
+.disp-offer-accepted{outline:2px solid var(--green-fg);outline-offset:1.5px}
+.disp-offer-declined{outline:2px solid var(--red-fg);outline-offset:1.5px}
 .disp-reassign{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
 
 /* HCA shift offers (my-week) + family portal update notices */

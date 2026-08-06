@@ -116,7 +116,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
     const offer = offerFor(c);
     const om = offer ? OFFER_META[offer.status] : undefined;
     return (
-      <button type="button" className={`disp-block tone-bg-${c.tone}`} style={{ left: `${left}%`, width: `${width}%`, cursor: "pointer" }}
+      <button type="button" className={`disp-block tone-bg-${c.tone}${offer ? ` disp-offer-${offer.status}` : ""}`} style={{ left: `${left}%`, width: `${width}%`, cursor: "pointer" }}
         onClick={() => { setReCarer(""); setReReason(""); setReTime(""); setSel(c); }}
         title={`${c.time} ${c.type} · ${c.su} · ${c.stateLabel}${actual ? ` · actual ${actual}` : ""}${om ? ` · ${om.label}` : ""} — click to check in / out`}>
         <span className="disp-block-t">{c.su}</span>
