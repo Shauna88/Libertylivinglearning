@@ -151,6 +151,7 @@ export default function Sidebar({
     workforceItems.push({ label: "Compliance & reviews", icon: "verified_user", href: "/compliance" });
   }
   if (isRecruit) workforceItems.push({ label: "Recruitment", icon: "person_search", href: "/recruitment" });
+  if (isWorkforce && !isCrm) workforceItems.push({ label: "Reports", icon: "summarize", href: "/reports" });
   if (workforceItems.length) groups.push({ label: "Workforce", items: workforceItems });
 
   if (isFinance) {
@@ -162,6 +163,7 @@ export default function Sidebar({
         { label: "Client invoicing", icon: "receipt_long", href: "/finance/invoicing" },
         { label: "Rate schemes", icon: "payments", href: "/finance/rate-schemes" },
         { label: "HCA pay & hours", icon: "wallet", href: "/finance/pay" },
+        ...(!isCrm ? [{ label: "Reports", icon: "summarize", href: "/reports" }] : []),
       ],
     });
   }
@@ -178,6 +180,7 @@ export default function Sidebar({
         { label: "Carer directory", icon: "badge", href: "/carers" },
         { label: "Compliance & reviews", icon: "verified_user", href: "/compliance" },
         { label: "Call log", icon: "phone_missed", href: "/call-log" },
+        { label: "Reports", icon: "summarize", href: "/reports" },
         { label: "Bulk import", icon: "upload_file", href: "/clients/import" },
       ],
     });
