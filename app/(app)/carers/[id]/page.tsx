@@ -10,6 +10,7 @@ import CarerWeek from "@/components/CarerWeek";
 import CarerCompliance from "@/components/CarerCompliance";
 import CarerDocuments from "@/components/CarerDocuments";
 import CarerTimeline from "@/components/CarerTimeline";
+import AttendanceLog from "@/components/AttendanceLog";
 
 const CAN_VIEW: Role[] = [...new Set([...CRM_ROLES, ...WORKFORCE_ROLES])] as Role[];
 
@@ -134,6 +135,14 @@ export default async function CarerPage({ params }: { params: Promise<{ id: stri
           {carer.name}&apos;s Schedule of Service across every client (base plan with this week&apos;s cover applied). Client names are masked.
         </p>
         <CarerWeek week={week} availability={availability} actuals={weekActuals} assign={{ carerName: carer.name, candidates: openCalls, isApprover }} />
+
+        {/* weekly attendance / timesheet — planned vs actual, any week, for payroll & audit */}
+        <h2 style={{ fontSize: 16, marginBottom: 4, marginTop: 24 }}>Attendance &amp; timesheet</h2>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 12, maxWidth: "70ch" }}>
+          {carer.name}&apos;s planned calls vs their actual clock-ins this week — navigate back to any week for payroll, HSE queries or an audit. Client names are masked.
+        </p>
+        <AttendanceLog scope="carer" id={carer.id} />
+
 
         {/* activity log — clock-ins/outs, visit diary notes, cover picked up, system actions */}
         <h2 style={{ fontSize: 16, marginBottom: 4, marginTop: 24 }}>Activity log</h2>
