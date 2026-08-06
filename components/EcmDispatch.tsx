@@ -47,6 +47,12 @@ function laneFree(calls: DispatchCall[], startMin: number, endMin: number): bool
   return !calls.some((c) => startMin < c.startMin + c.durMin && endMin > c.startMin);
 }
 
+/** Friendly default message to the carer, personalised with their first name. */
+function noteFor(carer: string): string {
+  const first = carer.trim().split(/\s+/)[0] || "there";
+  return `Hi ${first}, could you take a look at this call offer and approve the change to your schedule?`;
+}
+
 /**
  * Dispatch board — carers down the side, each call a duration bar on their row
  * coloured by live state (planned → on site → completed) with the actual
@@ -70,6 +76,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<DispatchCall | null>(null);
   const [reCarer, setReCarer] = useState("");
+  const [reNote, setReNote] = useState("");
   const [reReason, setReReason] = useState("");
   const [reTime, setReTime] = useState("");
   const nowShown = nowMin >= DAY_START && nowMin <= DAY_END;
@@ -77,14 +84,14 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
 
   // Assign / reassign / unassign — a last-minute change pushes the shift to the
   // HCA to accept and posts a notice to the family portal (push: true).
-  async function change(call: DispatchCall, carer: string, reason?: string) {
+  async function change(call: DispatchCall, carer: string, reason?: string, note?: string) {
     setBusy(true);
     try {
-      const res = await fetch("/api/cover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set", clientId: call.clientId, day: weekday, time: call.baseTime, carer, reason, push: true }) });
+      const res = await fetch("/api/cover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "set", clientId: call.clientId, day: weekday, time: call.baseTime, carer, reason, note, push: true }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { toast(j.error ?? "Could not update", "error"); return; }
       toast(/^unassigned$/i.test(carer) ? `${call.time} ${call.su} unassigned` : `${call.time} ${call.su} → ${carer}${j.offered ? " · shift offered" : ""}`);
-      setSel(null); setReCarer(""); setReReason(""); setReTime("");
+      setSel(null); setReCarer(""); setReNote(""); setReReason(""); setReTime("");
       router.refresh();
     } finally { setBusy(false); setDrag(null); setOverCarer(null); }
   }
@@ -117,7 +124,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
     const om = offer ? OFFER_META[offer.status] : undefined;
     return (
       <button type="button" className={`disp-block tone-bg-${c.tone}${offer ? ` disp-offer-${offer.status}` : ""}`} style={{ left: `${left}%`, width: `${width}%`, cursor: "pointer" }}
-        onClick={() => { setReCarer(""); setReReason(""); setReTime(""); setSel(c); }}
+        onClick={() => { setReCarer(""); setReNote(""); setReReason(""); setReTime(""); setSel(c); }}
         title={`${c.time} ${c.type} · ${c.su} · ${c.stateLabel}${actual ? ` · actual ${actual}` : ""}${om ? ` · ${om.label}` : ""} — click to check in / out`}>
         <span className="disp-block-t">{c.su}</span>
         {om && <span className={`disp-offer-dot tone-bg-${om.tone}`} aria-hidden="true" />}
@@ -205,7 +212,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
             </div>
             <div className="flex" style={{ gap: 8, alignItems: "center" }}>
               {canCapture ? <CallCapture clientId={sel.clientId} time={sel.baseTime} carer={sel.carer} state={sel.state} /> : <span className="muted" style={{ fontSize: 12 }}>View only</span>}
-              <button className="mini" onClick={() => { setSel(null); setReCarer(""); setReReason(""); setReTime(""); }}>Close</button>
+              <button className="mini" onClick={() => { setSel(null); setReCarer(""); setReNote(""); setReReason(""); setReTime(""); }}>Close</button>
             </div>
           </div>
 
@@ -223,14 +230,23 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
                 Last-minute change (today only) — the HCA is asked to accept and the family is notified.
               </div>
               <div className="flex wrap" style={{ gap: 8, alignItems: "center" }}>
-                <select className="input" style={{ fontSize: 12.5, padding: "6px 9px", flex: "1 1 180px" }} value={reCarer} onChange={(e) => setReCarer(e.target.value)}>
+                <select className="input" style={{ fontSize: 12.5, padding: "6px 9px", flex: "1 1 180px" }} value={reCarer}
+                  onChange={(e) => { const v = e.target.value; setReCarer(v); setReNote(v ? noteFor(v) : ""); }}>
                   <option value="">Reassign to…</option>
                   {carers.filter((c) => c !== sel.carer).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <button className="mini primary" disabled={busy || !reCarer} onClick={() => change(sel, reCarer)}>
+                <button className="mini primary" disabled={busy || !reCarer} onClick={() => change(sel, reCarer, undefined, reNote)}>
                   {busy ? "…" : "Reassign & push"}
                 </button>
               </div>
+              {reCarer && (
+                <label className="disp-note">
+                  <span className="muted" style={{ fontSize: 10.5, display: "flex", alignItems: "center", gap: 3 }}>
+                    <span className="ms" style={{ fontSize: 13 }}>edit_note</span>Message to {reCarer.split(" ")[0]} (they see this on the offer) — edit if you like
+                  </span>
+                  <textarea className="input" rows={2} style={{ fontSize: 12.5, padding: "6px 9px", resize: "vertical" }} value={reNote} onChange={(e) => setReNote(e.target.value)} />
+                </label>
+              )}
               <div className="flex wrap" style={{ gap: 8, alignItems: "center", marginTop: 8 }}>
                 <input className="input" style={{ fontSize: 12.5, padding: "6px 9px", flex: "1 1 180px" }} placeholder="Reason to unassign…" value={reReason} onChange={(e) => setReReason(e.target.value)} />
                 <button className="mini" disabled={busy || reReason.trim().length < 3} onClick={() => change(sel, "Unassigned", reReason.trim())}>

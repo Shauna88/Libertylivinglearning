@@ -103,9 +103,14 @@ export default function ShiftOffers({ offers }: { offers: Offer[] }) {
               </div>
               <div className="muted" style={{ fontSize: 12 }}>
                 <span className="code">{o.su}</span>
-                {o.note ? ` · ${o.note}` : ""}
                 {o.offeredBy ? ` · offered by ${o.offeredBy}` : ""}
               </div>
+              {o.note && (
+                <div className="offer-note">
+                  <span className="ms" style={{ fontSize: 14 }}>format_quote</span>
+                  <span>{o.note}</span>
+                </div>
+              )}
             </div>
             <div className="flex" style={{ gap: 8 }}>
               <button className="mini primary" disabled={busy === o.id} onClick={() => decide(o.id, "accept")}>

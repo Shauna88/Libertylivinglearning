@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authorised" }, { status: 403 });
   }
 
-  let body: { action?: string; clientId?: string; day?: string; time?: string; newTime?: string; push?: boolean };
+  let body: { action?: string; clientId?: string; day?: string; time?: string; newTime?: string; push?: boolean; note?: string };
   try {
     body = await req.json();
   } catch {
@@ -86,6 +86,10 @@ export async function POST(req: Request) {
       // Ask the assigned carer to accept the new time; unassigned calls just
       // update the portal (there's no HCA to notify yet).
       if (!isUnassignedCarer(info.carer)) {
+        const first = info.carer.trim().split(/\s+/)[0] || "there";
+        const note = typeof body.note === "string" && body.note.trim()
+          ? body.note.trim()
+          : `Hi ${first}, your ${day} visit has moved from ${time} to ${newTime} — could you take a look and approve this change to your schedule?`;
         const offer = await createShiftOffer({
           clientId,
           su: info.su,
@@ -94,11 +98,11 @@ export async function POST(req: Request) {
           type: info.type,
           carer: info.carer,
           kind: "time",
-          note: `New time ${newTime} (was ${time})`,
+          note,
           offeredBy: by,
         });
         offered = !!offer;
-        await sendShiftOfferPush(info.carer, { day, time, type: info.type, kind: "time", note: `New time ${newTime} (was ${time})` });
+        await sendShiftOfferPush(info.carer, { day, time, type: info.type, kind: "time", note });
       }
       await addPortalNotice({
         clientId,
