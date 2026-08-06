@@ -349,6 +349,18 @@ async function createSchema(client: PoolClient) {
     );
     ALTER TABLE cover_assignments ADD COLUMN IF NOT EXISTS reason TEXT;
 
+    -- Temporary (that-day-only) tweak to a visit's start time. The base schedule
+    -- time stays the identity key; new_time is the moved start for today.
+    CREATE TABLE IF NOT EXISTS time_overrides (
+      client_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      time TEXT NOT NULL,
+      new_time TEXT NOT NULL,
+      assigned_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (client_id, day, time)
+    );
+
     CREATE TABLE IF NOT EXISTS care_notes (
       id SERIAL PRIMARY KEY,
       client_id TEXT NOT NULL,
@@ -588,6 +600,39 @@ async function createSchema(client: PoolClient) {
     ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS ref_label TEXT;
     ALTER TABLE user_todos ADD COLUMN IF NOT EXISTS ref_href TEXT;
     CREATE INDEX IF NOT EXISTS idx_user_todos_dept ON user_todos(to_dept);
+
+    -- Last-minute (that-day) cover changes push a shift to the HCA to accept in
+    -- the app. One live offer per visit slot; the coordinator sees its status.
+    CREATE TABLE IF NOT EXISTS shift_offers (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      su TEXT NOT NULL DEFAULT '',
+      day TEXT NOT NULL,
+      time TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT '',
+      carer TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'cover',
+      note TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      offered_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      decided_at TIMESTAMPTZ,
+      UNIQUE (client_id, day, time, carer)
+    );
+    CREATE INDEX IF NOT EXISTS idx_shift_offers_carer ON shift_offers(carer, status);
+    CREATE INDEX IF NOT EXISTS idx_shift_offers_slot ON shift_offers(client_id, day, time);
+
+    -- Communications pushed to the family portal when a visit changes.
+    CREATE TABLE IF NOT EXISTS portal_notices (
+      id SERIAL PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'change',
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_portal_notices_client ON portal_notices(client_id, created_at DESC);
   `);
 }
 
@@ -603,8 +648,11 @@ async function seed(client: PoolClient) {
   await client.query("DELETE FROM time_off_requests");
   await client.query("DELETE FROM messages");
   await client.query("DELETE FROM user_todos");
+  await client.query("DELETE FROM shift_offers");
+  await client.query("DELETE FROM portal_notices");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
+  await client.query("DELETE FROM time_overrides");
   await client.query("DELETE FROM care_notes");
   await client.query("DELETE FROM client_documents");
   await client.query("DELETE FROM audit_log");
@@ -2530,6 +2578,237 @@ export async function clearCover(input: {
     action: "cover.clear",
     target: `${input.clientId}|${input.day}|${input.time}`,
   });
+}
+
+// ---------------- Temporary time tweaks ----------------
+
+export type TimeOverrideRow = {
+  client_id: string;
+  day: string;
+  time: string;
+  new_time: string;
+  assigned_by: string;
+  created_at: string;
+};
+
+/** All temporary time tweaks as a `clientId|day|time → newTime` map. */
+export async function timeOverrideMap(): Promise<Record<string, string>> {
+  const rows = await q<TimeOverrideRow>("SELECT * FROM time_overrides");
+  const m: Record<string, string> = {};
+  for (const r of rows) m[`${r.client_id}|${r.day}|${r.time}`] = r.new_time;
+  return m;
+}
+
+/** Move a visit's start time for that day only (base time stays the key). */
+export async function setTimeOverride(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  newTime: string;
+  by: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO time_overrides (client_id,day,time,new_time,assigned_by)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (client_id,day,time)
+     DO UPDATE SET new_time=excluded.new_time, assigned_by=excluded.assigned_by, created_at=now()`,
+    [input.clientId, input.day, input.time, input.newTime, input.by]
+  );
+  await logAudit({
+    actorName: input.by,
+    action: "time.set",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+    detail: `→ ${input.newTime}`,
+  });
+}
+
+/** Clear a temporary time tweak (revert to the scheduled time). */
+export async function clearTimeOverride(input: {
+  clientId: string;
+  day: string;
+  time: string;
+  by: string;
+}): Promise<void> {
+  await q("DELETE FROM time_overrides WHERE client_id=$1 AND day=$2 AND time=$3", [
+    input.clientId,
+    input.day,
+    input.time,
+  ]);
+  await logAudit({
+    actorName: input.by,
+    action: "time.clear",
+    target: `${input.clientId}|${input.day}|${input.time}`,
+  });
+}
+
+// ---------------- Last-minute changes: HCA shift offers + family portal ----------------
+
+export type ShiftOfferRow = {
+  id: number;
+  client_id: string;
+  su: string;
+  day: string;
+  time: string;
+  type: string;
+  carer: string;
+  kind: string;
+  note: string;
+  status: string;
+  offered_by: string;
+  created_at: string;
+  decided_at: string | null;
+};
+
+/** Find a login by display name (case-insensitive) — used to reach an HCA. */
+export async function getUserByName(name: string): Promise<UserRow | undefined> {
+  const clean = name.trim();
+  if (!clean) return undefined;
+  const rows = await q<UserRow>("SELECT * FROM users WHERE lower(name) = lower($1) LIMIT 1", [clean]);
+  return rows[0];
+}
+
+export type PortalNoticeRow = {
+  id: number;
+  client_id: string;
+  kind: string;
+  title: string;
+  body: string;
+  created_by: string;
+  created_at: string;
+};
+
+/** Post a communication to a client's family portal. */
+export async function addPortalNotice(input: {
+  clientId: string;
+  kind?: string;
+  title: string;
+  body?: string;
+  by: string;
+}): Promise<void> {
+  await q(
+    "INSERT INTO portal_notices (client_id,kind,title,body,created_by) VALUES ($1,$2,$3,$4,$5)",
+    [input.clientId, input.kind ?? "change", input.title, input.body ?? "", input.by]
+  );
+  await logAudit({ actorName: input.by, action: "portal.notice", target: input.clientId, detail: input.title });
+}
+
+/** Most recent portal notices for a client (newest first). */
+export async function listPortalNotices(clientId: string, limit = 8): Promise<PortalNoticeRow[]> {
+  return q<PortalNoticeRow>(
+    "SELECT * FROM portal_notices WHERE client_id=$1 ORDER BY created_at DESC LIMIT $2",
+    [clientId, limit]
+  );
+}
+
+/**
+ * Push a shift to an HCA to accept/decline in the app. Records a pending offer
+ * and drops a to-do (with a link to their week) onto the HCA's dashboard. Any
+ * earlier live offer for the same slot is superseded so only one is actionable.
+ */
+export async function createShiftOffer(input: {
+  clientId: string;
+  su: string;
+  day: string;
+  time: string;
+  type: string;
+  carer: string;
+  kind?: string;
+  note?: string;
+  offeredBy: string;
+}): Promise<ShiftOfferRow | undefined> {
+  // Supersede any still-pending offer for this slot to a different carer.
+  await q(
+    "UPDATE shift_offers SET status='superseded', decided_at=now() WHERE client_id=$1 AND day=$2 AND time=$3 AND status='pending' AND lower(carer) <> lower($4)",
+    [input.clientId, input.day, input.time, input.carer]
+  );
+  const rows = await q<ShiftOfferRow>(
+    `INSERT INTO shift_offers (client_id,su,day,time,type,carer,kind,note,status,offered_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9)
+     ON CONFLICT (client_id,day,time,carer)
+     DO UPDATE SET status='pending', type=excluded.type, note=excluded.note, kind=excluded.kind, offered_by=excluded.offered_by, created_at=now(), decided_at=NULL
+     RETURNING *`,
+    [input.clientId, input.su, input.day, input.time, input.type, input.carer, input.kind ?? "cover", input.note ?? "", input.offeredBy]
+  );
+  const offer = rows[0];
+  // Push a to-do to the HCA if they have a login.
+  const hca = await getUserByName(input.carer);
+  if (hca) {
+    await addTodo({
+      userId: hca.id,
+      text: `New shift offered — ${input.day} ${input.time} · ${input.type || "visit"}. Tap to accept or decline.`,
+      href: "/my-week",
+      fromName: input.offeredBy,
+      refLabel: input.su,
+    });
+  }
+  await logAudit({ actorName: input.offeredBy, action: "shift.offer", target: `${input.clientId}|${input.day}|${input.time}`, detail: input.carer });
+  return offer;
+}
+
+/** Live (pending) shift offers for one HCA, newest first. */
+export async function listShiftOffersForCarer(carer: string): Promise<ShiftOfferRow[]> {
+  return q<ShiftOfferRow>(
+    "SELECT * FROM shift_offers WHERE lower(carer)=lower($1) AND status='pending' ORDER BY created_at DESC",
+    [carer]
+  );
+}
+
+/** Offer status per visit slot (`clientId|day|time` → {carer,status}) for the boards. */
+export async function shiftOfferMap(): Promise<Record<string, { carer: string; status: string }>> {
+  const rows = await q<ShiftOfferRow>(
+    "SELECT DISTINCT ON (client_id,day,time) client_id,day,time,carer,status FROM shift_offers WHERE status IN ('pending','accepted','declined') ORDER BY client_id,day,time,created_at DESC"
+  );
+  const m: Record<string, { carer: string; status: string }> = {};
+  for (const r of rows) m[`${r.client_id}|${r.day}|${r.time}`] = { carer: r.carer, status: r.status };
+  return m;
+}
+
+/**
+ * An HCA accepts or declines an offered shift. On decline the cover is handed
+ * back (the slot returns to Unassigned) and the coordinator is notified so it
+ * can be re-covered; the family portal is told the visit is being re-arranged.
+ */
+export async function decideShiftOffer(input: {
+  id: number;
+  carer: string;
+  decision: "accept" | "decline";
+}): Promise<ShiftOfferRow | undefined> {
+  const status = input.decision === "accept" ? "accepted" : "declined";
+  const rows = await q<ShiftOfferRow>(
+    "UPDATE shift_offers SET status=$1, decided_at=now() WHERE id=$2 AND lower(carer)=lower($3) AND status='pending' RETURNING *",
+    [status, input.id, input.carer]
+  );
+  const offer = rows[0];
+  if (!offer) return undefined;
+
+  if (input.decision === "decline") {
+    // Hand the call back — revert cover to Unassigned with a clear reason.
+    await setCover({
+      clientId: offer.client_id,
+      day: offer.day,
+      time: offer.time,
+      carer: "Unassigned",
+      reason: `Declined by ${offer.carer}`,
+      by: offer.carer,
+    });
+    // Tell the coordinators it needs re-covering.
+    await createMessage({
+      fromId: null,
+      fromName: offer.carer,
+      fromRole: "Healthcare Assistant",
+      fromDept: "Care",
+      toDept: "CRM",
+      subject: `Shift declined — ${offer.su} ${offer.day} ${offer.time}`,
+      body: `${offer.carer} declined the ${offer.type || "visit"} on ${offer.day} at ${offer.time}. It's back in the unassigned lane and needs re-covering.`,
+      kind: "alert",
+      meetingAt: null,
+      parentId: null,
+      refLabel: offer.su,
+      refHref: "/ecm",
+    });
+  }
+  await logAudit({ actorName: offer.carer, action: `shift.${status}`, target: `${offer.client_id}|${offer.day}|${offer.time}` });
+  return offer;
 }
 
 export type PermReqRow = {

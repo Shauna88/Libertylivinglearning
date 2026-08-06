@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, listCarers, listTimeOff, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, coverReasons, listPermReqs, listCarers, listTimeOff, shiftOfferMap, timeOverrideMap, type Role } from "@/lib/db";
 import {
   deriveTodayVisits,
   carerPool,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/schedule";
 import { CARER_DIRECTORY, carerAvailability } from "@/lib/carers";
 import { weekDates, absencesFromTimeOff, offByCarerForWeek, isOffOnDay } from "@/lib/absence";
+import { weekDates as weekdayDateMap } from "@/lib/schedule";
 import RosterBoard, { type RosterVisit, type PendingReq } from "@/components/RosterBoard";
 import PlanningBoard, { type PlanCall, type PlanCarer, type PlanCandidate } from "@/components/PlanningBoard";
 
@@ -33,7 +34,9 @@ export default async function RosterPage({
   const now = new Date();
   const { weekday: today, nowMin } = nowParts(now);
   const sp = await searchParams;
-  const view = sp.view === "day" ? "day" : "planner";
+  // Default to the day board (used most); the week planner is a click away.
+  const view = sp.view === "planner" ? "planner" : "day";
+  const dateFor = weekdayDateMap(now);
 
   const [clients, cover] = await Promise.all([listClients(), coverMap()]);
 
@@ -163,7 +166,7 @@ export default async function RosterPage({
       <>
         <header className="header">
           {toggle}
-          <h1>Rostering — week planner</h1>
+          <h1>Week planner</h1>
           <p>Match this week&apos;s uncovered calls to carers who cover the area, are available, and have spare hours. Calls whose carer is on leave or off sick are flagged for cover. Drive the uncovered count to zero.</p>
         </header>
         <PlanningBoard area={area} areas={areaKeys} demand={demand} carers={supply} candidatesByCall={candidatesByCall} shortage={shortage} isCsm={isCsm} />
@@ -175,17 +178,19 @@ export default async function RosterPage({
   const day = WEEK.includes(sp.day ?? "") ? (sp.day as string) : today;
   const isToday = day === today;
 
-  const [reasons, pending] = await Promise.all([coverReasons(), listPermReqs("pending")]);
-  const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover);
+  const [reasons, pending, offers, timeOv] = await Promise.all([coverReasons(), listPermReqs("pending"), shiftOfferMap(), timeOverrideMap()]);
+  const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover, timeOv);
 
   const visits: RosterVisit[] = visitsRaw.map((v) => ({
-    key: `${v.clientId}|${v.day}|${v.time}`,
+    key: `${v.clientId}|${v.day}|${v.baseTime}`,
     clientId: v.clientId,
     su: v.su,
     area: v.area,
     maskedName: v.maskedName,
     day: v.day,
     time: v.time,
+    baseTime: v.baseTime,
+    timeAdjusted: v.timeAdjusted,
     startMin: v.startMin,
     durMin: v.durMin,
     type: v.type,
@@ -193,7 +198,7 @@ export default async function RosterPage({
     baseCarer: v.baseCarer,
     overridden: v.overridden,
     unassigned: isUnassignedCarer(v.carer),
-    unassignReason: reasons[`${v.clientId}|${v.day}|${v.time}`] ?? null,
+    unassignReason: reasons[`${v.clientId}|${v.day}|${v.baseTime}`] ?? null,
     statusLabel: isToday ? v.statusLabel : "Scheduled",
     tone: isToday ? v.tone : "grey",
   }));
@@ -216,9 +221,10 @@ export default async function RosterPage({
     <>
       <header className="header">
         {toggle}
-        <h1>Rostering — day board</h1>
+        <h1>Day board</h1>
         <p>
-          Allocate, reassign and cover visits. {isToday ? `Today — ${dateLabel}. ` : `${day}. `}
+          Flick through the week and allocate, reassign or cover visits — changes here are for that day only.
+          {isToday ? ` Today — ${dateLabel}. ` : ` ${day}. `}
           {gaps > 0 ? `${gaps} visit${gaps > 1 ? "s" : ""} to cover.` : "All visits covered."}
         </p>
       </header>
@@ -226,10 +232,12 @@ export default async function RosterPage({
         day={day}
         today={today}
         week={WEEK}
+        dateFor={dateFor}
         visits={visits}
         carerPool={pool}
         pending={pendingReqs}
         isCsm={isCsm}
+        offers={offers}
       />
     </>
   );

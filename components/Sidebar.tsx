@@ -175,7 +175,7 @@ export default function Sidebar({
         { label: "Live calls", icon: "sensors", href: "/ecm" },
         { label: "Attendance", icon: "punch_clock", href: "/attendance" },
         { label: "Client register", icon: "contacts", href: "/clients" },
-        { label: "Rostering", icon: "edit_calendar", href: "/roster" },
+        { label: "Day board", icon: "edit_calendar", href: "/roster" },
         { label: "Carer directory", icon: "badge", href: "/carers" },
         { label: "Compliance & reviews", icon: "verified_user", href: "/compliance" },
         { label: "Call log", icon: "phone_missed", href: "/call-log" },

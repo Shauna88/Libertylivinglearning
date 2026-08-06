@@ -1510,12 +1510,14 @@ a.card:hover {
 }
 
 /* ---------- rostering cockpit ---------- */
-.daybar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
-.daytab{padding:7px 14px;border:1px solid var(--border);border-radius:9px;background:var(--card);
-  font-size:13px;font-weight:600;color:var(--text-2);position:relative}
+.daybar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.daytab{display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 16px;border:1px solid var(--border);border-radius:10px;background:var(--card);
+  font-weight:700;color:var(--text-2);position:relative;text-align:center}
+.daytab-wd{font-size:12.5px;position:relative}
+.daytab-date{font-size:11px;font-weight:600;opacity:.8}
 .daytab:hover{border-color:var(--accent)}
 .daytab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.dot-today{position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.dot-today{position:absolute;top:-3px;right:-9px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .daytab.active .dot-today{background:#fff}
 
 .rv{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px 9px 12px}
@@ -1706,6 +1708,7 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 
 .move-bar{border-left:4px solid var(--accent);background:var(--accent-tint);border-color:var(--accent-tint);margin-bottom:6px}
 .move-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.move-time{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--accent)}
 
 .avail{text-align:left;font-family:inherit;width:100%;display:block;cursor:default;transition:border-color .12s,box-shadow .12s}
 .avail-target{cursor:pointer;border-color:var(--accent)}
@@ -1980,6 +1983,15 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .tone-bg-teal{background:var(--teal-fg);color:#fff}
 .tone-bg-red{background:var(--red-fg);color:#fff}
 .tone-bg-amber{background:var(--amber-fg);color:#fff}
+/* offer status dot on a call block + inline last-minute reassign controls */
+.disp-offer-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}
+.disp-reassign{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+
+/* HCA shift offers (my-week) + family portal update notices */
+.offer-card{border-left:4px solid var(--amber-fg)}
+.offer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.portal-updates{border-left:4px solid var(--accent)}
+.portal-update{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 
 /* ECM day timeline (Gantt) */
 .tl{display:flex;flex-direction:column}

@@ -1,8 +1,21 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getClient, PORTAL_ROLE } from "@/lib/db";
+import { getClient, listPortalNotices, PORTAL_ROLE } from "@/lib/db";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/** Friendly "2 hours ago" / "Yesterday" style relative time. */
+function ago(iso: string): string {
+  const then = new Date(iso).getTime();
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
+  const days = Math.round(hrs / 24);
+  return days === 1 ? "yesterday" : `${days} days ago`;
+}
 
 const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -42,6 +55,7 @@ export default async function PortalPage() {
     );
   }
 
+  const notices = await listPortalNotices(client.id, 6);
   const today = new Date().toLocaleDateString("en-IE", { weekday: "long", timeZone: "Europe/Dublin" });
   const byDay = new Map(client.schedule.map((d) => [d.day, d.visits]));
   const carers = carersThisWeek(client.schedule);
@@ -63,6 +77,27 @@ export default async function PortalPage() {
           <span className="pill tone-amber">Visits paused</span> Home visits are currently on hold
           while you&rsquo;re in hospital. They&rsquo;ll resume when you&rsquo;re home — your
           coordinator will be in touch.
+        </div>
+      )}
+
+      {/* recent updates — last-minute changes pushed by the coordinator */}
+      {notices.length > 0 && (
+        <div className="card portal-updates" style={{ marginBottom: 18 }}>
+          <div className="section-title" style={{ marginTop: 0 }}>
+            <span className="ms" style={{ fontSize: 18, verticalAlign: "middle", marginRight: 6 }}>campaign</span>
+            Recent updates
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {notices.map((n) => (
+              <div key={n.id} className="portal-update">
+                <div className="flex between wrap" style={{ gap: 8, alignItems: "baseline" }}>
+                  <strong style={{ fontSize: 13.5 }}>{n.title}</strong>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{ago(n.created_at)}</span>
+                </div>
+                {n.body && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{n.body}</div>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
