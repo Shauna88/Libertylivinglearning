@@ -96,7 +96,10 @@ export default function AttendanceLog({ scope, id }: { scope: "client" | "carer"
           <span className="ms">chevron_right</span>
         </button>
         <button className="btn" style={{ padding: "6px 12px", fontSize: 12.5 }} disabled={busy} onClick={() => load(new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" }))}>This week</button>
-        <button className="btn" style={{ padding: "6px 12px", fontSize: 12.5, marginLeft: "auto" }} onClick={() => window.print()}>
+        <a className="btn btn-primary" style={{ padding: "6px 12px", fontSize: 12.5, marginLeft: "auto" }} href={`/api/attendance/export?scope=${scope}&id=${encodeURIComponent(id)}&week=${week.weekStart}`}>
+          <span className="ms" style={{ fontSize: 16 }}>download</span>Export CSV
+        </a>
+        <button className="btn" style={{ padding: "6px 12px", fontSize: 12.5 }} onClick={() => window.print()}>
           <span className="ms" style={{ fontSize: 16 }}>print</span>Print
         </button>
       </div>

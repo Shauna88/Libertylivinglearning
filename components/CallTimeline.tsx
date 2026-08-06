@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CallCapture from "@/components/CallCapture";
 
 /**
  * Live calls seen from BOTH perspectives at once: the planned visit window and
@@ -21,6 +22,7 @@ export type CallRow = {
   durMin: number;
   checkinMin: number | null;
   checkoutMin: number | null;
+  state: string; // raw ECM state for capture controls
   stateLabel: string;
   tone: string;
   unassigned: boolean;
@@ -56,7 +58,7 @@ function variance(r: CallRow, nowMin: number): { text: string; tone: string } {
   return { text: `${inLabel} · ${durLabel}`, tone: deltaDur < -5 || lateIn > 15 ? "amber" : "grey" };
 }
 
-export default function CallTimeline({ rows, nowMin }: { rows: CallRow[]; nowMin: number }) {
+export default function CallTimeline({ rows, nowMin, canCapture = false }: { rows: CallRow[]; nowMin: number; canCapture?: boolean }) {
   return (
     <div className="card" style={{ padding: 0, overflowX: "auto" }}>
       <table className="tbl">
@@ -68,6 +70,7 @@ export default function CallTimeline({ rows, nowMin }: { rows: CallRow[]; nowMin
             <th style={{ minWidth: 240 }}>Planned vs actual</th>
             <th style={{ width: 150 }}>Variance</th>
             <th style={{ width: 140 }}>State</th>
+            {canCapture && <th style={{ width: 150 }}>Capture</th>}
           </tr>
         </thead>
         <tbody>
@@ -120,6 +123,7 @@ export default function CallTimeline({ rows, nowMin }: { rows: CallRow[]; nowMin
                 </td>
                 <td><span className={`pill tone-${v.tone}`} style={{ fontSize: 11 }}>{v.text}</span></td>
                 <td><span className={`pill tone-${r.tone}`}>{r.stateLabel}</span></td>
+                {canCapture && <td style={{ textAlign: "right" }}><CallCapture clientId={r.clientId} time={r.time} carer={r.carer} state={r.state} /></td>}
               </tr>
             );
           })}

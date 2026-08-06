@@ -127,7 +127,15 @@ export function buildAttendance(
   });
 
   const all = days.flatMap((d) => d.visits);
-  const totals = {
+  const totals = weekTotals(all);
+
+  return { weekStart: weekDates[0].date, weekEnd: weekDates[6].date, days, totals };
+}
+
+export type AttTotals = { calls: number; completed: number; onsite: number; noShow: number; upcoming: number; plannedMin: number; deliveredMin: number };
+
+export function weekTotals(all: AttVisit[]): AttTotals {
+  return {
     calls: all.length,
     completed: all.filter((v) => v.state === "completed").length,
     onsite: all.filter((v) => v.state === "onsite").length,
@@ -136,6 +144,38 @@ export function buildAttendance(
     plannedMin: all.reduce((n, v) => n + v.plannedMin, 0),
     deliveredMin: all.reduce((n, v) => n + (v.deliveredMin ?? 0), 0),
   };
+}
 
-  return { weekStart: weekDates[0].date, weekEnd: weekDates[6].date, days, totals };
+/** How late a clock-in is before it's flagged; how far under plan counts as short. */
+export const LATE_IN_FLAG_MIN = 15;
+export const SHORT_DELIVERY_RATIO = 0.75;
+
+export type AttException = {
+  kind: "no_show" | "late_in" | "under_delivered";
+  subject: string; // the other party (carer scope → client; client scope → carer)
+  weekday: string;
+  date: string;
+  time: string;
+  detail: string;
+};
+
+/** Payroll/audit exceptions in a week: no-shows, late clock-ins, under-delivered calls. */
+export function weekExceptions(week: AttWeek): AttException[] {
+  const out: AttException[] = [];
+  for (const d of week.days) {
+    for (const v of d.visits) {
+      const base = { subject: v.who, weekday: v.weekday, date: v.date, time: v.time };
+      if (v.state === "no_show") {
+        out.push({ ...base, kind: "no_show", detail: "No clock-in recorded" });
+        continue;
+      }
+      if (v.lateInMin != null && v.lateInMin > LATE_IN_FLAG_MIN) {
+        out.push({ ...base, kind: "late_in", detail: `Clocked in ${v.lateInMin}m late` });
+      }
+      if (v.state === "completed" && v.deliveredMin != null && v.plannedMin > 0 && v.deliveredMin < v.plannedMin * SHORT_DELIVERY_RATIO) {
+        out.push({ ...base, kind: "under_delivered", detail: `Only ${v.deliveredMin}m of ${v.plannedMin}m delivered` });
+      }
+    }
+  }
+  return out;
 }

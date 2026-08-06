@@ -147,6 +147,7 @@ export default function Sidebar({
   // Carer directory + compliance: shown to workforce roles here, or to CRM roles in the CRM group below.
   if (isWorkforce && !isCrm) {
     workforceItems.push({ label: "Carer directory", icon: "badge", href: "/carers" });
+    workforceItems.push({ label: "Attendance", icon: "punch_clock", href: "/attendance" });
     workforceItems.push({ label: "Compliance & reviews", icon: "verified_user", href: "/compliance" });
   }
   if (isRecruit) workforceItems.push({ label: "Recruitment", icon: "person_search", href: "/recruitment" });
@@ -171,6 +172,7 @@ export default function Sidebar({
       items: [
         { label: "Live monitor", icon: "sensors", href: "/live-monitor" },
         { label: "Live calls · ECM", icon: "how_to_reg", href: "/ecm" },
+        { label: "Attendance", icon: "punch_clock", href: "/attendance" },
         { label: "Client register", icon: "contacts", href: "/clients" },
         { label: "Rostering", icon: "edit_calendar", href: "/roster" },
         { label: "Carer directory", icon: "badge", href: "/carers" },
