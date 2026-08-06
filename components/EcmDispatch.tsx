@@ -31,6 +31,11 @@ const HOURS = Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, i) => D
 const pct = (min: number) => Math.max(0, Math.min(100, ((min - DAY_START) / SPAN) * 100));
 const hm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(((min % 60) + 60) % 60).padStart(2, "0")}`;
 
+/** Is a carer free for a [start,end) window — no booked call overlaps it? */
+function laneFree(calls: DispatchCall[], startMin: number, endMin: number): boolean {
+  return !calls.some((c) => startMin < c.startMin + c.durMin && endMin > c.startMin);
+}
+
 /**
  * Dispatch board — carers down the side, each call a duration bar on their row
  * coloured by live state (planned → on site → completed) with the actual
@@ -116,19 +121,28 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
         )}
 
         {/* carer lanes */}
-        {lanes.map((ln) => (
-          <div key={ln.carer} className={`disp-row${overCarer === ln.carer ? " disp-over" : ""}`}
-            onDragOver={(e) => { if (drag && canAssign) { e.preventDefault(); setOverCarer(ln.carer); } }}
-            onDragLeave={() => setOverCarer((c) => (c === ln.carer ? null : c))}
-            onDrop={() => onDrop(ln.carer)}>
-            <div className="disp-label"><strong style={{ fontSize: 12.5 }}>{ln.carer}</strong><div className="muted" style={{ fontSize: 10.5 }}>{ln.calls.length} call{ln.calls.length === 1 ? "" : "s"}</div></div>
-            <div className="disp-track">
-              {HOURS.map((h) => <span key={h} className="tl-grid" style={{ left: `${pct(h)}%` }} />)}
-              {ln.calls.map((c) => <Block key={`${c.clientId}|${c.time}`} c={c} />)}
-              {nowShown && <div className="tl-now" style={{ left: `${pct(nowMin)}%` }} />}
+        {lanes.map((ln) => {
+          const dStart = drag?.startMin ?? 0;
+          const dEnd = drag ? drag.startMin + drag.durMin : 0;
+          const free = drag ? laneFree(ln.calls, dStart, dEnd) : false;
+          return (
+            <div key={ln.carer} className={`disp-row${overCarer === ln.carer ? " disp-over" : ""}${drag ? (free ? " disp-freelane" : " disp-busylane") : ""}`}
+              onDragOver={(e) => { if (drag && canAssign) { e.preventDefault(); setOverCarer(ln.carer); } }}
+              onDragLeave={() => setOverCarer((c) => (c === ln.carer ? null : c))}
+              onDrop={() => onDrop(ln.carer)}>
+              <div className="disp-label">
+                <strong style={{ fontSize: 12.5 }}>{ln.carer}</strong>
+                <div className="muted" style={{ fontSize: 10.5 }}>{drag ? (free ? "✓ free at this time" : "busy at this time") : `${ln.calls.length} call${ln.calls.length === 1 ? "" : "s"}`}</div>
+              </div>
+              <div className="disp-track">
+                {HOURS.map((h) => <span key={h} className="tl-grid" style={{ left: `${pct(h)}%` }} />)}
+                {ln.calls.map((c) => <Block key={`${c.clientId}|${c.time}`} c={c} />)}
+                {drag && <div className={`disp-ghost ${free ? "ok" : "bad"}`} style={{ left: `${pct(dStart)}%`, width: `${Math.max(1.4, pct(dEnd) - pct(dStart))}%` }} />}
+                {nowShown && <div className="tl-now" style={{ left: `${pct(nowMin)}%` }} />}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {sel && (
