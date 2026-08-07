@@ -4,6 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import Empty from "@/components/Empty";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PersonHover, { type HoverLine, type PersonHoverData } from "@/components/PersonHover";
+
+export type PersonMeta = { area?: string; phone?: string; name?: string };
 
 export type RosterVisit = {
   key: string;
@@ -83,6 +86,8 @@ export default function RosterBoard({
   pending,
   isCsm,
   offers = {},
+  carerMeta = {},
+  clientMeta = {},
 }: {
   day: string;
   today: string;
@@ -93,6 +98,8 @@ export default function RosterBoard({
   pending: PendingReq[];
   isCsm: boolean;
   offers?: Record<string, OfferInfo>;
+  carerMeta?: Record<string, PersonMeta>;
+  clientMeta?: Record<string, PersonMeta>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -241,6 +248,32 @@ export default function RosterBoard({
   const selVisit = visits.find((v) => v.key === selected) ?? null;
   const unVisit = visits.find((v) => v.key === unassignFor) ?? null;
   const offerFor = (v: RosterVisit) => offers[`${v.clientId}|${v.day}|${v.baseTime}`];
+  const isToday = day === today;
+
+  const carerHover = (name: string, vs: RosterVisit[]): PersonHoverData => {
+    const m = carerMeta[name] ?? {};
+    const lines: HoverLine[] = [];
+    if (m.area) lines.push({ icon: "place", text: m.area });
+    if (m.phone) lines.push({ icon: "call", text: m.phone });
+    if (isToday) {
+      const onsite = vs.find((v) => v.statusLabel === "In progress");
+      const due = vs.filter((v) => v.statusLabel === "Due / en route" || v.statusLabel === "Upcoming").sort((a, b) => a.startMin - b.startMin)[0];
+      if (onsite) lines.push({ icon: "directions_run", tone: "green", text: `In a call now · ${onsite.su}` });
+      else if (due) lines.push({ icon: "schedule", tone: "blue", text: `Next call ${due.time} · ${due.su}` });
+      else if (vs.length) lines.push({ icon: "task_alt", tone: "grey", text: `Finished today · ${vs.length} call${vs.length > 1 ? "s" : ""}` });
+    }
+    lines.push({ icon: "event", text: `${vs.length} call${vs.length === 1 ? "" : "s"}${isToday ? " today" : ` ${day}`}` });
+    return { title: name, kind: "Carer", lines, href: "/carers" };
+  };
+  const clientHover = (v: RosterVisit): PersonHoverData => {
+    const m = clientMeta[v.clientId] ?? {};
+    const lines: HoverLine[] = [];
+    if (m.area) lines.push({ icon: "place", text: m.area || v.area });
+    if (m.phone) lines.push({ icon: "call", text: m.phone });
+    const tone = v.unassigned ? "red" : v.tone;
+    lines.push({ icon: v.unassigned ? "person_alert" : "event", tone, text: v.unassigned ? "Uncovered — needs a carer" : `${v.time} · ${v.statusLabel}` });
+    return { title: v.maskedName, kind: "Client", code: v.su, lines, href: `/clients/${v.clientId}` };
+  };
 
   const summary = [
     { icon: "event", label: "Calls today", value: visits.length, tone: "blue" },
@@ -553,7 +586,7 @@ export default function RosterBoard({
               <div key={lane.carer} className="tl-row">
                 <div className="tl-lane-label">
                   <div style={{ minWidth: 0 }}>
-                    <div className="tl-name">{lane.carer}</div>
+                    <div className="tl-name"><PersonHover data={carerHover(lane.carer, lane.vs)}>{lane.carer}</PersonHover></div>
                     <div className="muted" style={{ fontSize: 10 }}>{lane.vs.length} calls · {fmtHours(lane.mins)}</div>
                   </div>
                 </div>
@@ -624,7 +657,7 @@ export default function RosterBoard({
                     <span className="code">{v.time}</span>
                     <div className="rv-what">
                       <strong>{v.type}</strong>
-                      <Link href={`/clients/${v.clientId}`} className="muted rv-client">{v.maskedName} · {v.su} · {v.area}</Link>
+                      <span className="muted rv-client"><PersonHover data={clientHover(v)}>{v.maskedName}</PersonHover> · {v.su} · {v.area}</span>
                     </div>
                     <span className={`pill tone-${v.unassigned ? "red" : v.tone}`}>{v.unassigned ? "To cover" : v.statusLabel}</span>
                   </div>

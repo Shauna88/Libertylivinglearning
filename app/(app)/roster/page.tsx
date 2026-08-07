@@ -178,8 +178,14 @@ export default async function RosterPage({
   const day = WEEK.includes(sp.day ?? "") ? (sp.day as string) : today;
   const isToday = day === today;
 
-  const [reasons, pending, offers, timeOv] = await Promise.all([coverReasons(), listPermReqs("pending"), shiftOfferMap(), timeOverrideMap()]);
+  const [reasons, pending, offers, timeOv, carerList] = await Promise.all([coverReasons(), listPermReqs("pending"), shiftOfferMap(), timeOverrideMap(), listCarers()]);
   const visitsRaw = deriveTodayVisits(clients, day, isToday ? nowMin : 0, cover, timeOv);
+
+  // area/phone lookups for the hover cards on names
+  const carerMeta: Record<string, { area?: string; phone?: string; name?: string }> = {};
+  for (const c of carerList) carerMeta[c.name] = { area: c.homeArea, phone: c.phone };
+  const clientMeta: Record<string, { area?: string; phone?: string; name?: string }> = {};
+  for (const c of clients) clientMeta[c.id] = { area: c.area, phone: c.mobile || c.phone, name: c.name };
 
   const visits: RosterVisit[] = visitsRaw.map((v) => ({
     key: `${v.clientId}|${v.day}|${v.baseTime}`,
@@ -238,6 +244,8 @@ export default async function RosterPage({
         pending={pendingReqs}
         isCsm={isCsm}
         offers={offers}
+        carerMeta={carerMeta}
+        clientMeta={clientMeta}
       />
     </>
   );

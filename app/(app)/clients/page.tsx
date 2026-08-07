@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { CRM_ROLES, listClients, coverMap, recentCareNoteCounts, type Role } from "@/lib/db";
 import { maskName, statusMeta } from "@/lib/crm";
 import { clientWeekSummary, upcomingUnassignedCalls, nowParts } from "@/lib/schedule";
+import { presenceMaps } from "@/lib/presence";
 import ClientRegister, { type RegisterRow } from "@/components/ClientRegister";
 
 function hm(mins: number) {
@@ -25,6 +26,7 @@ export default async function ClientsPage() {
 
   const [clients, cover, noteCounts] = await Promise.all([listClients(), coverMap(), recentCareNoteCounts(48)]);
   const { weekday, nowMin } = nowParts(new Date());
+  const presence = presenceMaps(clients, cover, weekday, nowMin);
 
   // Build masked register rows — no real names/identifiers reach the browser
   // until the PII gate reveals them.
@@ -42,6 +44,8 @@ export default async function ClientsPage() {
       statusLabel: meta.label,
       statusTone: meta.tone,
       maskedName: maskName(c.name),
+      phone: c.mobile || c.phone || "",
+      todayStatus: presence.client[c.id] ?? null,
       coordinator: c.csm,
       hoursWk: c.hoursWk,
       funding: c.funding,

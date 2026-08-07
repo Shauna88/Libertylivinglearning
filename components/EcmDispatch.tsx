@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import CallCapture from "@/components/CallCapture";
+import PersonHover, { type HoverLine, type PersonHoverData } from "@/components/PersonHover";
+
+/** area/phone lookups passed from the page (the board only knows names/ids). */
+export type PersonMeta = { area?: string; phone?: string; name?: string };
 
 export type DispatchCall = {
   clientId: string;
@@ -53,13 +56,36 @@ function noteFor(carer: string): string {
   return `Hi ${first}, could you take a look at this call offer and approve the change to your schedule?`;
 }
 
+/** A carer's live status from their calls today: in a call now / next call / done. */
+function carerStatusLine(calls: DispatchCall[], nowMin: number): HoverLine {
+  const onsite = calls.find((c) => c.state === "onsite");
+  if (onsite) return { icon: "directions_run", tone: "green", text: `In a call now · ${onsite.su}${onsite.checkinMin != null ? ` (since ${hm(onsite.checkinMin)})` : ""}` };
+  const overdue = calls.find((c) => c.state === "late" || c.state === "missed");
+  if (overdue) return { icon: "notification_important", tone: "red", text: `${overdue.time} ${overdue.su} — no check-in yet` };
+  const upcoming = calls.filter((c) => c.startMin >= nowMin && c.state !== "completed").sort((a, b) => a.startMin - b.startMin);
+  if (upcoming[0]) return { icon: "schedule", tone: "blue", text: `Next call ${upcoming[0].time} · ${upcoming[0].su}` };
+  if (calls.length) return { icon: "task_alt", tone: "grey", text: `Finished for today · ${calls.length} call${calls.length > 1 ? "s" : ""}` };
+  return { icon: "event_busy", tone: "grey", text: "No calls today" };
+}
+
+/** A client's status for the call in view. */
+function clientStatusLine(c: DispatchCall): HoverLine {
+  switch (c.state) {
+    case "onsite": return { icon: "directions_run", tone: "green", text: `Carer on site now${c.checkinMin != null ? ` (since ${hm(c.checkinMin)})` : ""}` };
+    case "completed": return { icon: "task_alt", tone: "grey", text: `Visit completed${c.checkoutMin != null ? ` at ${hm(c.checkoutMin)}` : ""}` };
+    case "late": case "missed": return { icon: "notification_important", tone: "red", text: `${c.time} visit — no check-in yet` };
+    case "due": return { icon: "schedule", tone: "blue", text: `Due now · ${c.time}` };
+    default: return { icon: "event", tone: "grey", text: `Next visit ${c.time} · ${c.type}` };
+  }
+}
+
 /**
  * Dispatch board — carers down the side, each call a duration bar on their row
  * coloured by live state (planned → on site → completed) with the actual
  * clock-in/out. Unassigned calls sit in a lane on top and can be dragged onto a
  * carer to allocate them (this week's cover).
  */
-export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAssign, canCapture = false, carers = [], offers = {} }: {
+export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAssign, canCapture = false, carers = [], offers = {}, carerMeta = {}, clientMeta = {} }: {
   lanes: Lane[];
   unassigned: DispatchCall[];
   weekday: string;
@@ -68,6 +94,8 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
   canCapture?: boolean;
   carers?: string[];
   offers?: Record<string, OfferInfo>;
+  carerMeta?: Record<string, PersonMeta>;
+  clientMeta?: Record<string, PersonMeta>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -81,6 +109,24 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
   const [reTime, setReTime] = useState("");
   const nowShown = nowMin >= DAY_START && nowMin <= DAY_END;
   const offerFor = (c: DispatchCall) => offers[`${c.clientId}|${weekday}|${c.baseTime}`];
+
+  const carerHover = (name: string, calls: DispatchCall[]): PersonHoverData => {
+    const m = carerMeta[name] ?? {};
+    const lines: HoverLine[] = [];
+    if (m.area) lines.push({ icon: "place", text: m.area });
+    if (m.phone) lines.push({ icon: "call", text: m.phone });
+    lines.push(carerStatusLine(calls, nowMin));
+    lines.push({ icon: "event", text: `${calls.length} call${calls.length === 1 ? "" : "s"} today` });
+    return { title: name, kind: "Carer", lines, href: "/carers" };
+  };
+  const clientHover = (c: DispatchCall): PersonHoverData => {
+    const m = clientMeta[c.clientId] ?? {};
+    const lines: HoverLine[] = [];
+    if (m.area) lines.push({ icon: "place", text: m.area });
+    if (m.phone) lines.push({ icon: "call", text: m.phone });
+    lines.push(clientStatusLine(c));
+    return { title: c.maskedName, kind: "Client", code: c.su, lines, href: `/clients/${c.clientId}?tab=schedule` };
+  };
 
   // Assign / reassign / unassign — a last-minute change pushes the shift to the
   // HCA to accept and posts a notice to the family portal (push: true).
@@ -181,7 +227,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
               onDragLeave={() => setOverCarer((c) => (c === ln.carer ? null : c))}
               onDrop={() => onDrop(ln.carer)}>
               <div className="disp-label">
-                <strong style={{ fontSize: 12.5 }}>{ln.carer}</strong>
+                <PersonHover data={carerHover(ln.carer, ln.calls)}><strong style={{ fontSize: 12.5 }}>{ln.carer}</strong></PersonHover>
                 <div className="muted" style={{ fontSize: 10.5 }}>{drag ? (free ? "✓ free at this time" : "busy at this time") : `${ln.calls.length} call${ln.calls.length === 1 ? "" : "s"}`}</div>
               </div>
               <div className="disp-track">
@@ -205,7 +251,7 @@ export default function EcmDispatch({ lanes, unassigned, weekday, nowMin, canAss
                 <span className={`pill tone-${sel.tone}`} style={{ fontSize: 10.5 }}>{sel.stateLabel}</span>
               </div>
               <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                <Link href={`/clients/${sel.clientId}?tab=schedule`} style={{ fontWeight: 600 }}>{sel.maskedName}</Link>
+                <PersonHover data={clientHover(sel)}><span style={{ fontWeight: 600, color: "var(--accent-dark)" }}>{sel.maskedName}</span></PersonHover>
                 <span className="code" style={{ marginLeft: 5 }}>{sel.su}</span> · {sel.carer || "Unassigned"}
                 {sel.checkinMin != null && <> · in {hm(sel.checkinMin)}{sel.checkoutMin != null ? ` · out ${hm(sel.checkoutMin)}` : " · on site"}</>}
               </div>
