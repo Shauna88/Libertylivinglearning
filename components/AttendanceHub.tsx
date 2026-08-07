@@ -3,7 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Empty from "@/components/Empty";
-import type { WorkforceSummary } from "@/lib/attendanceServer";
+import PersonHover, { type HoverLine } from "@/components/PersonHover";
+import type { WorkforceSummary, CarerSummaryRow } from "@/lib/attendanceServer";
+
+/** Hover-card data for a carer row (area, phone, today's live status). */
+function carerHover(c: CarerSummaryRow) {
+  const lines: HoverLine[] = [];
+  if (c.area) lines.push({ icon: "place", text: c.area });
+  if (c.phone) lines.push({ icon: "call", text: c.phone });
+  lines.push(c.status ?? { icon: "event_busy", tone: "grey", text: "Not working today" });
+  return { title: c.name, kind: "Carer" as const, code: c.carerId, lines, href: `/carers/${c.carerId}` };
+}
 
 const EXC_META: Record<string, { label: string; tone: string; icon: string }> = {
   no_show: { label: "No clock-in", tone: "red", icon: "error" },
@@ -66,6 +76,7 @@ export default function AttendanceHub() {
 
   const t = sum.totals;
   const pct = t.plannedMin > 0 ? Math.round((t.deliveredMin / t.plannedMin) * 100) : 0;
+  const carerById = new Map(sum.carers.map((c) => [c.carerId, c]));
 
   return (
     <div className="att">
@@ -111,7 +122,9 @@ export default function AttendanceHub() {
                   <div key={i} className="flex between wrap" style={{ gap: 8, fontSize: 12.5, borderTop: i ? "1px solid var(--line)" : "none", paddingTop: i ? 6 : 0 }}>
                     <span className="flex" style={{ gap: 8, alignItems: "center", minWidth: 0 }}>
                       <span className={`pill tone-${m.tone}`} style={{ fontSize: 10.5 }}><span className="ms" style={{ fontSize: 12 }}>{m.icon}</span>{m.label}</span>
-                      <Link href={`/carers/${e.carerId}`} style={{ fontWeight: 600 }}>{e.carer}</Link>
+                      {carerById.has(e.carerId)
+                        ? <span style={{ fontWeight: 600 }}><PersonHover data={carerHover(carerById.get(e.carerId)!)}>{e.carer}</PersonHover></span>
+                        : <Link href={`/carers/${e.carerId}`} style={{ fontWeight: 600 }}>{e.carer}</Link>}
                       <span className="muted">{dayShort(e.date)} {e.time} · {e.subject}</span>
                     </span>
                     <span className="muted" style={{ fontSize: 11.5 }}>{e.detail}</span>
@@ -147,7 +160,7 @@ export default function AttendanceHub() {
                 const tone = p >= 95 ? "green" : p >= 80 ? "amber" : "red";
                 return (
                   <tr key={c.carerId}>
-                    <td><Link href={`/carers/${c.carerId}`} style={{ fontWeight: 600 }}>{c.name}</Link><div className="code" style={{ fontSize: 10.5 }}>{c.carerId}</div></td>
+                    <td><span style={{ fontWeight: 600 }}><PersonHover data={carerHover(c)}>{c.name}</PersonHover></span><div className="code" style={{ fontSize: 10.5 }}>{c.carerId}</div></td>
                     <td>
                       <div className="flex" style={{ gap: 8, alignItems: "center" }}>
                         <div style={{ flex: 1, minWidth: 70, height: 8, borderRadius: 5, background: "var(--grey-bg)", overflow: "hidden" }}>

@@ -3,8 +3,9 @@
  * dated check-in/out records into a week of planned-vs-actual, for one client,
  * one carer, or the whole workforce. Shared by the attendance routes.
  */
-import { getClient, getCarer, listClients, listCarers, visitEventsForDates } from "./db";
-import { carerWeek } from "./schedule";
+import { getClient, getCarer, listClients, listCarers, coverMap, visitEventsForDates } from "./db";
+import { carerWeek, nowParts } from "./schedule";
+import { presenceMaps, type PresenceLine } from "./presence";
 import { buildAttendance, weekDatesFrom, mondayOf, parseDurMin, weekExceptions, weekTotals, type PlannedVisit, type AttWeek, type AttException, type AttTotals } from "./attendance";
 import type { Client } from "./crm";
 
@@ -74,6 +75,9 @@ export type CarerSummaryRow = {
   name: string;
   totals: AttTotals;
   exceptions: number;
+  area?: string;
+  phone?: string;
+  status?: PresenceLine | null; // today's live status, for the name hover-card
 };
 
 export type WorkforceSummary = {
@@ -91,6 +95,10 @@ export async function workforceSummary(monday: string, now: Date): Promise<Workf
   const dateFor = Object.fromEntries(weekDates.map((w) => [w.weekday, w.date]));
   const actuals = await actualsFor(weekDates.map((w) => w.date));
   const today = dublinToday(now);
+  // today's live status per carer, for the name hover-cards
+  const cover = await coverMap();
+  const { weekday, nowMin } = nowParts(now);
+  const presence = presenceMaps(clients, cover, weekday, nowMin);
 
   const rows: CarerSummaryRow[] = [];
   const allExceptions: (AttException & { carer: string; carerId: string })[] = [];
@@ -98,7 +106,7 @@ export async function workforceSummary(monday: string, now: Date): Promise<Workf
     const week = buildAttendance(plannedForCarer(clients, c.name, dateFor), actuals, weekDates, today);
     if (week.totals.calls === 0) continue;
     const exc = weekExceptions(week);
-    rows.push({ carerId: c.id, name: c.name, totals: week.totals, exceptions: exc.length });
+    rows.push({ carerId: c.id, name: c.name, totals: week.totals, exceptions: exc.length, area: c.homeArea, phone: c.phone, status: presence.carer[c.name] ?? null });
     for (const e of exc) allExceptions.push({ ...e, carer: c.name, carerId: c.id });
   }
   rows.sort((a, b) => b.totals.deliveredMin - a.totals.deliveredMin);
