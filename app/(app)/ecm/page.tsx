@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Empty from "@/components/Empty";
 import { auth } from "@/auth";
-import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, shiftOfferMap, timeOverrideMap, type Role } from "@/lib/db";
+import { CRM_ROLES, OVERSIGHT_ROLES, listClients, coverMap, visitEventMap, shiftOfferMap, timeOverrideMap, listCarers, type Role } from "@/lib/db";
 import { deriveTodayVisits, nowParts, carerPool } from "@/lib/schedule";
+import type { PersonMeta } from "@/components/EcmDispatch";
 import { ecmState, isEcmAlert, ECM_META, type EcmState } from "@/lib/ecm";
 import EcmDispatch, { type DispatchCall, type Lane } from "@/components/EcmDispatch";
 
@@ -33,8 +34,14 @@ export default async function EcmPage() {
   const now = new Date();
   const { weekday, nowMin } = nowParts(now);
   const serviceDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
-  const [clients, cover, events, offers, timeOv] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate), shiftOfferMap(), timeOverrideMap()]);
+  const [clients, cover, events, offers, timeOv, carerList] = await Promise.all([listClients(), coverMap(), visitEventMap(serviceDate), shiftOfferMap(), timeOverrideMap(), listCarers()]);
   const visits = deriveTodayVisits(clients, weekday, nowMin, cover, timeOv);
+
+  // area/phone lookups for the hover cards on names
+  const carerMeta: Record<string, PersonMeta> = {};
+  for (const c of carerList) carerMeta[c.name] = { area: c.homeArea, phone: c.phone };
+  const clientMeta: Record<string, PersonMeta> = {};
+  for (const c of clients) clientMeta[c.id] = { area: c.area, phone: c.mobile || c.phone, name: c.name };
 
   const calls: DispatchCall[] = visits.map((v) => {
     const ev = events[`${v.clientId}|${v.baseTime}`];
@@ -135,7 +142,7 @@ export default async function EcmPage() {
                 </div>
               );
             })()}
-            <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture carers={carerPool(clients)} offers={offers} />
+            <EcmDispatch lanes={lanes} unassigned={unassigned} weekday={weekday} nowMin={nowMin} canAssign={CRM_ROLES.includes(role)} canCapture carers={carerPool(clients)} offers={offers} carerMeta={carerMeta} clientMeta={clientMeta} />
             <p className="muted" style={{ fontSize: 11.5, marginTop: 8 }}>
               Carers down the side; each call is a bar that turns green when they check in and teal when completed.
               Unassigned calls sit on top — drag one onto a carer to allocate it for today.

@@ -1998,6 +1998,31 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 /* HCA shift offers (my-week) + family portal update notices */
 .offer-card{border-left:4px solid var(--amber-fg)}
 .offer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+/* person hover-card (client / carer names, everywhere) */
+.phv{position:relative;display:inline-flex;max-width:100%}
+.phv-trigger{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-bottom:1px dotted color-mix(in srgb,currentColor 45%,transparent)}
+.phv-trigger:hover,.phv-trigger:focus-visible{border-bottom-color:currentColor;outline:none}
+.phv-pop{position:absolute;z-index:60;left:0;top:calc(100% + 6px);min-width:220px;max-width:280px;
+  background:var(--card);border:1px solid var(--line);border-radius:11px;
+  box-shadow:0 6px 24px rgba(12,46,32,.16),0 2px 6px rgba(12,46,32,.08);
+  padding:10px 12px;display:none;flex-direction:column;gap:8px;text-align:left;white-space:normal;cursor:default}
+.phv.open .phv-pop{display:flex;animation:phvin .12s ease-out}
+@keyframes phvin{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.phv-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px solid var(--line)}
+.phv-name{font-weight:800;font-size:13px;color:var(--text)}
+.phv-kind{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:999px}
+.phv-kind-client{background:var(--blue-bg);color:var(--blue-fg)}
+.phv-kind-carer{background:var(--teal-bg);color:var(--teal-fg)}
+.phv-code{font-family:var(--font-mono);font-size:10.5px;color:var(--text-2);margin-left:auto}
+.phv-lines{display:flex;flex-direction:column;gap:5px}
+.phv-line{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text)}
+.phv-ic{font-size:15px;color:var(--text-2);flex:0 0 auto}
+.tone-fg-green{color:var(--green-fg)!important}.tone-fg-blue{color:var(--blue-fg)!important}
+.tone-fg-amber{color:var(--amber-fg)!important}.tone-fg-red{color:var(--red-fg)!important}.tone-fg-teal{color:var(--teal-fg)!important}
+.phv-foot{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--accent-dark);text-decoration:none;margin-top:1px}
+.phv-foot:hover{text-decoration:underline}
+
 .offer-note{display:flex;gap:6px;align-items:flex-start;margin-top:6px;padding:7px 10px;border-radius:8px;background:var(--amber-bg);color:var(--text);font-size:12.5px;max-width:60ch}
 .offer-note .ms{color:var(--amber-fg);flex:0 0 auto}
 .portal-updates{border-left:4px solid var(--accent)}

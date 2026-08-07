@@ -1,93 +1,469 @@
 {
   "skills": [
-    { "key": "personal-care", "label": "Personal care" },
-    { "key": "medication", "label": "Medication support" },
-    { "key": "manual-handling", "label": "Manual handling / transfers" },
-    { "key": "dementia", "label": "Dementia care" },
-    { "key": "diabetes", "label": "Diabetes management" },
-    { "key": "parkinsons", "label": "Parkinson's care" },
-    { "key": "stroke", "label": "Stroke rehab support" },
-    { "key": "respiratory", "label": "Respiratory / oxygen" },
-    { "key": "cardiac", "label": "Cardiac / heart failure" },
-    { "key": "palliative", "label": "Palliative / end-of-life" },
-    { "key": "mental-health", "label": "Mental health & wellbeing" }
+    {
+      "key": "personal-care",
+      "label": "Personal care"
+    },
+    {
+      "key": "medication",
+      "label": "Medication support"
+    },
+    {
+      "key": "manual-handling",
+      "label": "Manual handling / transfers"
+    },
+    {
+      "key": "dementia",
+      "label": "Dementia care"
+    },
+    {
+      "key": "diabetes",
+      "label": "Diabetes management"
+    },
+    {
+      "key": "parkinsons",
+      "label": "Parkinson's care"
+    },
+    {
+      "key": "stroke",
+      "label": "Stroke rehab support"
+    },
+    {
+      "key": "respiratory",
+      "label": "Respiratory / oxygen"
+    },
+    {
+      "key": "cardiac",
+      "label": "Cardiac / heart failure"
+    },
+    {
+      "key": "palliative",
+      "label": "Palliative / end-of-life"
+    },
+    {
+      "key": "mental-health",
+      "label": "Mental health & wellbeing"
+    }
   ],
   "areas": [
-    { "key": "Dublin North", "adjacent": ["Dublin West"] },
-    { "key": "Dublin West", "adjacent": ["Dublin North"] },
-    { "key": "Laois", "adjacent": ["Offaly"] },
-    { "key": "Offaly", "adjacent": ["Laois"] }
+    {
+      "key": "Dublin North",
+      "adjacent": [
+        "Dublin West"
+      ]
+    },
+    {
+      "key": "Dublin West",
+      "adjacent": [
+        "Dublin North"
+      ]
+    },
+    {
+      "key": "Laois",
+      "adjacent": [
+        "Offaly"
+      ]
+    },
+    {
+      "key": "Offaly",
+      "adjacent": [
+        "Laois"
+      ]
+    }
   ],
   "carers": [
     {
-      "id": "HCA-201", "name": "Denise Fenlon", "homeArea": "Dublin North", "covers": ["Dublin North", "Dublin West"],
-      "skills": ["personal-care", "medication", "manual-handling", "dementia", "diabetes"],
-      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 29,
-      "availability": { "Monday": ["07:00-15:00"], "Tuesday": ["07:00-15:00"], "Wednesday": ["07:00-15:00"], "Thursday": ["07:00-15:00"], "Friday": ["07:00-15:00"] },
-      "status": "active", "note": "Dementia lead for the North team."
+      "id": "HCA-201",
+      "name": "Denise Fenlon",
+      "homeArea": "Dublin North",
+      "covers": [
+        "Dublin North",
+        "Dublin West"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "manual-handling",
+        "dementia",
+        "diabetes"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 29,
+      "availability": {
+        "Monday": [
+          "07:00-15:00"
+        ],
+        "Tuesday": [
+          "07:00-15:00"
+        ],
+        "Wednesday": [
+          "07:00-15:00"
+        ],
+        "Thursday": [
+          "07:00-15:00"
+        ],
+        "Friday": [
+          "07:00-15:00"
+        ]
+      },
+      "status": "active",
+      "note": "Dementia lead for the North team.",
+      "phone": "085 100 1000"
     },
     {
-      "id": "HCA-202", "name": "Tanisha Okafor", "homeArea": "Dublin North", "covers": ["Dublin North", "Dublin West"],
-      "skills": ["personal-care", "medication", "manual-handling", "stroke", "cardiac"],
-      "pathway": "New entrant — relevant experience", "transport": "Own car", "capacityHours": 37, "committedHours": 24,
-      "availability": { "Monday": ["07:30-16:00"], "Tuesday": ["07:30-16:00"], "Wednesday": ["07:30-16:00"], "Thursday": ["07:30-16:00"], "Friday": ["07:30-16:00"] },
-      "status": "active", "note": "Post-stroke rehab support experience."
+      "id": "HCA-202",
+      "name": "Tanisha Okafor",
+      "homeArea": "Dublin North",
+      "covers": [
+        "Dublin North",
+        "Dublin West"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "manual-handling",
+        "stroke",
+        "cardiac"
+      ],
+      "pathway": "New entrant — relevant experience",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 24,
+      "availability": {
+        "Monday": [
+          "07:30-16:00"
+        ],
+        "Tuesday": [
+          "07:30-16:00"
+        ],
+        "Wednesday": [
+          "07:30-16:00"
+        ],
+        "Thursday": [
+          "07:30-16:00"
+        ],
+        "Friday": [
+          "07:30-16:00"
+        ]
+      },
+      "status": "active",
+      "note": "Post-stroke rehab support experience.",
+      "phone": "086 237 1991"
     },
     {
-      "id": "HCA-203", "name": "Martina Hylland", "homeArea": "Dublin North", "covers": ["Dublin North"],
-      "skills": ["personal-care", "medication", "mental-health"],
-      "pathway": "Qualified existing staff", "transport": "Public transport", "capacityHours": 25, "committedHours": 18,
-      "availability": { "Monday": ["08:00-14:00"], "Wednesday": ["08:00-14:00"], "Friday": ["08:00-14:00"] },
-      "status": "active", "note": "Part-time; North only (no car)."
+      "id": "HCA-203",
+      "name": "Martina Hylland",
+      "homeArea": "Dublin North",
+      "covers": [
+        "Dublin North"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "mental-health"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Public transport",
+      "capacityHours": 25,
+      "committedHours": 18,
+      "availability": {
+        "Monday": [
+          "08:00-14:00"
+        ],
+        "Wednesday": [
+          "08:00-14:00"
+        ],
+        "Friday": [
+          "08:00-14:00"
+        ]
+      },
+      "status": "active",
+      "note": "Part-time; North only (no car).",
+      "phone": "087 374 2982"
     },
     {
-      "id": "HCA-204", "name": "Grace Adeyemi", "homeArea": "Dublin West", "covers": ["Dublin West", "Dublin North"],
-      "skills": ["personal-care", "medication", "manual-handling", "respiratory", "palliative"],
-      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 20,
-      "availability": { "Monday": ["07:00-14:00"], "Tuesday": ["07:00-14:00"], "Wednesday": ["07:00-14:00"], "Thursday": ["07:00-14:00"], "Friday": ["07:00-14:00"], "Saturday": ["08:00-13:00"] },
-      "status": "active", "note": "Respiratory / oxygen and palliative trained."
+      "id": "HCA-204",
+      "name": "Grace Adeyemi",
+      "homeArea": "Dublin West",
+      "covers": [
+        "Dublin West",
+        "Dublin North"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "manual-handling",
+        "respiratory",
+        "palliative"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 20,
+      "availability": {
+        "Monday": [
+          "07:00-14:00"
+        ],
+        "Tuesday": [
+          "07:00-14:00"
+        ],
+        "Wednesday": [
+          "07:00-14:00"
+        ],
+        "Thursday": [
+          "07:00-14:00"
+        ],
+        "Friday": [
+          "07:00-14:00"
+        ],
+        "Saturday": [
+          "08:00-13:00"
+        ]
+      },
+      "status": "active",
+      "note": "Respiratory / oxygen and palliative trained.",
+      "phone": "089 511 3973"
     },
     {
-      "id": "HCA-205", "name": "Aoife Brennan", "homeArea": "Dublin West", "covers": ["Dublin West", "Dublin North"],
-      "skills": ["personal-care", "medication", "dementia", "diabetes", "cardiac"],
-      "pathway": "New entrant — relevant experience", "transport": "Own car", "capacityHours": 37, "committedHours": 12,
-      "availability": { "Monday": ["07:00-19:00"], "Tuesday": ["07:00-19:00"], "Wednesday": ["07:00-19:00"], "Thursday": ["07:00-19:00"], "Friday": ["07:00-19:00"] },
-      "status": "active", "note": "Newer to the West team — good availability."
+      "id": "HCA-205",
+      "name": "Aoife Brennan",
+      "homeArea": "Dublin West",
+      "covers": [
+        "Dublin West",
+        "Dublin North"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "dementia",
+        "diabetes",
+        "cardiac"
+      ],
+      "pathway": "New entrant — relevant experience",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 12,
+      "availability": {
+        "Monday": [
+          "07:00-19:00"
+        ],
+        "Tuesday": [
+          "07:00-19:00"
+        ],
+        "Wednesday": [
+          "07:00-19:00"
+        ],
+        "Thursday": [
+          "07:00-19:00"
+        ],
+        "Friday": [
+          "07:00-19:00"
+        ]
+      },
+      "status": "active",
+      "note": "Newer to the West team — good availability.",
+      "phone": "085 648 4964"
     },
     {
-      "id": "HCA-206", "name": "Bridget Kelly", "homeArea": "Offaly", "covers": ["Offaly", "Laois"],
-      "skills": ["personal-care", "medication", "manual-handling", "diabetes", "parkinsons"],
-      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 31,
-      "availability": { "Monday": ["07:00-15:00"], "Tuesday": ["07:00-15:00"], "Wednesday": ["07:00-15:00"], "Thursday": ["07:00-15:00"], "Friday": ["07:00-15:00"] },
-      "status": "active", "note": "Parkinson's care experience."
+      "id": "HCA-206",
+      "name": "Bridget Kelly",
+      "homeArea": "Offaly",
+      "covers": [
+        "Offaly",
+        "Laois"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "manual-handling",
+        "diabetes",
+        "parkinsons"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 31,
+      "availability": {
+        "Monday": [
+          "07:00-15:00"
+        ],
+        "Tuesday": [
+          "07:00-15:00"
+        ],
+        "Wednesday": [
+          "07:00-15:00"
+        ],
+        "Thursday": [
+          "07:00-15:00"
+        ],
+        "Friday": [
+          "07:00-15:00"
+        ]
+      },
+      "status": "active",
+      "note": "Parkinson's care experience.",
+      "phone": "086 785 5955"
     },
     {
-      "id": "HCA-207", "name": "Marian Dunne", "homeArea": "Offaly", "covers": ["Offaly", "Laois"],
-      "skills": ["personal-care", "medication", "manual-handling", "cardiac", "respiratory"],
-      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 30, "committedHours": 22,
-      "availability": { "Tuesday": ["08:00-15:00"], "Wednesday": ["08:00-15:00"], "Thursday": ["08:00-15:00"], "Friday": ["08:00-15:00"], "Saturday": ["08:00-15:00"] },
-      "status": "active", "note": "Cardiac and COPD support."
+      "id": "HCA-207",
+      "name": "Marian Dunne",
+      "homeArea": "Offaly",
+      "covers": [
+        "Offaly",
+        "Laois"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "manual-handling",
+        "cardiac",
+        "respiratory"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Own car",
+      "capacityHours": 30,
+      "committedHours": 22,
+      "availability": {
+        "Tuesday": [
+          "08:00-15:00"
+        ],
+        "Wednesday": [
+          "08:00-15:00"
+        ],
+        "Thursday": [
+          "08:00-15:00"
+        ],
+        "Friday": [
+          "08:00-15:00"
+        ],
+        "Saturday": [
+          "08:00-15:00"
+        ]
+      },
+      "status": "active",
+      "note": "Cardiac and COPD support.",
+      "phone": "087 922 6946"
     },
     {
-      "id": "HCA-208", "name": "Seán Molloy", "homeArea": "Laois", "covers": ["Laois", "Offaly"],
-      "skills": ["personal-care", "medication", "manual-handling", "stroke", "mental-health"],
-      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 37, "committedHours": 27,
-      "availability": { "Monday": ["07:00-16:00"], "Tuesday": ["07:00-16:00"], "Wednesday": ["07:00-16:00"], "Thursday": ["07:00-16:00"], "Friday": ["07:00-16:00"] },
-      "status": "active", "note": "Male carer — some clients request this."
+      "id": "HCA-208",
+      "name": "Seán Molloy",
+      "homeArea": "Laois",
+      "covers": [
+        "Laois",
+        "Offaly"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "manual-handling",
+        "stroke",
+        "mental-health"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 27,
+      "availability": {
+        "Monday": [
+          "07:00-16:00"
+        ],
+        "Tuesday": [
+          "07:00-16:00"
+        ],
+        "Wednesday": [
+          "07:00-16:00"
+        ],
+        "Thursday": [
+          "07:00-16:00"
+        ],
+        "Friday": [
+          "07:00-16:00"
+        ]
+      },
+      "status": "active",
+      "note": "Male carer — some clients request this.",
+      "phone": "089 159 7937"
     },
     {
-      "id": "HCA-209", "name": "Katie Phelan", "homeArea": "Laois", "covers": ["Laois", "Offaly"],
-      "skills": ["personal-care", "medication", "dementia", "palliative"],
-      "pathway": "New entrant — relevant experience", "transport": "Own car", "capacityHours": 37, "committedHours": 15,
-      "availability": { "Monday": ["09:00-19:00"], "Tuesday": ["09:00-19:00"], "Wednesday": ["09:00-19:00"], "Thursday": ["09:00-19:00"], "Friday": ["09:00-19:00"] },
-      "status": "active", "note": "Dementia and palliative trained."
+      "id": "HCA-209",
+      "name": "Katie Phelan",
+      "homeArea": "Laois",
+      "covers": [
+        "Laois",
+        "Offaly"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "dementia",
+        "palliative"
+      ],
+      "pathway": "New entrant — relevant experience",
+      "transport": "Own car",
+      "capacityHours": 37,
+      "committedHours": 15,
+      "availability": {
+        "Monday": [
+          "09:00-19:00"
+        ],
+        "Tuesday": [
+          "09:00-19:00"
+        ],
+        "Wednesday": [
+          "09:00-19:00"
+        ],
+        "Thursday": [
+          "09:00-19:00"
+        ],
+        "Friday": [
+          "09:00-19:00"
+        ]
+      },
+      "status": "active",
+      "note": "Dementia and palliative trained.",
+      "phone": "085 296 8928"
     },
     {
-      "id": "HCA-210", "name": "Orla Ryan", "homeArea": "Laois", "covers": ["Laois", "Offaly"],
-      "skills": ["personal-care", "medication", "diabetes", "cardiac", "mental-health"],
-      "pathway": "Qualified existing staff", "transport": "Own car", "capacityHours": 25, "committedHours": 9,
-      "availability": { "Monday": ["08:00-13:00"], "Tuesday": ["08:00-13:00"], "Wednesday": ["08:00-13:00"], "Thursday": ["08:00-13:00"], "Saturday": ["08:00-13:00"] },
-      "status": "active", "note": "Part-time; strong availability midlands."
+      "id": "HCA-210",
+      "name": "Orla Ryan",
+      "homeArea": "Laois",
+      "covers": [
+        "Laois",
+        "Offaly"
+      ],
+      "skills": [
+        "personal-care",
+        "medication",
+        "diabetes",
+        "cardiac",
+        "mental-health"
+      ],
+      "pathway": "Qualified existing staff",
+      "transport": "Own car",
+      "capacityHours": 25,
+      "committedHours": 9,
+      "availability": {
+        "Monday": [
+          "08:00-13:00"
+        ],
+        "Tuesday": [
+          "08:00-13:00"
+        ],
+        "Wednesday": [
+          "08:00-13:00"
+        ],
+        "Thursday": [
+          "08:00-13:00"
+        ],
+        "Saturday": [
+          "08:00-13:00"
+        ]
+      },
+      "status": "active",
+      "note": "Part-time; strong availability midlands.",
+      "phone": "086 433 9919"
     }
   ]
 }

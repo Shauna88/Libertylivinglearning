@@ -18,6 +18,7 @@ export type CarerRecord = {
   id: string;
   name: string;
   homeArea: string;
+  phone?: string;
   covers: string[];
   skills: string[];
   pathway: string;
