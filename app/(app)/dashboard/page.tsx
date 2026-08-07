@@ -30,7 +30,9 @@ import { getCourse, CAT_TONE } from "@/lib/content";
 import { profileFor, hubScopeOf, deptOf, hubLabel, type Capability } from "@/lib/roles";
 import { PORTALS, portalKey } from "@/lib/portals";
 import { deriveTodayVisits, nowParts, isUnassignedCarer, carerPool } from "@/lib/schedule";
+import { presenceMaps } from "@/lib/presence";
 import DashCover from "@/components/DashCover";
+import PersonHover, { type HoverLine, type PersonHoverData } from "@/components/PersonHover";
 import { callType, causeLabel } from "@/lib/callevents";
 import { computeFinance, money } from "@/lib/finance";
 import { statusMeta } from "@/lib/crm";
@@ -235,16 +237,28 @@ export default async function DashboardPage() {
 
   // ---------- CSM operational cockpit (day-to-day) ----------
   if (role === "Client Service Manager") {
-    const [clients, cover, calls, permReqs, issues, timeOffPending] = await Promise.all([
+    const [clients, cover, calls, permReqs, issues, timeOffPending, carerList] = await Promise.all([
       listClients(),
       coverMap(),
       listCallLog(120),
       listPermReqs("pending"),
       listHubIssues(),
       countPendingTimeOff(),
+      listCarers(),
     ]);
     const now = new Date();
     const { weekday, nowMin } = nowParts(now);
+    // hover cards for carer names (approvals, sick list)
+    const presence = presenceMaps(clients, cover, weekday, nowMin);
+    const carerMetaMap = new Map(carerList.map((c) => [c.name, c]));
+    const carerHover = (name: string): PersonHoverData => {
+      const c = carerMetaMap.get(name);
+      const lines: HoverLine[] = [];
+      if (c?.homeArea) lines.push({ icon: "place", text: c.homeArea });
+      if (c?.phone) lines.push({ icon: "call", text: c.phone });
+      lines.push(presence.carer[name] ?? { icon: "event_busy", tone: "grey", text: "Not working today" });
+      return { title: name, kind: "Carer", lines, href: "/carers" };
+    };
     const clientById = new Map(clients.map((c) => [c.id, c]));
     const regHref: Record<string, string> = { complaint: "/complaints", incident: "/incidents", safeguarding: "/safeguarding" };
 
@@ -306,7 +320,7 @@ export default async function DashboardPage() {
                 return (
                   <Link key={p.id} href={`/clients/${p.client_id}`} className="dash-row">
                     <span className="code">{c?.su ?? p.client_id}</span>
-                    <span style={{ fontSize: 12.5 }}>{p.day} {p.time} → <strong>{p.carer}</strong></span>
+                    <span style={{ fontSize: 12.5 }}>{p.day} {p.time} → <strong><PersonHover data={carerHover(p.carer)}>{p.carer}</PersonHover></strong></span>
                     <span className="muted" style={{ fontSize: 12 }}>by {p.requested_by}</span>
                     <span className="pill tone-amber" style={{ marginLeft: "auto" }}>Review &amp; approve</span>
                   </Link>
@@ -337,7 +351,7 @@ export default async function DashboardPage() {
                   {sick.slice(0, 6).map((c) => (
                     <Link key={c.id} href="/call-log" className="dash-row">
                       <span className="pill tone-red">{causeLabel(c.cause)}</span>
-                      <span className="muted" style={{ fontSize: 12 }}>{c.carer ?? ""}{c.su ? ` · ${c.su}` : ""}</span>
+                      <span className="muted" style={{ fontSize: 12 }}>{c.carer ? <PersonHover data={carerHover(c.carer)}>{c.carer}</PersonHover> : ""}{c.su ? ` · ${c.su}` : ""}</span>
                       <span className="muted" style={{ fontSize: 12, marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>{c.detail}</span>
                     </Link>
                   ))}

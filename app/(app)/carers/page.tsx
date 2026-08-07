@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { CRM_ROLES, WORKFORCE_ROLES, listCarers, type Role } from "@/lib/db";
+import { CRM_ROLES, WORKFORCE_ROLES, listCarers, listClients, coverMap, type Role } from "@/lib/db";
 import { CARER_DIRECTORY } from "@/lib/carers";
+import { nowParts } from "@/lib/schedule";
+import { presenceMaps } from "@/lib/presence";
 import CarerAdmin from "@/components/CarerAdmin";
 
 const CAN_VIEW: Role[] = [...new Set([...CRM_ROLES, ...WORKFORCE_ROLES])] as Role[];
@@ -11,7 +13,9 @@ export default async function CarersPage() {
   const role = session!.user.role as Role;
   if (!CAN_VIEW.includes(role)) redirect("/dashboard");
 
-  const carers = await listCarers();
+  const [carers, clients, cover] = await Promise.all([listCarers(), listClients(), coverMap()]);
+  const { weekday, nowMin } = nowParts(new Date());
+  const presence = presenceMaps(clients, cover, weekday, nowMin);
   const active = carers.filter((c) => c.status === "active").length;
   const canEdit = CAN_VIEW.includes(role); // same gate can edit
 
@@ -26,7 +30,7 @@ export default async function CarersPage() {
         </p>
       </header>
       <div className="body fade">
-        <CarerAdmin carers={carers} skills={CARER_DIRECTORY.skills} areas={CARER_DIRECTORY.areas} canEdit={canEdit} />
+        <CarerAdmin carers={carers} skills={CARER_DIRECTORY.skills} areas={CARER_DIRECTORY.areas} canEdit={canEdit} status={presence.carer} />
       </div>
     </>
   );

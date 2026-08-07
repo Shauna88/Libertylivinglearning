@@ -5,6 +5,8 @@ import Empty from "@/components/Empty";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CarerRecord, CarerSkill, CarerArea } from "@/lib/carers";
+import PersonHover, { type HoverLine, type PersonHoverData } from "@/components/PersonHover";
+import type { PresenceLine } from "@/lib/presence";
 
 const BLANK = {
   id: "",
@@ -35,11 +37,13 @@ export default function CarerAdmin({
   skills,
   areas,
   canEdit,
+  status = {},
 }: {
   carers: CarerRecord[];
   skills: CarerSkill[];
   areas: CarerArea[];
   canEdit: boolean;
+  status?: Record<string, PresenceLine>;
 }) {
   const router = useRouter();
   const [area, setArea] = useState("ALL");
@@ -136,7 +140,16 @@ export default function CarerAdmin({
               <div className="flex between" style={{ gap: 8, alignItems: "flex-start" }}>
                 <Link href={`/carers/${c.id}`} style={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
                   <div className="flex" style={{ gap: 8, alignItems: "center" }}>
-                    <strong style={{ fontSize: 14.5 }}>{c.name}</strong>
+                    <PersonHover data={{
+                      title: c.name, kind: "Carer", code: c.id, href: `/carers/${c.id}`,
+                      lines: [
+                        ...(c.homeArea ? [{ icon: "place", text: c.homeArea }] : []),
+                        ...(c.phone ? [{ icon: "call", text: c.phone }] : []),
+                        status[c.name] ?? { icon: "event_busy", tone: "grey", text: "Not working today" },
+                      ] as HoverLine[],
+                    } as PersonHoverData}>
+                      <strong style={{ fontSize: 14.5 }}>{c.name}</strong>
+                    </PersonHover>
                     {c.status !== "active" && <span className="pill tone-grey">Inactive</span>}
                   </div>
                   <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>

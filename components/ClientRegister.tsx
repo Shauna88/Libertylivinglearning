@@ -5,6 +5,8 @@ import Empty from "@/components/Empty";
 import Link from "next/link";
 import PiiRevealButton from "@/components/PiiRevealButton";
 import { useToast } from "@/components/Toast";
+import PersonHover, { type HoverLine } from "@/components/PersonHover";
+import type { PresenceLine } from "@/lib/presence";
 
 export type RegisterRow = {
   id: string;
@@ -14,6 +16,8 @@ export type RegisterRow = {
   statusLabel: string;
   statusTone: string;
   maskedName: string;
+  phone: string;
+  todayStatus: PresenceLine | null;
   coordinator: string;
   hoursWk: string;
   funding: string;
@@ -162,7 +166,18 @@ export default function ClientRegister({
                           <span className="ms" style={{ fontSize: 18 }}>{revealed ? "person" : "lock"}</span>
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nameOf(r)}</div>
+                          <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <PersonHover data={{
+                              title: nameOf(r), kind: "Client", code: r.su, href: `/clients/${r.id}`,
+                              lines: [
+                                { icon: "place", text: r.area },
+                                // phone is PII on the masked register — only in the card once names are revealed
+                                ...(revealed && r.phone ? [{ icon: "call", text: r.phone }] : []),
+                                ...(r.todayStatus ? [r.todayStatus] : []),
+                                { icon: "badge", text: r.coordinator },
+                              ] as HoverLine[],
+                            }}>{nameOf(r)}</PersonHover>
+                          </div>
                           <div className="code" style={{ display: "inline-block", marginTop: 3 }}>{r.su}</div>
                         </div>
                       </div>

@@ -43,16 +43,19 @@ export default function PersonHover({ data, children }: { data: PersonHoverData;
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <button
-        type="button"
+      {/* a span (not a button) so it can nest inside links/cards anywhere */}
+      <span
         className="phv-trigger"
+        role="button"
+        tabIndex={0}
         aria-expanded={show}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPinned((p) => !p); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setPinned((p) => !p); } }}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
       >
         {children}
-      </button>
+      </span>
       <span className="phv-pop" role="tooltip">
         <span className="phv-head">
           <span className="phv-name">{data.title}</span>
