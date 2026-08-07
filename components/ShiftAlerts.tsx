@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ensurePushSubscription } from "@/lib/pushClient";
 
 export type AlertOffer = { id: number; day: string; time: string; type: string; kind: string; note: string };
 
@@ -59,6 +60,11 @@ export function fireShiftNotifications(offers: AlertOffer[], force = false): voi
  * allowed pop-ups (or whose device is asleep).
  */
 export default function ShiftAlerts({ offers }: { offers: AlertOffer[] }) {
+  // Keep this device registered for locked-screen push (once permission is on),
+  // and fire an in-app pop-up for any offer not yet seen while the app is open.
+  useEffect(() => {
+    void ensurePushSubscription();
+  }, []);
   useEffect(() => {
     fireShiftNotifications(offers);
   }, [offers]);

@@ -57,6 +57,12 @@ const OFFER_META: Record<string, { label: string; tone: string; icon: string }> 
 
 const UNASSIGNED = "Unassigned";
 
+/** Friendly default message to the carer, personalised with their first name. */
+function noteFor(carer: string): string {
+  const first = carer.trim().split(/\s+/)[0] || "there";
+  return `Hi ${first}, could you take a look at this call offer and approve the change to your schedule?`;
+}
+
 function fmtHours(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -98,6 +104,8 @@ export default function RosterBoard({
   const [unReason, setUnReason] = useState(UNASSIGN_REASONS[0]);
   const [unNote, setUnNote] = useState("");
   const [timeVal, setTimeVal] = useState("");
+  const [moveCarer, setMoveCarer] = useState("");
+  const [moveNote, setMoveNote] = useState("");
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -130,14 +138,14 @@ export default function RosterBoard({
 
   // Assigning a real carer posts directly; choosing "Unassigned" opens the
   // reason capture instead (you must say why a call is being pulled).
-  const reassign = (v: RosterVisit, carer: string) => {
+  const reassign = (v: RosterVisit, carer: string, note?: string) => {
     if (carer === UNASSIGNED) {
       setUnassignFor(v.key);
       setUnReason(UNASSIGN_REASONS[0]);
       setUnNote("");
       return;
     }
-    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.baseTime, carer, push: true });
+    act(v.key, "/api/cover", { action: "set", clientId: v.clientId, day: v.day, time: v.baseTime, carer, note, push: true });
   };
   const confirmUnassign = (v: RosterVisit) => {
     const reason = unReason === "Other" ? unNote.trim() : unNote.trim() ? `${unReason} — ${unNote.trim()}` : unReason;
@@ -246,7 +254,7 @@ export default function RosterBoard({
     return (
       <button
         type="button"
-        onClick={() => { setTimeVal(""); setSelected((s) => (s === v.key ? null : v.key)); }}
+        onClick={() => { setTimeVal(""); setMoveCarer(""); setMoveNote(""); setSelected((s) => (s === v.key ? null : v.key)); }}
         className={`tl-block tl-${v.unassigned ? "red" : v.tone}${selected === v.key ? " tl-sel" : ""}${offer ? ` disp-offer-${offer.status}` : ""}`}
         style={{ left: `${pct(v.startMin)}%`, width: `${Math.max(3, (v.durMin / span) * 100)}%` }}
         title={`${v.time} ${v.type} · ${showCarer ? v.carer : v.su}${v.timeAdjusted ? ` — moved from ${v.baseTime}` : ""}${v.unassignReason ? ` — unassigned: ${v.unassignReason}` : ""} — click to move`}
@@ -408,7 +416,7 @@ export default function RosterBoard({
                 </div>
               ) : null; })()}
             </div>
-            <button className="mini" onClick={() => { setSelected(null); setTimeVal(""); }}>Close</button>
+            <button className="mini" onClick={() => { setSelected(null); setTimeVal(""); setMoveCarer(""); setMoveNote(""); }}>Close</button>
           </div>
           <div className="move-actions">
             {!selVisit.unassigned && (
@@ -428,7 +436,12 @@ export default function RosterBoard({
             )}
             <label className="rv-assign">
               <span className="ms" aria-hidden>badge</span>
-              <select className="rv-select" value={selVisit.unassigned ? UNASSIGNED : selVisit.carer} disabled={busy === selVisit.key} onChange={(e) => reassign(selVisit, e.target.value)}>
+              <select className="rv-select" value={moveCarer || (selVisit.unassigned ? UNASSIGNED : selVisit.carer)} disabled={busy === selVisit.key}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === UNASSIGNED) { setMoveCarer(""); setMoveNote(""); reassign(selVisit, UNASSIGNED); }
+                  else { setMoveCarer(v); setMoveNote(noteFor(v)); }
+                }}>
                 {carerOptions(selVisit).map((c) => (
                   <option key={c} value={c}>{c === UNASSIGNED ? "Move to…" : `Move to ${c}`}</option>
                 ))}
@@ -439,6 +452,23 @@ export default function RosterBoard({
               <button className="mini" disabled={busy === selVisit.key} onClick={() => revert(selVisit)}>Revert to base ({selVisit.baseCarer})</button>
             )}
           </div>
+
+          {/* editable, pre-populated message the carer sees on the offer */}
+          {moveCarer && (
+            <div className="move-note">
+              <span className="muted" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}>
+                <span className="ms" style={{ fontSize: 13 }}>edit_note</span>
+                Message to {moveCarer.split(" ")[0]} (they see this on the offer) — edit if you like
+              </span>
+              <textarea className="input" rows={2} style={{ fontSize: 12.5, padding: "6px 9px", resize: "vertical" }} value={moveNote} onChange={(e) => setMoveNote(e.target.value)} />
+              <div className="flex" style={{ gap: 8 }}>
+                <button className="mini primary" disabled={busy === selVisit.key} onClick={() => { reassign(selVisit, moveCarer, moveNote); setMoveCarer(""); setMoveNote(""); }}>
+                  <span className="ms" style={{ fontSize: 14, marginRight: 3 }}>send</span>Reassign &amp; push
+                </button>
+                <button className="mini" disabled={busy === selVisit.key} onClick={() => { setMoveCarer(""); setMoveNote(""); }}>Cancel</button>
+              </div>
+            </div>
+          )}
 
           {/* temporary time tweak (that day only) */}
           <div className="move-time">

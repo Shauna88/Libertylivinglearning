@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { fireShiftNotifications, type AlertOffer } from "@/components/ShiftAlerts";
+import { ensurePushSubscription } from "@/lib/pushClient";
 
 // Read the browser's notification permission reactively (updates when we ask).
 function permSubscribe(cb: () => void) {
@@ -42,7 +43,10 @@ export default function ShiftOffers({ offers }: { offers: Offer[] }) {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     const res = await Notification.requestPermission();
     window.dispatchEvent(new Event("ll-perm")); // re-read permission everywhere
-    if (res === "granted") fireShiftNotifications(alertOffers, true);
+    if (res === "granted") {
+      void ensurePushSubscription(); // register for locked-screen push
+      fireShiftNotifications(alertOffers, true);
+    }
   }
 
   if (offers.length === 0) return null;
@@ -99,9 +103,14 @@ export default function ShiftOffers({ offers }: { offers: Offer[] }) {
               </div>
               <div className="muted" style={{ fontSize: 12 }}>
                 <span className="code">{o.su}</span>
-                {o.note ? ` · ${o.note}` : ""}
                 {o.offeredBy ? ` · offered by ${o.offeredBy}` : ""}
               </div>
+              {o.note && (
+                <div className="offer-note">
+                  <span className="ms" style={{ fontSize: 14 }}>format_quote</span>
+                  <span>{o.note}</span>
+                </div>
+              )}
             </div>
             <div className="flex" style={{ gap: 8 }}>
               <button className="mini primary" disabled={busy === o.id} onClick={() => decide(o.id, "accept")}>

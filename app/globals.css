@@ -1709,6 +1709,8 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .move-bar{border-left:4px solid var(--accent);background:var(--accent-tint);border-color:var(--accent-tint);margin-bottom:6px}
 .move-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
 .move-time{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--accent)}
+.move-note{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--accent)}
+.move-note textarea{width:100%}
 
 .avail{text-align:left;font-family:inherit;width:100%;display:block;cursor:default;transition:border-color .12s,box-shadow .12s}
 .avail-target{cursor:pointer;border-color:var(--accent)}
@@ -1990,10 +1992,14 @@ a.dash-hero-stat:hover{background:rgba(255,255,255,0.13);border-color:rgba(255,2
 .disp-offer-accepted{outline:2px solid var(--green-fg);outline-offset:1.5px}
 .disp-offer-declined{outline:2px solid var(--red-fg);outline-offset:1.5px}
 .disp-reassign{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.disp-note{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.disp-note textarea{width:100%}
 
 /* HCA shift offers (my-week) + family portal update notices */
 .offer-card{border-left:4px solid var(--amber-fg)}
 .offer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.offer-note{display:flex;gap:6px;align-items:flex-start;margin-top:6px;padding:7px 10px;border-radius:8px;background:var(--amber-bg);color:var(--text);font-size:12.5px;max-width:60ch}
+.offer-note .ms{color:var(--amber-fg);flex:0 0 auto}
 .portal-updates{border-left:4px solid var(--accent)}
 .portal-update{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 

@@ -633,6 +633,18 @@ async function createSchema(client: PoolClient) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_portal_notices_client ON portal_notices(client_id, created_at DESC);
+
+    -- Web Push subscriptions (one row per device/browser) for locked-screen
+    -- alerts. Keyed by endpoint so a re-subscribe upserts the same device.
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
   `);
 }
 
@@ -650,6 +662,7 @@ async function seed(client: PoolClient) {
   await client.query("DELETE FROM user_todos");
   await client.query("DELETE FROM shift_offers");
   await client.query("DELETE FROM portal_notices");
+  await client.query("DELETE FROM push_subscriptions");
   await client.query("DELETE FROM permanent_change_requests");
   await client.query("DELETE FROM cover_assignments");
   await client.query("DELETE FROM time_overrides");
@@ -2809,6 +2822,42 @@ export async function decideShiftOffer(input: {
   }
   await logAudit({ actorName: offer.carer, action: `shift.${status}`, target: `${offer.client_id}|${offer.day}|${offer.time}` });
   return offer;
+}
+
+// ---------------- Web Push subscriptions (locked-screen alerts) ----------------
+
+export type PushSubscriptionRow = {
+  id: number;
+  user_id: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
+};
+
+/** Store (or refresh) a device's push subscription for a user. */
+export async function savePushSubscription(input: {
+  userId: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<void> {
+  await q(
+    `INSERT INTO push_subscriptions (user_id,endpoint,p256dh,auth)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (endpoint) DO UPDATE SET user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth, created_at=now()`,
+    [input.userId, input.endpoint, input.p256dh, input.auth]
+  );
+}
+
+/** Remove a subscription (on unsubscribe, or when the push service reports it gone). */
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  await q("DELETE FROM push_subscriptions WHERE endpoint=$1", [endpoint]);
+}
+
+/** Every device subscription for a user. */
+export async function listPushSubscriptions(userId: number): Promise<PushSubscriptionRow[]> {
+  return q<PushSubscriptionRow>("SELECT * FROM push_subscriptions WHERE user_id=$1", [userId]);
 }
 
 export type PermReqRow = {

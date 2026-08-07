@@ -9,8 +9,15 @@ import {
   addPortalNotice,
   type Role,
 } from "@/lib/db";
+import { sendShiftOfferPush } from "@/lib/push";
 
 export const runtime = "nodejs";
+
+/** A friendly, name-personalised default message asking the carer to approve. */
+export function defaultOfferNote(carer: string): string {
+  const first = carer.trim().split(/\s+/)[0] || "there";
+  return `Hi ${first}, could you take a look at this call offer and approve the change to your schedule?`;
+}
 
 /** The visit type booked at a given day/time, for nicer offer / notice copy. */
 async function visitType(clientId: string, day: string, time: string): Promise<{ su: string; type: string; pref: string } | null> {
@@ -29,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not authorised" }, { status: 403 });
   }
 
-  let body: { action?: string; clientId?: string; day?: string; time?: string; carer?: string; reason?: string; push?: boolean };
+  let body: { action?: string; clientId?: string; day?: string; time?: string; carer?: string; reason?: string; push?: boolean; note?: string };
   try {
     body = await req.json();
   } catch {
@@ -80,6 +87,7 @@ export async function POST(req: Request) {
   if (push) {
     const info = await visitType(clientId, day, time);
     if (info) {
+      const note = typeof body.note === "string" && body.note.trim() ? body.note.trim() : defaultOfferNote(carer);
       const offer = await createShiftOffer({
         clientId,
         su: info.su,
@@ -88,9 +96,11 @@ export async function POST(req: Request) {
         type: info.type,
         carer,
         kind: "cover",
+        note,
         offeredBy: by,
       });
       offered = !!offer;
+      await sendShiftOfferPush(carer, { day, time, type: info.type, kind: "cover", note });
       await addPortalNotice({
         clientId,
         kind: "change",

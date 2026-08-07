@@ -153,10 +153,26 @@ The app is Vercel-ready (Next.js, `pg` driver, seed-on-first-use).
    - `DATABASE_URL` = the pooled Postgres string from step 1
    - `AUTH_SECRET` = output of `openssl rand -base64 32`
    - `AUTH_TRUST_HOST` = `true`
+   - *(optional)* **Push notifications** — set the three VAPID vars below to switch on
+     locked-screen shift alerts for carers. Leave them unset and the feature stays
+     dormant (in-app badge + on-device pop-ups still work).
 4. **Deploy.** On the first request the schema is created and seeded automatically — no
    migration step to run. You'll get a URL like `https://liberty-qms.vercel.app`.
 
 > Use the **pooled** connection string on serverless — it keeps connection counts sane.
+
+### Push notifications (VAPID)
+
+Locked-screen "new shift offered" alerts use the Web Push standard. Generate a key pair
+once with `npx web-push generate-vapid-keys`, then set:
+
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = the public key (safe to expose; the browser needs it to subscribe)
+- `VAPID_PRIVATE_KEY` = the private key (server only — keep secret)
+- `VAPID_SUBJECT` = a contact URL, e.g. `mailto:coordinator@yourdomain.ie`
+
+With no keys set, `lib/push.ts` is a no-op — the carer still gets the in-app **My working
+week** badge and an on-device pop-up while the app is open; the keys add delivery when the
+app is fully closed.
 
 ## Production / GDPR
 
